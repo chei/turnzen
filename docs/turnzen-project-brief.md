@@ -440,3 +440,44 @@ Defer to "open in browser" links, following the DragonGoApp precedent:
 - Any operation that would require the HTML-form client
 - Any live/real-time server support (architecture should allow it later; no implementation
   work now)
+
+## Implementation decisions (MVP build, September 2026)
+
+Decisions taken while building the MVP that refine or amend the sections above.
+
+- **Toolchain**: Gradle 9.7.1, Android Gradle Plugin 9.4.0 (built-in Kotlin, so the
+  `kotlin-android` plugin is not applied), Kotlin 2.4.10, Compose BOM 2026.08.00,
+  compileSdk 37 (required by Compose 1.12), minSdk 26, targetSdk 36. ktlint runs through
+  its CLI in a Gradle `JavaExec` task rather than a plugin, to stay clear of AGP 9 DSL
+  changes. Tests use JUnit 5 through `kotlin-test`.
+- **`:core-goserver` depends on `:core-game`** for the shared value types (`Point`,
+  `StoneColor`, `Move`, `GameRecord`). The alternative, duplicating those types in the
+  interface module, would have forced every client and the UI to convert between two
+  vocabularies. `:core-game` still depends on nothing.
+- **Server clients return a parsed `GameRecord`, not SGF text.** `:core-dgs` downloads the
+  SGF and parses it with `:core-game`'s reader, so the UI never sees a server response.
+- **SGF parsing is a small custom reader/writer** in `:core-game` (about 150 lines). No
+  maintained, permissively licensed Kotlin SGF library with a small footprint was found,
+  and the DGS export uses a plain FF[4] subset.
+- **QuickSuite protocol details verified against the live server** (2026-09-02):
+  `quick_do.php` answers clean `application/json` (the client still tolerates leading
+  text before the first `{`); errors look like `{"error":"not_logged_in", ...}`;
+  `login.php?quick_mode=1` errors look like `[#Error: wrong_userid; login.find_player2(x)]`.
+  The client posts the login form instead of putting the password in the URL. The
+  game list uses `cmd=list&view=status&limit=all&lstyle=json&with=user_id` and moves are
+  sent as SGF coordinates (`move=qd`) or `move=pass` with the `move_id` context.
+  The exact success body of `login.php` is not verified against a real account yet; the
+  client treats "no `[#Error:` line and a session cookie was set" as success.
+- **DGS times are in the user's profile time zone**, which the QuickSuite does not
+  expose. They are parsed as UTC: sorting is exact, "last move N h ago" can be off by the
+  profile offset. Post-MVP: a time-zone setting or reading it from the profile page.
+- **Session persistence**: the app stores the DGS cookies (encrypted) and restores them on
+  start; a `not_logged_in` answer triggers one silent re-login with the stored
+  credentials. If that fails with a credential error, the sign-in screen explains why.
+- **Navigation is hand-rolled** (two tabs plus an open game) instead of navigation-compose;
+  three destinations do not justify the dependency yet.
+- **Package and ids**: Kotlin packages `dev.turnzen.*`, application id `dev.turnzen`. The
+  source-code and issue links in Settings point at a `SOURCE_URL` build config field
+  that still carries a placeholder owner.
+- **Demo server**: `FakeTurnBasedGoServerClient` lives in the app module for previews and
+  for `-Pturnzen.fakeServer=true` builds, which is how the MVP was verified on an emulator.

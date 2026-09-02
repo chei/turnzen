@@ -15,13 +15,15 @@ rather than assuming familiarity with the platform.
 
 ```
 :core-goserver   interfaces only: TurnBasedGoServerClient, LiveGoServerClient (placeholder).
-                 Pure Kotlin. No server-specific code. No Android deps.
+                 Pure Kotlin. No server-specific code. No Android deps. Depends on
+                 :core-game for the shared value types (Point, StoneColor, GameRecord).
 :core-dgs        DGS implementation of TurnBasedGoServerClient (QuickSuite + HTML-form
                  clients). Pure Kotlin. Depends on :core-goserver only.
 :core-game       Go rules, board state, trial-variation model, SGF. Pure Kotlin.
                  No dependency on any server module.
 :app-android     Compose UI. The only module that may depend on the Android SDK.
-                 Depends on :core-goserver interfaces, not on :core-dgs types.
+                 Depends on :core-goserver interfaces, not on :core-dgs types; the one
+                 exception is AppContainer (the composition root), which instantiates DgsClient.
 ```
 
 Rules that follow from this:
@@ -58,11 +60,18 @@ Rules that follow from this:
 
 ```
 ./gradlew :core-game:test :core-dgs:test :core-goserver:test   # fast, JVM only
+./gradlew :app-android:testDebugUnitTest                        # view-model tests, JVM only
 ./gradlew :app-android:assembleDebug                            # APK
-./gradlew ktlintCheck
+./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK using the in-memory demo server
+./gradlew ktlintCheck                                           # ktlintFormat fixes most findings
 ```
 
-Run the JVM tests before every commit; the Android build only when UI changed.
+Toolchain notes: AGP 9 compiles Kotlin itself (no `kotlin-android` plugin); compileSdk 37
+is required by the Compose version in use. See the "Implementation decisions" section of
+the brief before changing versions.
+
+Run the JVM tests before every commit; the Android build only when UI changed. All six
+MVP steps below are implemented (September 2026); work now continues on post-MVP items.
 
 ## MVP order
 
