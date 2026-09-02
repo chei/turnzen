@@ -1,0 +1,220 @@
+package dev.turnzen.dgs
+
+import dev.turnzen.dgs.http.HttpMethod
+import dev.turnzen.dgs.http.HttpRequest
+import dev.turnzen.dgs.http.HttpResponse
+import dev.turnzen.dgs.http.HttpTransport
+import dev.turnzen.dgs.http.HttpTransportException
+import dev.turnzen.game.Move
+import dev.turnzen.game.Point
+import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.MoveToken
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class DgsClientTest {
+    private class FakeTransport : HttpTransport {
+        val requests = ArrayList<HttpRequest>()
+        val routes = ArrayList<Pair<(HttpRequest) -> Boolean, (HttpRequest) -> HttpResponse>>()
+
+        fun on(
+            match: (HttpRequest) -> Boolean,
+            respond: (HttpRequest) -> HttpResponse,
+        ) {
+            routes += match to respond
+        }
+
+        override suspend fun execute(request: HttpRequest): HttpResponse {
+            requests += request
+            val route =
+                routes.firstOrNull { it.first(request) } ?: error("Unexpected request ${request.method} ${request.url}")
+            return route.second(request)
+        }
+    }
+
+    private fun ok(
+        body: String,
+        setCookie: List<String> = emptyList(),
+    ) = HttpResponse(200, if (setCookie.isEmpty()) emptyMap() else mapOf("Set-Cookie" to setCookie), body)
+
+    private fun HttpRequest.has(param: String): Boolean =
+        url.contains("$param&") || url.endsWith(param) || form.entries.any { "${it.key}=${it.value}" == param }
+
+    private fun transportWithHappyPath(): FakeTransport {
+        val t = FakeTransport()
+        t.on({ it.url.endsWith("login.php") && it.method == HttpMethod.POST }) {
+            if (it.form["passwd"] == "secret") {
+                ok(
+                    Fixtures.text("login_ok.txt"),
+                    listOf(
+                        "cookie_login=fakeuser; path=/; secure; HttpOnly",
+                        "cookie_sessioncode=abc123; path=/; secure",
+                    ),
+                )
+            } else {
+                ok(Fixtures.text("login_error_wrong_password.txt"))
+            }
+        }
+        t.on({ it.url.contains("quick_do.php") && it.has("obj=user") && it.has("cmd=info") }) {
+            if (it.headers["Cookie"]?.contains("cookie_sessioncode=abc123") == true) {
+                ok(Fixtures.text("user_info.json"))
+            } else {
+                ok(Fixtures.text("quick_do_not_logged_in.json"))
+            }
+        }
+        t.on({ it.url.contains("quick_do.php") && it.has("cmd=list") }) { ok(Fixtures.text("game_list_status.json")) }
+        t.on({
+            it.url.contains("quick_do.php") && it.has("obj=game") && it.has("cmd=info")
+        }) { ok(Fixtures.text("game_info.json")) }
+        t.on({ it.url.contains("sgf.php") }) { ok(Fixtures.text("game_1000000.sgf")) }
+        t.on({ it.url.endsWith("quick_do.php") && it.method == HttpMethod.POST && it.form["cmd"] == "move" }) {
+            if (it.form["move_id"] ==
+                "264"
+            ) {
+                ok(Fixtures.text("move_ok.json"))
+            } else {
+                ok(Fixtures.text("move_already_played.json"))
+            }
+        }
+        return t
+    }
+
+    @Test
+    fun `sign in posts the form, stores cookies and resolves the user`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            val user = client.signIn(Credentials("fakeuser", "secret"))
+            assertEquals("fakeuser", user.handle)
+            assertEquals("123456", user.id)
+
+            val login = transport.requests[0]
+            assertEquals(HttpMethod.POST, login.method)
+            assertEquals("https://dgs.example.test/login.php", login.url)
+            assertEquals("1", login.form["quick_mode"])
+            assertEquals("secret", login.form["passwd"])
+            assertTrue(login.url.contains("passwd").not(), "password must not be in the URL")
+
+            val userInfo = transport.requests[1]
+            assertEquals("cookie_login=fakeuser; cookie_sessioncode=abc123", userInfo.headers["Cookie"])
+            assertEquals("Turnzen", userInfo.headers["User-Agent"])
+        }
+
+    @Test
+    fun `wrong password is InvalidCredentials and leaves no session`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            assertFailsWith<GoServerException.InvalidCredentials> { client.signIn(Credentials("fakeuser", "nope")) }
+            assertNull(client.exportSession())
+        }
+
+    @Test
+    fun `game list uses my id to pick colors and opponents`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val games = client.gamesAwaitingMe()
+            assertEquals(listOf("1500001", "1500002"), games.map { it.id.value })
+            assertEquals(listOf(StoneColor.BLACK, StoneColor.WHITE), games.map { it.myColor })
+            val list = transport.requests.last()
+            assertTrue(list.has("view=status"))
+            assertTrue(list.has("lstyle=json"))
+            assertTrue(list.has("limit=all"))
+        }
+
+    @Test
+    fun `game detail combines info and SGF`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val detail = client.game(GameId("1000000"))
+            assertEquals("264", detail.summary.moveToken.value)
+            assertEquals(19, detail.record.boardSize)
+            assertEquals(5, detail.record.setupBlack.size)
+            val sgfRequest = transport.requests.last()
+            assertTrue(sgfRequest.url.contains("sgf.php?gid=1000000"))
+            assertTrue(sgfRequest.has("owned_comments=N"))
+        }
+
+    @Test
+    fun `send move posts SGF coordinates or pass with the move token`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            client.sendMove(GameId("1000000"), MoveToken("264"), Move.Play(Point(16, 3)))
+            val play = transport.requests.last()
+            assertEquals(HttpMethod.POST, play.method)
+            assertEquals("qd", play.form["move"])
+            assertEquals("1000000", play.form["gid"])
+            assertEquals("264", play.form["move_id"])
+            assertEquals("move", play.form["cmd"])
+
+            client.sendMove(GameId("1000000"), MoveToken("264"), Move.Pass)
+            assertEquals("pass", transport.requests.last().form["move"])
+        }
+
+    @Test
+    fun `stale token is reported as StaleGame`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            assertFailsWith<GoServerException.StaleGame> {
+                client.sendMove(GameId("1000000"), MoveToken("263"), Move.Play(Point(0, 0)))
+            }
+        }
+
+    @Test
+    fun `session survives export and restore`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val session = client.exportSession()!!
+
+            val restored = DgsClient(transport, "https://dgs.example.test")
+            restored.restoreSession(session)
+            assertEquals("fakeuser", restored.currentUser().handle)
+        }
+
+    @Test
+    fun `expired session is SessionExpired`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.restoreSession("123456\ncookie_login=fakeuser; cookie_sessioncode=expired")
+            assertFailsWith<GoServerException.SessionExpired> { client.currentUser() }
+        }
+
+    @Test
+    fun `transport failures are Unreachable`() =
+        runTest {
+            val transport = FakeTransport()
+            transport.on({ true }) { throw HttpTransportException("dns") }
+            val client = DgsClient(transport)
+            assertFailsWith<GoServerException.Unreachable> { client.gamesAwaitingMe() }
+        }
+
+    @Test
+    fun `sign out clears the session even if the server call fails`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.on({ it.url.contains("logout=1") }) { throw HttpTransportException("offline") }
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            assertFailsWith<GoServerException.Unreachable> { client.signOut() }
+            assertNull(client.exportSession())
+        }
+}

@@ -1,0 +1,215 @@
+package dev.turnzen.dgs
+
+import dev.turnzen.dgs.http.HttpMethod
+import dev.turnzen.dgs.http.HttpRequest
+import dev.turnzen.dgs.http.HttpResponse
+import dev.turnzen.dgs.http.HttpTransport
+import dev.turnzen.dgs.http.HttpTransportException
+import dev.turnzen.game.Move
+import dev.turnzen.game.sgf.SgfCoordinates
+import dev.turnzen.game.sgf.SgfGameRecords
+import dev.turnzen.game.sgf.SgfParseException
+import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameDetail
+import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TurnBasedGoServerClient
+import java.net.URLEncoder
+
+/**
+ * Dragon Go Server client over the QuickSuite (`quick_do.php`) plus `login.php` and
+ * `sgf.php`. All DGS specifics (URLs, cookies, response quirks) live here.
+ */
+class DgsClient(
+    private val transport: HttpTransport,
+    baseUrl: String = DEFAULT_BASE_URL,
+    private val userAgent: String = "Turnzen",
+) : TurnBasedGoServerClient {
+    companion object {
+        const val DEFAULT_BASE_URL = "https://www.dragongoserver.net/"
+    }
+
+    private val baseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
+    private var cookies = SessionCookies()
+    private var userId: String? = null
+
+    override val serverName: String = "Dragon Go Server"
+    override val registrationUrl: String = this.baseUrl + "register.php"
+
+    override suspend fun signIn(credentials: Credentials): SignedInUser {
+        cookies = SessionCookies()
+        userId = null
+        val response =
+            send(
+                HttpRequest(
+                    HttpMethod.POST,
+                    url("login.php"),
+                    form =
+                        mapOf(
+                            "quick_mode" to "1",
+                            "userid" to credentials.username,
+                            "passwd" to credentials.password,
+                        ),
+                ),
+            )
+        LoginResponse.failure(response.body)?.let { throw it }
+        if (cookies.isEmpty) throw GoServerException.Protocol("DGS accepted the login but set no session cookie")
+        return currentUser()
+    }
+
+    override suspend fun signOut() {
+        try {
+            if (!cookies.isEmpty) {
+                send(
+                    HttpRequest(HttpMethod.GET, url("login.php", "quick_mode" to "1", "logout" to "1")),
+                )
+            }
+        } finally {
+            cookies = SessionCookies()
+            userId = null
+        }
+    }
+
+    override suspend fun currentUser(): SignedInUser {
+        val user = UserInfoParser.parse(quickDo("obj" to "user", "cmd" to "info"))
+        userId = user.id
+        return user
+    }
+
+    override suspend fun gamesAwaitingMe(): List<GameSummary> {
+        val envelope =
+            quickDo(
+                "obj" to "game",
+                "cmd" to "list",
+                "view" to "status",
+                "limit" to "all",
+                "lstyle" to "json",
+                "with" to "user_id",
+            )
+        return GameObjectParser.parseList(envelope, userId)
+    }
+
+    override suspend fun game(id: GameId): GameDetail {
+        val summary =
+            GameObjectParser.parse(
+                quickDo(
+                    "obj" to "game",
+                    "cmd" to "info",
+                    "gid" to id.value,
+                    "with" to "user_id",
+                ),
+                userId,
+            )
+        val sgf =
+            send(
+                HttpRequest(
+                    HttpMethod.GET,
+                    url("sgf.php", "gid" to id.value, "owned_comments" to "N", "quick_mode" to "1", "no_cache" to "1"),
+                ),
+            )
+        val body = sgf.body
+        if (!body.trimStart().startsWith("(")) {
+            LoginResponse.failure(body)?.let { throw it }
+            throw GoServerException.Protocol("Expected SGF for game ${id.value}, got: ${body.take(80)}")
+        }
+        val record =
+            try {
+                SgfGameRecords.read(body).record
+            } catch (e: SgfParseException) {
+                throw GoServerException.Protocol("Could not read SGF for game ${id.value}", e)
+            }
+        return GameDetail(summary, record)
+    }
+
+    override suspend fun sendMove(
+        id: GameId,
+        token: MoveToken,
+        move: Move,
+    ) {
+        val encoded =
+            when (move) {
+                Move.Pass -> "pass"
+                is Move.Play -> SgfCoordinates.encode(move.point)
+            }
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "game",
+            "cmd" to "move",
+            "gid" to id.value,
+            "move_id" to token.value,
+            "move" to encoded,
+        )
+    }
+
+    override fun exportSession(): String? {
+        if (cookies.isEmpty) return null
+        return (userId ?: "") + "\n" + cookies.serialize()
+    }
+
+    override fun restoreSession(session: String) {
+        val newline = session.indexOf('\n')
+        if (newline < 0) {
+            cookies = SessionCookies.deserialize(session)
+            userId = null
+        } else {
+            userId = session.substring(0, newline).ifEmpty { null }
+            cookies = SessionCookies.deserialize(session.substring(newline + 1))
+        }
+    }
+
+    private suspend fun quickDo(
+        vararg params: Pair<String, String>,
+        method: HttpMethod = HttpMethod.GET,
+    ) = quickDo(method, *params)
+
+    private suspend fun quickDo(
+        method: HttpMethod,
+        vararg params: Pair<String, String>,
+    ) = QuickSuite.parse(
+        send(
+            if (method == HttpMethod.GET) {
+                HttpRequest(HttpMethod.GET, url("quick_do.php", *params))
+            } else {
+                HttpRequest(HttpMethod.POST, url("quick_do.php"), form = params.toMap())
+            },
+        ).body,
+    )
+
+    private suspend fun send(request: HttpRequest): HttpResponse {
+        val headers = HashMap(request.headers)
+        headers["User-Agent"] = userAgent
+        cookies.headerValue()?.let { headers["Cookie"] = it }
+        val response =
+            try {
+                transport.execute(request.copy(headers = headers))
+            } catch (e: HttpTransportException) {
+                throw GoServerException.Unreachable("Couldn't reach $serverName", e)
+            }
+        cookies.absorb(response.header("Set-Cookie"))
+        if (response.status >=
+            500
+        ) {
+            throw GoServerException.Unreachable("$serverName answered with HTTP ${response.status}")
+        }
+        if (response.status >=
+            400
+        ) {
+            throw GoServerException.Protocol("$serverName answered with HTTP ${response.status}")
+        }
+        return response
+    }
+
+    private fun url(
+        path: String,
+        vararg params: Pair<String, String>,
+    ): String {
+        if (params.isEmpty()) return baseUrl + path
+        val query = params.joinToString("&") { (k, v) -> encode(k) + "=" + encode(v) }
+        return "$baseUrl$path?$query"
+    }
+
+    private fun encode(value: String): String = URLEncoder.encode(value, Charsets.UTF_8)
+}
