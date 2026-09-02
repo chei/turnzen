@@ -5,9 +5,13 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
+// `./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true` builds a debug APK that
+// talks to the in-memory demo server instead of DGS (useful on an emulator without an account).
+val useFakeServer = providers.gradleProperty("turnzen.fakeServer").orNull == "true"
+
 android {
     namespace = "dev.turnzen.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.turnzen"
@@ -15,10 +19,17 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+
+        // Public project links shown on the Settings screen.
+        buildConfigField("String", "SOURCE_URL", "\"https://github.com/OWNER/turnzen\"")
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "USE_FAKE_SERVER", useFakeServer.toString())
+        }
         release {
+            buildConfigField("boolean", "USE_FAKE_SERVER", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -63,4 +74,13 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     debugImplementation(libs.compose.ui.tooling)
+
+    testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
+    testImplementation(libs.kotlinx.coroutines.test)
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }

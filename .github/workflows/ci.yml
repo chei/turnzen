@@ -20,6 +20,8 @@ jobs:
         run: ./gradlew ktlintCheck
       - name: Unit tests (pure Kotlin modules)
         run: ./gradlew :core-game:test :core-goserver:test :core-dgs:test
+      - name: Unit tests (app view models, JVM)
+        run: ./gradlew :app-android:testDebugUnitTest
 
   android:
     name: Debug APK
