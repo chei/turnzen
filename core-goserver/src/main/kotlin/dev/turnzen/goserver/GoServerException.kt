@@ -1,12 +1,31 @@
 package dev.turnzen.goserver
 
+/** Which half of a sign-in the server rejected, so the UI can say something useful. */
+enum class CredentialProblem {
+    /** No account with that username exists. */
+    UNKNOWN_USER,
+
+    /** The account exists; the password does not match. */
+    WRONG_PASSWORD,
+
+    /** The account was registered but never confirmed by email. */
+    NOT_ACTIVATED,
+
+    /** The server refuses sign-ins for this account or from this address. */
+    BLOCKED,
+
+    /** The server rejected the credentials without saying more. */
+    UNSPECIFIED,
+}
+
 /** Failures a server client reports. The UI maps these to copy; it never sees raw responses. */
 sealed class GoServerException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause) {
-    /** Username or password rejected. */
+    /** Username or password rejected. [problem] says which, when the server is specific. */
     class InvalidCredentials(
+        val problem: CredentialProblem = CredentialProblem.UNSPECIFIED,
         message: String = "Invalid username or password",
     ) : GoServerException(message)
 

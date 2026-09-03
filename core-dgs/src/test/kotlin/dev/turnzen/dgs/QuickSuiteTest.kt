@@ -2,6 +2,7 @@ package dev.turnzen.dgs
 
 import dev.turnzen.dgs.QuickSuite.int
 import dev.turnzen.dgs.QuickSuite.string
+import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -45,6 +46,21 @@ class QuickSuiteTest {
         val other = QuickSuite.exceptionFor("mysql_query_failed", "boom")
         assertIs<GoServerException.ServerError>(other)
         assertEquals("mysql_query_failed", other.code)
+    }
+
+    private fun problem(code: String): CredentialProblem {
+        val e = QuickSuite.exceptionFor(code, null)
+        assertIs<GoServerException.InvalidCredentials>(e)
+        return e.problem
+    }
+
+    @Test
+    fun `login errors say which half was rejected`() {
+        assertEquals(CredentialProblem.UNKNOWN_USER, problem("wrong_userid"))
+        assertEquals(CredentialProblem.WRONG_PASSWORD, problem("wrong_password"))
+        assertEquals(CredentialProblem.NOT_ACTIVATED, problem("need_activation"))
+        assertEquals(CredentialProblem.BLOCKED, problem("login_denied"))
+        assertEquals(CredentialProblem.BLOCKED, problem("ip_blocked_guest_login"))
     }
 
     @Test

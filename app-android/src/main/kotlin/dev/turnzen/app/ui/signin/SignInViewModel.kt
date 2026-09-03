@@ -3,6 +3,7 @@ package dev.turnzen.app.ui.signin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.SessionManager
+import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GoServerException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -54,10 +55,39 @@ class SignInViewModel(
     private fun messageFor(e: GoServerException): String {
         val server = session.serverName
         return when (e) {
-            is GoServerException.InvalidCredentials -> "Wrong username or password."
+            is GoServerException.InvalidCredentials -> credentialMessage(e, server)
             is GoServerException.Unreachable -> "Couldn't reach $server. Check your connection and try again."
             is GoServerException.RateLimited -> "$server is limiting sign-ins right now. Try again in a few minutes."
+            is GoServerException.Protocol -> "$server answered in a way Turnzen didn't understand. ${e.message}"
             else -> "Sign-in failed: ${e.message}"
+        }
+    }
+
+    private fun credentialMessage(
+        e: GoServerException.InvalidCredentials,
+        server: String,
+    ): String {
+        val handle = _state.value.username.trim()
+        return when (e.problem) {
+            CredentialProblem.UNKNOWN_USER -> {
+                "$server has no account called \"$handle\". Check the spelling of your username."
+            }
+
+            CredentialProblem.WRONG_PASSWORD -> {
+                "Wrong password for \"$handle\"."
+            }
+
+            CredentialProblem.NOT_ACTIVATED -> {
+                "This account still needs to be activated from the email $server sent you."
+            }
+
+            CredentialProblem.BLOCKED -> {
+                "$server refused the sign-in for this account."
+            }
+
+            CredentialProblem.UNSPECIFIED -> {
+                "Wrong username or password."
+            }
         }
     }
 }

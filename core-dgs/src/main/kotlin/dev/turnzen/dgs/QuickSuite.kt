@@ -1,5 +1,6 @@
 package dev.turnzen.dgs
 
+import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -53,8 +54,20 @@ internal object QuickSuite {
                 GoServerException.SessionExpired(message)
             }
 
-            "wrong_userid", "wrong_password", "login_denied", "need_activation" -> {
-                GoServerException.InvalidCredentials(message)
+            "wrong_userid" -> {
+                GoServerException.InvalidCredentials(CredentialProblem.UNKNOWN_USER, message)
+            }
+
+            "wrong_password" -> {
+                GoServerException.InvalidCredentials(CredentialProblem.WRONG_PASSWORD, message)
+            }
+
+            "need_activation" -> {
+                GoServerException.InvalidCredentials(CredentialProblem.NOT_ACTIVATED, message)
+            }
+
+            "login_denied", "ip_blocked_guest_login" -> {
+                GoServerException.InvalidCredentials(CredentialProblem.BLOCKED, message)
             }
 
             "fever_vault", "quota_exceeded" -> {

@@ -128,7 +128,7 @@ class BoardViewModel(
             }
 
             is TrialOutcome.Rejected -> {
-                Unit
+                // Illegal point: the variation is left exactly as it was.
             }
         }
     }

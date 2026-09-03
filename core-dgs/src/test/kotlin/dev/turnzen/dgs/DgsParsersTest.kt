@@ -2,6 +2,7 @@ package dev.turnzen.dgs
 
 import dev.turnzen.game.StoneColor
 import dev.turnzen.game.sgf.SgfGameRecords
+import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
 import java.time.Duration
@@ -16,12 +17,13 @@ import kotlin.test.assertTrue
 class DgsParsersTest {
     @Test
     fun `login error lines map to exceptions`() {
-        assertIs<GoServerException.InvalidCredentials>(
-            LoginResponse.failure(Fixtures.text("login_error_wrong_userid.txt")),
-        )
-        assertIs<GoServerException.InvalidCredentials>(
-            LoginResponse.failure(Fixtures.text("login_error_wrong_password.txt")),
-        )
+        val unknownUser = LoginResponse.failure(Fixtures.text("login_error_wrong_userid.txt"))
+        assertIs<GoServerException.InvalidCredentials>(unknownUser)
+        assertEquals(CredentialProblem.UNKNOWN_USER, unknownUser.problem)
+
+        val wrongPassword = LoginResponse.failure(Fixtures.text("login_error_wrong_password.txt"))
+        assertIs<GoServerException.InvalidCredentials>(wrongPassword)
+        assertEquals(CredentialProblem.WRONG_PASSWORD, wrongPassword.problem)
         assertNull(LoginResponse.failure(Fixtures.text("login_ok.txt")))
         assertIs<GoServerException.RateLimited>(LoginResponse.failure("[#Error: fever_vault; login.quota()]"))
     }
