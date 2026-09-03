@@ -8,16 +8,29 @@ import java.time.format.DateTimeFormatter
 
 object Formatting {
     /**
-     * The server's own wording for the remaining time, with a thin space inserted between
-     * each number and its unit so the column matches the type scale ("3d 4h" reads
-     * "3 d 4 h", "3n 20ó" reads "3 n 20 ó"). The wording is never translated: it is
-     * already in the account holder's language and matches what the server's own site shows.
+     * Remaining time in the app's own words ("3 d 20 h"). The server sends this field
+     * already formatted in the account holder's language, so it is parsed back into a
+     * duration and re-rendered here; the app is English-only for now and mixing the
+     * server's wording into it reads as a bug. Wording the client cannot interpret is
+     * shown as the server sent it, which is better than showing nothing.
      */
     fun remaining(time: RemainingTime?): String {
-        val text = time?.text?.trim().orEmpty()
-        if (text.isEmpty()) return "–"
-        return text.replace(Regex("""(\d)(\p{L})"""), "$1 $2")
+        if (time == null) return "–"
+        val main = time.main ?: return spaced(time.text).ifBlank { "–" }
+        val days = main.toDays()
+        val hours = main.minusDays(days).toHours()
+        val minutes = main.minusDays(days).minusHours(hours).toMinutes()
+        return when {
+            days > 0 && hours > 0 -> "$days d $hours h"
+            days > 0 -> "$days d"
+            hours > 0 -> "$hours h"
+            minutes > 0 -> "$minutes min"
+            else -> "0 h"
+        }
     }
+
+    /** Separates a number from its unit ("3n 20ó" -> "3 n 20 ó") to match the type scale. */
+    private fun spaced(text: String): String = text.trim().replace(Regex("""(\d)(\p{L})"""), "$1 $2")
 
     /** True when under a day is left. False when the wording could not be interpreted. */
     fun isUrgent(time: RemainingTime?): Boolean {

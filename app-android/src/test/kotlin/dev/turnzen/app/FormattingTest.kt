@@ -11,11 +11,15 @@ import kotlin.test.assertTrue
 
 class FormattingTest {
     @Test
-    fun `remaining time keeps the server's own wording, spaced out`() {
+    fun `remaining time is rendered in the app's language`() {
         assertEquals("3 d 4 h", Formatting.remaining(RemainingTime("3d 4h", Duration.ofDays(3).plusHours(4))))
         assertEquals("6 h", Formatting.remaining(RemainingTime("6h", Duration.ofHours(6))))
-        // A translated account keeps its own units rather than being rewritten in English.
-        assertEquals("3 n 20 ó", Formatting.remaining(RemainingTime("3n 20ó", Duration.ofDays(3).plusHours(20))))
+        assertEquals("5 d", Formatting.remaining(RemainingTime("5d", Duration.ofDays(5))))
+        assertEquals("40 min", Formatting.remaining(RemainingTime("40m", Duration.ofMinutes(40))))
+        // A translated account is re-rendered in English rather than shown in its own units.
+        assertEquals("3 d 20 h", Formatting.remaining(RemainingTime("3n 20ó", Duration.ofDays(3).plusHours(20))))
+        // Wording we could not interpret is still shown rather than dropped.
+        assertEquals("3 xy 20 zz", Formatting.remaining(RemainingTime("3xy 20zz", null)))
         assertEquals("–", Formatting.remaining(null))
         assertEquals("–", Formatting.remaining(RemainingTime("")))
     }
