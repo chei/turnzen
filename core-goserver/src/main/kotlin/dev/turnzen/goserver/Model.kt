@@ -48,12 +48,17 @@ enum class PendingAction {
 }
 
 /**
- * Remaining thinking time of the player to move. [main] is the main time; [extra] is a
- * server-formatted description of what follows it (byo-yomi periods, Fischer increment),
- * or null if unknown.
+ * Remaining thinking time of the player to move.
+ *
+ * Servers format this for the account holder, in their language and their preferred
+ * units, so [text] is the server's own wording and is what the UI shows. [main] is that
+ * same time as a duration, and is null when the client could not interpret the wording;
+ * it exists only so the UI can decide whether the time is running out.
  */
 data class RemainingTime(
-    val main: Duration,
+    val text: String,
+    val main: Duration? = null,
+    /** Server-formatted description of what follows the main time (byo-yomi, increment). */
     val extra: String? = null,
 )
 

@@ -29,20 +29,43 @@ class DgsParsersTest {
     }
 
     @Test
-    fun `time remaining formats`() {
+    fun `time remaining keeps the server wording and parses English units`() {
         val jap = DgsTimeRemaining.parse("J: 83d 14h (+ 1d * 10)")!!
+        assertEquals("83d 14h", jap.text)
         assertEquals(Duration.ofDays(83).plusHours(14), jap.main)
         assertEquals("+ 1d * 10", jap.extra)
 
         val can = DgsTimeRemaining.parse("C: 6h (+ 15d / 8)")!!
+        assertEquals("6h", can.text)
         assertEquals(Duration.ofHours(6), can.main)
 
         val fis = DgsTimeRemaining.parse("F: 8d (+ 12h)")!!
+        assertEquals("8d", fis.text)
         assertEquals(Duration.ofDays(8), fis.main)
         assertEquals("+ 12h", fis.extra)
 
         assertNull(DgsTimeRemaining.parse(""))
         assertNull(DgsTimeRemaining.parse(null))
+    }
+
+    @Test
+    fun `time remaining understands a translated account`() {
+        // DGS renders this field in the account's language: "nap" and "óra" for Hungarian.
+        val hu = DgsTimeRemaining.parse("F: 3n 20ó (+ 1n 6ó)")!!
+        assertEquals("3n 20ó", hu.text)
+        assertEquals(Duration.ofDays(3).plusHours(20), hu.main)
+        assertEquals("+ 1n 6ó", hu.extra)
+
+        val huDaysOnly = DgsTimeRemaining.parse("F: 10n (+ 1n 6ó)")!!
+        assertEquals(Duration.ofDays(10), huDaysOnly.main)
+    }
+
+    @Test
+    fun `an unknown language still displays, but claims no duration`() {
+        val unknown = DgsTimeRemaining.parse("F: 3xy 20zz (+ 1xy)")!!
+        assertEquals("3xy 20zz", unknown.text)
+        assertNull(unknown.main)
+        assertEquals("+ 1xy", unknown.extra)
     }
 
     @Test
@@ -95,6 +118,17 @@ class DgsParsersTest {
         val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_status.json")), null)
         assertEquals(StoneColor.BLACK, games[0].myColor)
         assertEquals(StoneColor.WHITE, games[1].myColor)
+    }
+
+    @Test
+    fun `a translated game list still yields times and colors`() {
+        val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_status_hu.json")), "123456")
+        assertEquals(2, games.size)
+        assertEquals(StoneColor.BLACK, games[0].myColor)
+        assertEquals("3n 20ó", games[0].remainingTime?.text)
+        assertEquals(Duration.ofDays(3).plusHours(20), games[0].remainingTime?.main)
+        assertEquals(StoneColor.WHITE, games[1].myColor)
+        assertEquals(Duration.ofDays(1).plusHours(23), games[1].remainingTime?.main)
     }
 
     @Test

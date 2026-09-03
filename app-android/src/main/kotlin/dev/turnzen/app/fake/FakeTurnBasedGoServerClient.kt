@@ -154,7 +154,7 @@ class FakeTurnBasedGoServerClient(
                 record = record,
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofMinutes(18)),
-                remaining = RemainingTime(Duration.ofDays(3).plusHours(4), "+ 1d * 10"),
+                remaining = RemainingTime("3d 4h", Duration.ofDays(3).plusHours(4), "+ 1d * 10"),
             )
         }
 
@@ -177,7 +177,7 @@ class FakeTurnBasedGoServerClient(
                 record = record,
                 moveId = record.moves.size + 1,
                 lastMoveAt = Instant.now().minus(Duration.ofHours(2)),
-                remaining = RemainingTime(Duration.ofHours(6), "+ 15d / 8"),
+                remaining = RemainingTime("6h", Duration.ofHours(6), "+ 15d / 8"),
             )
         }
 
@@ -197,7 +197,7 @@ class FakeTurnBasedGoServerClient(
                 record = record,
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofDays(1)),
-                remaining = RemainingTime(Duration.ofDays(5), "+ 1d"),
+                remaining = RemainingTime("5d", Duration.ofDays(5), "+ 1d"),
             )
         }
     }

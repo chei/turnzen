@@ -173,7 +173,7 @@ fun BoardScreen(
         }
 
         null -> {
-            Unit
+            // No dialog on screen.
         }
     }
 }

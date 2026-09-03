@@ -7,27 +7,23 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 object Formatting {
-    /** "3 d 4 h", "6 h", "5 d". Falls back to the server's extra-time text when the main time is gone. */
+    /**
+     * The server's own wording for the remaining time, with a thin space inserted between
+     * each number and its unit so the column matches the type scale ("3d 4h" reads
+     * "3 d 4 h", "3n 20ó" reads "3 n 20 ó"). The wording is never translated: it is
+     * already in the account holder's language and matches what the server's own site shows.
+     */
     fun remaining(time: RemainingTime?): String {
-        if (time == null) return "–"
-        val main = time.main
-        if (main.isZero || main.isNegative) {
-            return time.extra
-                ?.trim()
-                ?.removePrefix("+")
-                ?.trim() ?: "0 h"
-        }
-        val days = main.toDays()
-        val hours = main.minusDays(days).toHours()
-        return when {
-            days > 0 && hours > 0 -> "$days d $hours h"
-            days > 0 -> "$days d"
-            hours > 0 -> "$hours h"
-            else -> "< 1 h"
-        }
+        val text = time?.text?.trim().orEmpty()
+        if (text.isEmpty()) return "–"
+        return text.replace(Regex("""(\d)(\p{L})"""), "$1 $2")
     }
 
-    fun isUrgent(time: RemainingTime?): Boolean = time != null && time.main < Duration.ofHours(24)
+    /** True when under a day is left. False when the wording could not be interpreted. */
+    fun isUrgent(time: RemainingTime?): Boolean {
+        val main = time?.main ?: return false
+        return main < Duration.ofHours(24)
+    }
 
     /** "18 min ago", "2 h ago", "yesterday", "4 d ago", "12 Aug". */
     fun relative(

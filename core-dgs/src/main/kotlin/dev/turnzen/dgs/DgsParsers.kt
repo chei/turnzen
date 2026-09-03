@@ -51,9 +51,32 @@ internal object DgsDates {
     }
 }
 
-/** "J: 83d 14h (+ 1d * 10)", "C: 1d 10h (+ 3d / 5)", "F: 8d (+ 12h)". */
+/**
+ * Remaining time, e.g. "J: 83d 14h (+ 1d * 10)", "C: 1d 10h (+ 3d / 5)", "F: 8d (+ 12h)".
+ *
+ * DGS translates this field into the account's language while leaving neighbouring fields
+ * (such as `time_limit`) in English, so a Hungarian account reports "F: 3n 20ó (+ 1n 6ó)".
+ * The server's wording is kept verbatim for display; the duration is only derived when the
+ * units are recognised, and drives nothing but the "running out" highlight.
+ */
 internal object DgsTimeRemaining {
-    private val part = Regex("""(\d+)\s*([dhm])""")
+    /**
+     * Unit abbreviations per language. Anything absent here still displays correctly, it
+     * just yields no duration. Add a language by adding its three abbreviations.
+     */
+    private val units: Map<String, Duration> =
+        mapOf(
+            // English
+            "d" to Duration.ofDays(1),
+            "h" to Duration.ofHours(1),
+            "m" to Duration.ofMinutes(1),
+            // Hungarian: nap, óra, perc
+            "n" to Duration.ofDays(1),
+            "ó" to Duration.ofHours(1),
+            "p" to Duration.ofMinutes(1),
+        )
+
+    private val part = Regex("""(\d+)\s*(\p{L}+)""")
 
     fun parse(text: String?): RemainingTime? {
         val raw = text?.trim() ?: return null
@@ -66,20 +89,20 @@ internal object DgsTimeRemaining {
                 .substringBefore(')')
                 .trim()
                 .ifEmpty { null }
-        var main = Duration.ZERO
-        var matched = false
-        for (m in part.findAll(mainText)) {
-            matched = true
-            val n = m.groupValues[1].toLong()
-            main +=
-                when (m.groupValues[2]) {
-                    "d" -> Duration.ofDays(n)
-                    "h" -> Duration.ofHours(n)
-                    else -> Duration.ofMinutes(n)
-                }
+        if (mainText.isEmpty() && extraText == null) return null
+        return RemainingTime(text = mainText, main = duration(mainText), extra = extraText)
+    }
+
+    /** Null unless every "<number><unit>" pair uses a unit this client knows. */
+    private fun duration(mainText: String): Duration? {
+        val matches = part.findAll(mainText).toList()
+        if (matches.isEmpty()) return null
+        var total = Duration.ZERO
+        for (m in matches) {
+            val unit = units[m.groupValues[2].lowercase()] ?: return null
+            total += unit.multipliedBy(m.groupValues[1].toLong())
         }
-        if (!matched && extraText == null) return null
-        return RemainingTime(main, extraText)
+        return total
     }
 }
 
