@@ -38,7 +38,7 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.StoneIcon
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 
 @Composable
@@ -62,7 +62,7 @@ fun SignInScreen(viewModel: SignInViewModel) {
         }
         Spacer(Modifier.height(28.dp))
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Text(stringResource(R.string.tagline), style = MaterialTheme.typography.bodyMedium, color = Tokens.ink2)
+        Text(stringResource(R.string.tagline), style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         Spacer(Modifier.height(44.dp))
 
         UnderlinedField(
@@ -101,14 +101,14 @@ fun SignInScreen(viewModel: SignInViewModel) {
         Text(
             stringResource(R.string.signin_note_1) + "\n" + stringResource(R.string.signin_note_2),
             style = MaterialTheme.typography.bodySmall,
-            color = Tokens.ink2,
+            color = colors.ink2,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(40.dp))
         Text(
             stringResource(R.string.signin_no_account),
             style = MaterialTheme.typography.titleSmall,
-            color = Tokens.accent,
+            color = colors.accent,
             modifier = Modifier.clickable { uriHandler.openUri(viewModel.registrationUrl) }.padding(8.dp),
         )
         Spacer(Modifier.height(40.dp))
@@ -125,7 +125,7 @@ private fun UnderlinedField(
     onDone: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = Tokens.ink2)
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         TextField(
             value = value,
             onValueChange = onChange,
@@ -142,11 +142,11 @@ private fun UnderlinedField(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Tokens.accent,
-                    unfocusedIndicatorColor = Tokens.line,
-                    cursorColor = Tokens.accent,
-                    focusedTextColor = Tokens.ink,
-                    unfocusedTextColor = Tokens.ink,
+                    focusedIndicatorColor = colors.accent,
+                    unfocusedIndicatorColor = colors.line,
+                    cursorColor = colors.accent,
+                    focusedTextColor = colors.ink,
+                    unfocusedTextColor = colors.ink,
                 ),
             modifier = Modifier.fillMaxWidth(),
         )

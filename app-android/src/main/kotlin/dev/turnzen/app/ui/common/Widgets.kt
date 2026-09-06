@@ -28,7 +28,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 
 @Composable
@@ -40,14 +40,14 @@ fun StoneIcon(
     Box(
         modifier
             .size(size)
-            .background(if (color == StoneColor.BLACK) Tokens.stoneBlack else Tokens.stoneWhite, CircleShape)
-            .border(1.dp, Tokens.ink, CircleShape),
+            .background(if (color == StoneColor.BLACK) colors.stoneBlack else colors.stoneWhite, CircleShape)
+            .border(1.dp, colors.ink, CircleShape),
     )
 }
 
 @Composable
 fun Hairline(modifier: Modifier = Modifier) {
-    HorizontalDivider(modifier, thickness = 1.dp, color = Tokens.line)
+    HorizontalDivider(modifier, thickness = 1.dp, color = colors.line)
 }
 
 /** A pill-shaped text button. Filled with the accent color when [primary], outlined otherwise. */
@@ -61,21 +61,21 @@ fun PillButton(
 ) {
     val background =
         when {
-            primary && enabled -> Tokens.accent
-            primary -> Tokens.line
+            primary && enabled -> colors.accent
+            primary -> colors.line
             else -> Color.Transparent
         }
     val textColor =
         when {
-            primary && enabled -> Tokens.onAccent
-            enabled -> Tokens.ink
-            else -> Tokens.ink2
+            primary && enabled -> colors.onAccent
+            enabled -> colors.ink
+            else -> colors.ink2
         }
     Box(
         modifier
             .height(48.dp)
             .background(background, CircleShape)
-            .then(if (primary) Modifier else Modifier.border(1.dp, Tokens.line, CircleShape))
+            .then(if (primary) Modifier else Modifier.border(1.dp, colors.line, CircleShape))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -94,7 +94,7 @@ fun TextAction(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    color: Color = Tokens.ink,
+    color: Color = colors.ink,
     enabled: Boolean = true,
 ) {
     Text(
@@ -104,7 +104,7 @@ fun TextAction(
                 .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
                 .padding(horizontal = 4.dp, vertical = 8.dp),
         style = MaterialTheme.typography.labelLarge,
-        color = if (enabled) color else Tokens.ink2,
+        color = if (enabled) color else colors.ink2,
     )
 }
 
@@ -113,7 +113,7 @@ fun ErrorMessage(
     text: String,
     modifier: Modifier = Modifier,
 ) {
-    Text(text, modifier, style = MaterialTheme.typography.bodyMedium, color = Tokens.urgent)
+    Text(text, modifier, style = MaterialTheme.typography.bodyMedium, color = colors.urgent)
 }
 
 enum class MainTab { GAMES, SETTINGS }
@@ -125,7 +125,7 @@ fun TurnzenBottomBar(
     gamesLabel: String,
     settingsLabel: String,
 ) {
-    Column(Modifier.fillMaxWidth().background(Tokens.surface)) {
+    Column(Modifier.fillMaxWidth().background(colors.surface)) {
         Hairline()
         Row(
             Modifier
@@ -169,7 +169,7 @@ private fun BottomBarItem(
     modifier: Modifier = Modifier,
     icon: @Composable (Color) -> Unit,
 ) {
-    val color = if (selected) Tokens.accent else Tokens.ink2
+    val color = if (selected) colors.accent else colors.ink2
     Column(
         modifier
             .selectable(selected = selected, role = Role.Tab, onClick = onClick)

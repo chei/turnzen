@@ -20,7 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.turnzen.app.data.BoardSettings
 import dev.turnzen.app.ui.theme.PlexSans
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.TurnzenColors
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.BoardSizes
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
@@ -47,6 +48,7 @@ fun GoBoard(
 ) {
     val n = position.size
     val textMeasurer = rememberTextMeasurer()
+    val palette = colors
     val trialPoints = trialMoves.mapIndexedNotNull { i, m -> m.point?.let { it to i + 1 } }.toMap()
     val trialMode = trialMoves.isNotEmpty()
 
@@ -70,19 +72,20 @@ fun GoBoard(
 
         fun center(p: Point) = Offset(off + p.col * cell, off + p.row * cell)
 
-        drawRect(Tokens.board)
+        drawRect(palette.board)
 
         val lineWidth = maxOf(0.8.dp.toPx(), 1f)
         for (i in 0 until n) {
             val p = off + i * cell
-            drawLine(Tokens.boardLine, Offset(off, p), Offset(size.width - off, p), lineWidth)
-            drawLine(Tokens.boardLine, Offset(p, off), Offset(p, size.height - off), lineWidth)
+            drawLine(palette.boardLine, Offset(off, p), Offset(size.width - off, p), lineWidth)
+            drawLine(palette.boardLine, Offset(p, off), Offset(p, size.height - off), lineWidth)
         }
-        for (h in BoardSizes.hoshi(n)) drawCircle(Tokens.boardLine, cell * 0.1f, center(h))
+        for (h in BoardSizes.hoshi(n)) drawCircle(palette.boardLine, cell * 0.1f, center(h))
 
         if (settings.showCoordinates) {
             val fontPx = maxOf(8.sp.toPx(), cell * 0.32f)
-            val style = TextStyle(fontFamily = PlexSans, fontSize = (fontPx / 1.sp.toPx()).sp, color = Tokens.boardLine)
+            val style =
+                TextStyle(fontFamily = PlexSans, fontSize = (fontPx / 1.sp.toPx()).sp, color = palette.boardLine)
             for (i in 0 until n) {
                 val letter = textMeasurer.measure(Coordinates.columnLetter(i).toString(), style)
                 drawText(
@@ -102,17 +105,17 @@ fun GoBoard(
             val trialNumber = trialPoints[point]
             val c = center(point)
             if (trialNumber == null) {
-                drawStone(c, radius, color)
+                drawStone(c, radius, color, palette)
             } else {
-                drawStone(c, radius, color, alpha = 0.9f)
-                drawCircle(Tokens.accent, radius + 1.2.dp.toPx(), c, style = Stroke(1.6.dp.toPx()))
+                drawStone(c, radius, color, palette, alpha = 0.9f)
+                drawCircle(palette.accent, radius + 1.2.dp.toPx(), c, style = Stroke(1.6.dp.toPx()))
                 if (settings.numberTrialStones) {
                     val style =
                         TextStyle(
                             fontFamily = PlexSans,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = (radius * 1.15f / 1.sp.toPx()).sp,
-                            color = if (color == StoneColor.BLACK) Tokens.stoneWhite else Tokens.stoneBlack,
+                            color = if (color == StoneColor.BLACK) palette.stoneWhite else palette.stoneBlack,
                         )
                     val label = textMeasurer.measure(trialNumber.toString(), style)
                     drawText(label, topLeft = Offset(c.x - label.size.width / 2f, c.y - label.size.height / 2f))
@@ -124,15 +127,15 @@ fun GoBoard(
             val last = position.lastMove
             val lastPoint = last?.point
             if (last != null && lastPoint != null && position.board[lastPoint] == last.color) {
-                val dot = if (last.color == StoneColor.BLACK) Tokens.stoneWhite else Tokens.stoneBlack
+                val dot = if (last.color == StoneColor.BLACK) palette.stoneWhite else palette.stoneBlack
                 drawCircle(dot, radius * 0.28f, center(lastPoint))
             }
         }
 
         if (trialMode) {
             val edge = 3.dp.toPx()
-            drawRect(Tokens.accent, Offset.Zero, Size(size.width, edge))
-            drawRect(Tokens.accent, Offset(0f, size.height - edge), Size(size.width, edge))
+            drawRect(palette.accent, Offset.Zero, Size(size.width, edge))
+            drawRect(palette.accent, Offset(0f, size.height - edge), Size(size.width, edge))
         }
     }
 }
@@ -141,13 +144,14 @@ private fun DrawScope.drawStone(
     center: Offset,
     radius: Float,
     color: StoneColor,
+    palette: TurnzenColors,
     alpha: Float = 1f,
 ) {
-    val fill: Color = if (color == StoneColor.BLACK) Tokens.stoneBlack else Tokens.stoneWhite
+    val fill: Color = if (color == StoneColor.BLACK) palette.stoneBlack else palette.stoneWhite
     drawCircle(fill, radius, center, alpha = alpha)
     if (color ==
         StoneColor.WHITE
     ) {
-        drawCircle(Tokens.stoneBlack, radius, center, alpha = alpha, style = Stroke(0.6.dp.toPx()))
+        drawCircle(palette.stoneBlack, radius, center, alpha = alpha, style = Stroke(0.6.dp.toPx()))
     }
 }

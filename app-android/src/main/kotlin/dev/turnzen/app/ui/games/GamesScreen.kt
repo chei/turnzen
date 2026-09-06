@@ -38,7 +38,7 @@ import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.StoneIcon
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -101,7 +101,7 @@ private fun RowScope.GamesTab(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val color = if (selected) Tokens.accent else Tokens.ink2
+    val color = if (selected) colors.accent else colors.ink2
     Column(Modifier.weight(1f).clickable(onClick = onClick)) {
         Row(
             Modifier.fillMaxWidth().padding(vertical = 12.dp),
@@ -119,7 +119,7 @@ private fun RowScope.GamesTab(
                 Text(count.toString(), style = MaterialTheme.typography.bodyMedium, color = color)
             }
         }
-        HorizontalDivider(thickness = 2.dp, color = if (selected) Tokens.accent else Tokens.line)
+        HorizontalDivider(thickness = 2.dp, color = if (selected) colors.accent else colors.line)
     }
 }
 
@@ -130,7 +130,7 @@ private fun LoadingRow(loading: Boolean) {
             "Checking your games…",
             Modifier.fillMaxWidth().padding(20.dp),
             style = MaterialTheme.typography.bodyMedium,
-            color = Tokens.ink2,
+            color = colors.ink2,
         )
     }
 }
@@ -155,7 +155,7 @@ private fun EmptyState(tab: GamesTab) {
             Text(
                 stringResource(R.string.games_empty_hint),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Tokens.ink2,
+                color = colors.ink2,
                 textAlign = TextAlign.Center,
             )
         }
@@ -183,7 +183,7 @@ private fun GameRow(
                     "${Formatting.boardSize(game.boardSize, game.handicap)}, " +
                         "move ${game.moveNumber}, ${Formatting.relative(game.lastMoveAt)}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Tokens.ink2,
+                    color = colors.ink2,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -194,13 +194,13 @@ private fun GameRow(
                     Formatting.remaining(game.remainingTime),
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (Formatting.isUrgent(game.remainingTime)) Tokens.urgent else Tokens.ink,
+                    color = if (Formatting.isUrgent(game.remainingTime)) colors.urgent else colors.ink,
                 )
             } else {
                 Text(
                     stringResource(R.string.games_their_move),
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Tokens.ink2,
+                    color = colors.ink2,
                 )
             }
         }

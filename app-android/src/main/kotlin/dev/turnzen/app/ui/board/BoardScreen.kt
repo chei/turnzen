@@ -36,7 +36,7 @@ import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.TextAction
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 
 @Composable
@@ -77,7 +77,7 @@ fun BoardScreen(
                 onTap = viewModel::onTap,
             )
         } else {
-            Box(Modifier.fillMaxWidth().aspectRatio(1f).background(Tokens.board))
+            Box(Modifier.fillMaxWidth().aspectRatio(1f).background(colors.board))
         }
 
         Spacer(Modifier.height(24.dp))
@@ -87,25 +87,25 @@ fun BoardScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (state.isTrial) {
-                Box(Modifier.size(10.dp).background(Tokens.accent, CircleShape))
+                Box(Modifier.size(10.dp).background(colors.accent, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Text(
                     "Trial, ${state.trialMoves.size} ${if (state.trialMoves.size == 1) "move" else "moves"}",
                     style = MaterialTheme.typography.labelLarge,
-                    color = Tokens.accent,
+                    color = colors.accent,
                     modifier = Modifier.weight(1f),
                 )
                 TextAction(stringResource(R.string.board_undo), onClick = viewModel::undo)
                 Spacer(Modifier.width(20.dp))
                 TextAction(stringResource(R.string.board_reset), onClick = viewModel::reset)
             } else {
-                TextAction("‹", onClick = viewModel::showPrevious, color = Tokens.ink2, enabled = state.viewingMove > 0)
+                TextAction("‹", onClick = viewModel::showPrevious, color = colors.ink2, enabled = state.viewingMove > 0)
                 Text(
                     state.viewingMove.toString(),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(horizontal = 8.dp),
                 )
-                TextAction("›", onClick = viewModel::showNext, color = Tokens.ink2, enabled = !state.atLatest)
+                TextAction("›", onClick = viewModel::showNext, color = colors.ink2, enabled = !state.atLatest)
                 Spacer(Modifier.weight(1f))
                 Text(
                     when {
@@ -115,7 +115,7 @@ fun BoardScreen(
                         else -> stringResource(R.string.board_hint_try)
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (state.notice != null) Tokens.accent else Tokens.ink2,
+                    color = if (state.notice != null) colors.accent else colors.ink2,
                 )
             }
         }
@@ -198,19 +198,19 @@ private fun Header(
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(opponent, style = MaterialTheme.typography.titleMedium)
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Tokens.ink2)
+            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 remaining,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = if (urgent) Tokens.urgent else Tokens.ink,
+                color = if (urgent) colors.urgent else colors.ink,
             )
             Text(
                 stringResource(R.string.board_to_move),
                 style = MaterialTheme.typography.bodyMedium,
-                color = Tokens.ink2,
+                color = colors.ink2,
             )
         }
     }
@@ -226,16 +226,16 @@ private fun Confirmation(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Tokens.surface,
-        titleContentColor = Tokens.ink,
-        textContentColor = Tokens.ink2,
+        containerColor = colors.surface,
+        titleContentColor = colors.ink,
+        textContentColor = colors.ink2,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
         text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = Tokens.accent) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = colors.accent) } },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,
-            ) { Text(stringResource(R.string.board_cancel), color = Tokens.ink) }
+            ) { Text(stringResource(R.string.board_cancel), color = colors.ink) }
         },
     )
 }

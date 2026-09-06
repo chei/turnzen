@@ -87,9 +87,9 @@ class BoardViewModel(
     private val _state = MutableStateFlow(BoardUiState())
     val state: StateFlow<BoardUiState> = _state.asStateFlow()
 
-    init {
-        load()
-    }
+    // Not loaded in init: this ViewModel is cached per game across navigations, so the
+    // screen calls load() every time it is opened to pull the current server state (the
+    // game may have moved on since it was last viewed).
 
     fun load() {
         _state.update { it.copy(loading = true, error = null) }

@@ -13,9 +13,13 @@ data class BoardSettings(
     val numberTrialStones: Boolean = true,
 )
 
+/** Which colour scheme the app uses; SYSTEM follows the device setting. */
+enum class ThemeMode { SYSTEM, LIGHT, DARK }
+
 data class AppSettings(
     val serverUrl: String = DgsClient.DEFAULT_BASE_URL,
     val board: BoardSettings = BoardSettings(),
+    val theme: ThemeMode = ThemeMode.SYSTEM,
 )
 
 /** The one setting the session layer needs; split out so it can be faked in tests. */
@@ -47,6 +51,7 @@ class SettingsStore(
             .putBoolean(KEY_COORDINATES, next.board.showCoordinates)
             .putBoolean(KEY_LAST_MOVE, next.board.markLastMove)
             .putBoolean(KEY_TRIAL_NUMBERS, next.board.numberTrialStones)
+            .putString(KEY_THEME, next.theme.name)
             .apply()
         _settings.value = next
     }
@@ -60,6 +65,12 @@ class SettingsStore(
                     markLastMove = prefs.getBoolean(KEY_LAST_MOVE, true),
                     numberTrialStones = prefs.getBoolean(KEY_TRIAL_NUMBERS, true),
                 ),
+            theme =
+                runCatching {
+                    ThemeMode.valueOf(
+                        prefs.getString(KEY_THEME, null) ?: "",
+                    )
+                }.getOrDefault(ThemeMode.SYSTEM),
         )
 
     private companion object {
@@ -67,5 +78,6 @@ class SettingsStore(
         const val KEY_COORDINATES = "board_coordinates"
         const val KEY_LAST_MOVE = "board_last_move"
         const val KEY_TRIAL_NUMBERS = "board_trial_numbers"
+        const val KEY_THEME = "theme_mode"
     }
 }

@@ -39,6 +39,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             session.signIn(Credentials("demo", "pw"))
             games.refresh()
             vm = BoardViewModel(id, session, games) { sent += it }
+            vm.load()
         }
     }
 
@@ -55,6 +56,22 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertFalse(s.isTrial)
             assertNull(s.moveToSend)
             assertEquals(StoneColor.BLACK, s.detail?.summary?.myColor)
+        }
+
+    @Test
+    fun `reload reflects a move made since the last load`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(12, h.vm.state.value.moveCount)
+
+            // The game moves on elsewhere; reopening the board must show the new state.
+            client.sendMove(game, MoveToken("12"), Move.Play(Point(0, 0)))
+            h.vm.load()
+            advanceUntilIdle()
+            assertEquals(14, h.vm.state.value.moveCount)
         }
 
     @Test

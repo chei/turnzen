@@ -2,6 +2,7 @@ package dev.turnzen.app.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,6 +22,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.turnzen.app.AppContainer
 import dev.turnzen.app.R
 import dev.turnzen.app.data.AuthState
+import dev.turnzen.app.data.ThemeMode
 import dev.turnzen.app.ui.board.BoardScreen
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.common.MainTab
@@ -31,8 +33,8 @@ import dev.turnzen.app.ui.settings.SettingsScreen
 import dev.turnzen.app.ui.settings.SettingsViewModel
 import dev.turnzen.app.ui.signin.SignInScreen
 import dev.turnzen.app.ui.signin.SignInViewModel
-import dev.turnzen.app.ui.theme.Tokens
 import dev.turnzen.app.ui.theme.TurnzenTheme
+import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.goserver.GameId
 
 /**
@@ -43,16 +45,24 @@ import dev.turnzen.goserver.GameId
 @Composable
 fun TurnzenApp(container: AppContainer) {
     val auth by container.session.state.collectAsStateWithLifecycle()
+    val settings by container.settings.settings.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         if (container.session.state.value is AuthState.Unknown) container.session.restore()
     }
 
-    TurnzenTheme {
-        Surface(Modifier.fillMaxSize(), color = Tokens.surface) {
+    val darkTheme =
+        when (settings.theme) {
+            ThemeMode.LIGHT -> false
+            ThemeMode.DARK -> true
+            ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        }
+
+    TurnzenTheme(darkTheme = darkTheme) {
+        Surface(Modifier.fillMaxSize(), color = colors.surface) {
             when (val a = auth) {
                 AuthState.Unknown -> {
-                    Box(Modifier.fillMaxSize().background(Tokens.surface))
+                    Box(Modifier.fillMaxSize().background(colors.surface))
                 }
 
                 is AuthState.SignedOut -> {
@@ -90,6 +100,9 @@ private fun SignedInShell(container: AppContainer) {
                                 onMoveSent = { sent -> openGame = container.games.nextAfter(sent) },
                             )
                         }
+                    // Reload whenever the game is (re)opened: the cached ViewModel may hold
+                    // state from before a move was sent, so its board could be stale.
+                    LaunchedEffect(game) { vm.load() }
                     BoardScreen(vm, settings.board)
                 }
 

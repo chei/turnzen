@@ -413,6 +413,7 @@ Recommended order, cheapest/lowest-risk first:
 - Signed-in DGS account, sign out.
 - Server URL.
 - Board display options: coordinates on/off, last-move marker, trial-stone numbering.
+- Appearance: theme (Light / Dark / System), defaulting to System. See `docs/mockups/DESIGN.md`.
 - About: version, license (MIT), source repository link, issue tracker link.
 
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)

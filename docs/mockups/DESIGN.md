@@ -46,8 +46,32 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `stoneBlack` | `#15171A` | Black stones |
 | `stoneWhite` | `#F7F5F0` | White stones (0.6px `stoneBlack` outline) |
 
-Dark theme: not designed yet. When it is, keep the board colors unchanged and darken only
-`surface`/`ink`/`line`; the board should look the same in both themes.
+### Dark theme
+
+Implemented (September 2026). The board and stone colors are identical in both themes, so a
+board looks the same day or night. `surface`/`ink`/`ink2`/`line` are darkened, and `accent`
+and `urgent` are lightened so they stay legible on a dark surface. First-pass values, open
+to refinement:
+
+| Token | Dark hex | Note |
+|---|---|---|
+| `surface` | `#15191B` | Screen background |
+| `ink` | `#E9ECE8` | Primary text |
+| `ink2` | `#97A09C` | Secondary text |
+| `line` | `#2B302E` | Hairlines |
+| `accent` | `#93A9D6` | Lightened indigo (legible on dark) |
+| `accentSoft` | `#243049` | Reserved |
+| `urgent` | `#DB7B70` | Lightened red |
+| `onAccent` | `#14181A` | Text on the accent fill (dark, since accent is light) |
+| `board`, `boardLine`, `stoneBlack`, `stoneWhite` | unchanged | same as light |
+
+The colors are provided at runtime through a `LocalTurnzenColors` palette (see
+`ui/theme/Tokens.kt`), read in composables as `colors.<token>`; the board's `Canvas` takes
+the palette as a parameter. The theme is chosen in Settings > Appearance (Light / Dark /
+System), stored per device, defaulting to **System** (best practice: follow the OS setting
+until the user overrides). The status bar and navigation bar icon colors follow the
+effective theme, dark icons on the light surface and light icons on the dark one, via
+`isAppearanceLightStatusBars`.
 
 ## Typography
 

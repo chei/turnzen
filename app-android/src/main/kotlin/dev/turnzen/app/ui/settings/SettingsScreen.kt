@@ -12,10 +12,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,13 +30,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
+import dev.turnzen.app.data.ThemeMode
 import dev.turnzen.app.ui.common.Hairline
-import dev.turnzen.app.ui.theme.Tokens
+import dev.turnzen.app.ui.theme.colors
 
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
+    var choosingTheme by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -62,11 +69,26 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             }
         }
 
+        Group(stringResource(R.string.settings_group_appearance)) {
+            ValueRow(stringResource(R.string.settings_theme), themeLabel(settings.theme)) { choosingTheme = true }
+        }
+
         Group(stringResource(R.string.settings_group_about)) {
             ActionRow(stringResource(R.string.settings_source)) { uriHandler.openUri(viewModel.sourceUrl) }
             ActionRow(stringResource(R.string.settings_report)) { uriHandler.openUri(viewModel.issuesUrl) }
         }
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (choosingTheme) {
+        ThemeDialog(
+            current = settings.theme,
+            onPick = {
+                viewModel.setTheme(it)
+                choosingTheme = false
+            },
+            onDismiss = { choosingTheme = false },
+        )
     }
 }
 
@@ -76,7 +98,7 @@ private fun Group(
     content: @Composable () -> Unit,
 ) {
     Column(Modifier.padding(horizontal = 20.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = Tokens.ink2)
+        Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = colors.ink2)
         Spacer(Modifier.height(4.dp))
         content()
         Spacer(Modifier.height(28.dp))
@@ -86,7 +108,7 @@ private fun Group(
 @Composable
 private fun SettingsRow(
     label: String,
-    labelColor: Color = Tokens.ink,
+    labelColor: Color = colors.ink,
     onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
 ) {
@@ -115,10 +137,53 @@ private fun SettingsRow(
 private fun ValueRow(
     label: String,
     value: String,
+    onClick: (() -> Unit)? = null,
 ) {
-    SettingsRow(label) {
-        Text(value, style = MaterialTheme.typography.bodyLarge, color = Tokens.ink2)
+    SettingsRow(label, onClick = onClick) {
+        Text(value, style = MaterialTheme.typography.bodyLarge, color = colors.ink2)
     }
+}
+
+@Composable
+private fun themeLabel(mode: ThemeMode): String =
+    stringResource(
+        when (mode) {
+            ThemeMode.SYSTEM -> R.string.theme_system
+            ThemeMode.LIGHT -> R.string.theme_light
+            ThemeMode.DARK -> R.string.theme_dark
+        },
+    )
+
+@Composable
+private fun ThemeDialog(
+    current: ThemeMode,
+    onPick: (ThemeMode) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = colors.surface,
+        title = { Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleMedium) },
+        text = {
+            Column {
+                ThemeMode.entries.forEach { mode ->
+                    Text(
+                        themeLabel(mode),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(mode) }
+                                .padding(vertical = 14.dp),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (mode == current) colors.accent else colors.ink,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.board_cancel), color = colors.ink) }
+        },
+    )
 }
 
 @Composable
@@ -126,7 +191,7 @@ private fun ActionRow(
     label: String,
     onClick: () -> Unit,
 ) {
-    SettingsRow(label, labelColor = Tokens.accent, onClick = onClick)
+    SettingsRow(label, labelColor = colors.accent, onClick = onClick)
 }
 
 @Composable
@@ -139,7 +204,7 @@ private fun ToggleRow(
         Text(
             stringResource(if (checked) R.string.settings_on else R.string.settings_off),
             style = MaterialTheme.typography.bodyLarge,
-            color = Tokens.ink2,
+            color = colors.ink2,
         )
     }
     Box {}

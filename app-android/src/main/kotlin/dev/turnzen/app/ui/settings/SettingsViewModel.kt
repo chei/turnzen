@@ -9,6 +9,7 @@ import dev.turnzen.app.data.BoardSettings
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
+import dev.turnzen.app.data.ThemeMode
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
@@ -50,6 +51,8 @@ class SettingsViewModel(
         settingsStore.update {
             it.copy(board = transform(it.board))
         }
+
+    fun setTheme(mode: ThemeMode) = settingsStore.update { it.copy(theme = mode) }
 
     fun signOut() {
         viewModelScope.launch {
