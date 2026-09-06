@@ -38,6 +38,7 @@
 
     <string name="settings_title">Settings</string>
     <string name="settings_group_account">Account</string>
+    <string name="settings_signed_in_as">Signed in as</string>
     <string name="settings_group_board">Board</string>
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_group_about">About</string>

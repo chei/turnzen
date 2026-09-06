@@ -24,9 +24,6 @@ class SettingsViewModel(
     val userHandle: String
         get() = session.signedInUser?.handle ?: "–"
 
-    val serverName: String
-        get() = session.serverName
-
     val sourceUrl: String = BuildConfig.SOURCE_URL
 
     /**

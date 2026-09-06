@@ -53,7 +53,7 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         )
 
         Group(stringResource(R.string.settings_group_account)) {
-            ValueRow(viewModel.serverName, viewModel.userHandle)
+            ValueRow(stringResource(R.string.settings_signed_in_as), viewModel.userHandle)
             ActionRow(stringResource(R.string.settings_sign_out), viewModel::signOut)
         }
 
