@@ -38,7 +38,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `ink` | `#1F2A26` | Primary text, icons |
 | `ink2` | `#6B7470` | Secondary text |
 | `line` | `#D6DAD5` | Hairlines, disabled fills, outlined buttons |
-| `accent` | `#2E4A7D` | Send button, trial-mode indicator and rings, active nav item |
+| `accent` | `#2E54C0` | Send button, trial-mode indicator and rings, active nav item, text actions (Sign out, links). A saturated indigo so text actions stay clearly distinct from `ink` labels while white text on the Send fill stays legible. |
 | `accentSoft` | `#E4E9F2` | Reserved for accent backgrounds if ever needed (not used in MVP) |
 | `urgent` | `#B8483E` | Low remaining time |
 | `board` | `#D9B778` | Board surface (muted kaya) |
