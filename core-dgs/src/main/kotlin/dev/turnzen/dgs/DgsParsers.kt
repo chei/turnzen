@@ -149,6 +149,12 @@ internal object GameObjectParser {
             }
         val opponentUser = if (myColor == StoneColor.BLACK) white else black
         val myInfo = game.obj(if (myColor == StoneColor.BLACK) "black_gameinfo" else "white_gameinfo")
+        // Whose turn it is: prefer the explicit move_uid, fall back to the move color.
+        val myTurn =
+            when {
+                me != null && game.string("move_uid") != null -> game.string("move_uid") == me
+                else -> parseColor(game.string("move_color")) == myColor
+            }
         return GameSummary(
             id = GameId(id),
             opponent =
@@ -164,6 +170,7 @@ internal object GameObjectParser {
             lastMoveAt = DgsDates.parse(game.string("time_lastmove")),
             remainingTime = DgsTimeRemaining.parse(myInfo?.string("remtime")),
             pendingAction = action(game.int("game_action"), game.string("status")),
+            isMyTurn = myTurn,
             moveToken =
                 MoveToken(
                     game.string("move_id") ?: throw GoServerException.Protocol("Game $id without move_id"),

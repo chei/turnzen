@@ -45,7 +45,7 @@ class FakeTurnBasedGoServerClient(
         var awaitingMe: Boolean = true,
     )
 
-    private val games: MutableList<FakeGame> = mutableListOf(demo19(), demo13(), demo9())
+    private val games: MutableList<FakeGame> = mutableListOf(demo19(), demo13(), demo9(), demoWaiting())
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
         delay(latencyMillis)
@@ -67,6 +67,12 @@ class FakeTurnBasedGoServerClient(
         delay(latencyMillis)
         requireSession()
         return games.filter { it.awaitingMe }.map { it.summary() }
+    }
+
+    override suspend fun myRunningGames(): List<GameSummary> {
+        delay(latencyMillis)
+        requireSession()
+        return games.map { it.summary() }
     }
 
     override suspend fun game(id: GameId): GameDetail {
@@ -118,6 +124,7 @@ class FakeTurnBasedGoServerClient(
             lastMoveAt = lastMoveAt,
             remainingTime = remaining,
             pendingAction = PendingAction.PLAY_MOVE,
+            isMyTurn = awaitingMe,
             moveToken = MoveToken(moveId.toString()),
         )
 
@@ -198,6 +205,28 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofDays(1)),
                 remaining = RemainingTime("5d", Duration.ofDays(5), "+ 1d"),
+            )
+        }
+
+        /** A game where the opponent is to move: shows in "All games" but not "Your turn". */
+        fun demoWaiting(): FakeGame {
+            val record =
+                GameRecord(
+                    boardSize = 19,
+                    komi = 6.5,
+                    moves = moves(19, "Q16 D4 Q4 D16 C14 R14"),
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("kaya_go", "5k"),
+                )
+            return FakeGame(
+                id = GameId("demo-waiting"),
+                opponent = Opponent("kaya_go", null, "5k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Instant.now().minus(Duration.ofHours(5)),
+                remaining = RemainingTime("9d", Duration.ofDays(9), "+ 1d"),
+                awaitingMe = false,
             )
         }
     }

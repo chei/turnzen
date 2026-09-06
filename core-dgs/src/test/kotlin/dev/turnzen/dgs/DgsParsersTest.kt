@@ -9,6 +9,7 @@ import java.time.Duration
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -104,6 +105,8 @@ class DgsParsersTest {
         assertEquals(Instant.parse("2026-09-02T19:42:11Z"), first.lastMoveAt)
         assertEquals(PendingAction.PLAY_MOVE, first.pendingAction)
 
+        assertTrue(first.isMyTurn)
+
         val second = games[1]
         assertEquals(StoneColor.WHITE, second.myColor)
         assertEquals("hana_go", second.opponent.handle)
@@ -111,6 +114,18 @@ class DgsParsersTest {
         assertEquals(13, second.boardSize)
         assertEquals(2, second.handicap)
         assertEquals(Duration.ofHours(6), second.remainingTime?.main)
+        assertTrue(second.isMyTurn)
+    }
+
+    @Test
+    fun `running list marks whose turn it is`() {
+        val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_running.json")), "123456")
+        assertEquals(2, games.size)
+        // move_uid 123456 is me; move_uid 777 is the opponent.
+        assertTrue(games[0].isMyTurn)
+        assertEquals("opp_a", games[0].opponent.handle)
+        assertFalse(games[1].isMyTurn)
+        assertEquals("opp_b", games[1].opponent.handle)
     }
 
     @Test

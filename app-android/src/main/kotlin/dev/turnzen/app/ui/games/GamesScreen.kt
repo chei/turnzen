@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,11 +16,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -44,27 +49,31 @@ fun GamesScreen(
     onOpenGame: (GameId) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val games = state.games
+    var tab by rememberSaveable { mutableStateOf(GamesTab.YOUR_TURN) }
+    val games = state.listFor(tab)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalAlignment = Alignment.Bottom,
-        ) {
-            Text(
-                stringResource(R.string.games_title),
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f),
+        Text(
+            stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+        )
+
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            GamesTab(
+                label = stringResource(R.string.games_tab_your_turn),
+                count = state.yourTurn?.size,
+                selected = tab == GamesTab.YOUR_TURN,
+                onClick = { tab = GamesTab.YOUR_TURN },
             )
-            if (!games.isNullOrEmpty()) {
-                Text(
-                    games.size.toString(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Medium,
-                    color = Tokens.ink2,
-                )
-            }
+            GamesTab(
+                label = stringResource(R.string.games_tab_all),
+                count = state.allRunning?.size,
+                selected = tab == GamesTab.ALL,
+                onClick = { tab = GamesTab.ALL },
+            )
         }
+
         PullToRefreshBox(
             isRefreshing = state.refreshing && games != null,
             onRefresh = viewModel::refresh,
@@ -76,11 +85,40 @@ fun GamesScreen(
                 }
                 when {
                     games == null -> item { LoadingRow(state.error == null) }
-                    games.isEmpty() -> item { EmptyState() }
+                    games.isEmpty() -> item { EmptyState(tab) }
                     else -> items(games, key = { it.id.value }) { game -> GameRow(game) { onOpenGame(game.id) } }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.GamesTab(
+    label: String,
+    count: Int?,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val color = if (selected) Tokens.accent else Tokens.ink2
+    Column(Modifier.weight(1f).clickable(onClick = onClick)) {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+                color = color,
+            )
+            if (count != null) {
+                Spacer(Modifier.width(6.dp))
+                Text(count.toString(), style = MaterialTheme.typography.bodyMedium, color = color)
+            }
+        }
+        HorizontalDivider(thickness = 2.dp, color = if (selected) Tokens.accent else Tokens.line)
     }
 }
 
@@ -97,25 +135,29 @@ private fun LoadingRow(loading: Boolean) {
 }
 
 @Composable
-private fun EmptyState() {
+private fun EmptyState(tab: GamesTab) {
+    val title =
+        if (tab == GamesTab.YOUR_TURN) {
+            stringResource(R.string.games_empty_title)
+        } else {
+            stringResource(R.string.games_empty_all_title)
+        }
     Column(
-        Modifier.fillMaxWidth().padding(top = 200.dp, start = 20.dp, end = 20.dp),
+        Modifier.fillMaxWidth().padding(top = 160.dp, start = 20.dp, end = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StoneIcon(StoneColor.WHITE, 44.dp)
         Spacer(Modifier.height(28.dp))
-        Text(
-            stringResource(R.string.games_empty_title),
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            stringResource(R.string.games_empty_hint),
-            style = MaterialTheme.typography.bodyMedium,
-            color = Tokens.ink2,
-            textAlign = TextAlign.Center,
-        )
+        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
+        if (tab == GamesTab.YOUR_TURN) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                stringResource(R.string.games_empty_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = Tokens.ink2,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -144,15 +186,23 @@ private fun GameRow(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            if (game.isMyTurn) {
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        Formatting.remaining(game.remainingTime),
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (Formatting.isUrgent(game.remainingTime)) Tokens.urgent else Tokens.ink,
+                    )
+                    Text(
+                        stringResource(R.string.games_left),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Tokens.ink2,
+                    )
+                }
+            } else {
                 Text(
-                    Formatting.remaining(game.remainingTime),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (Formatting.isUrgent(game.remainingTime)) Tokens.urgent else Tokens.ink,
-                )
-                Text(
-                    stringResource(R.string.games_left),
+                    stringResource(R.string.games_their_move),
                     style = MaterialTheme.typography.bodyMedium,
                     color = Tokens.ink2,
                 )

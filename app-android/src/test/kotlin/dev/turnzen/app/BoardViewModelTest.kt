@@ -113,7 +113,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertEquals(StoneColor.BLACK, record.moves[12].color)
             assertEquals(listOf(game), h.sent)
             assertNull(
-                h.games.games.value
+                h.games.yourTurn.value
                     ?.firstOrNull { it.id == game },
             )
         }

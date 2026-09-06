@@ -14,12 +14,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+/** The two content filters on the Games screen. */
+enum class GamesTab { YOUR_TURN, ALL }
+
 data class GamesUiState(
-    /** null while the first load is in flight. */
-    val games: List<GameSummary>? = null,
+    /** Games where it is the user's move. null while the first load is in flight. */
+    val yourTurn: List<GameSummary>? = null,
+    /** Every running game. null while the first load is in flight. */
+    val allRunning: List<GameSummary>? = null,
     val refreshing: Boolean = false,
     val error: String? = null,
-)
+) {
+    fun listFor(tab: GamesTab): List<GameSummary>? = if (tab == GamesTab.YOUR_TURN) yourTurn else allRunning
+}
 
 class GamesViewModel(
     private val session: SessionManager,
@@ -28,8 +35,13 @@ class GamesViewModel(
     private val transient = MutableStateFlow(GamesUiState())
 
     val state: StateFlow<GamesUiState> =
-        combine(store.games, transient) { games, t -> t.copy(games = games) }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), GamesUiState(games = store.games.value))
+        combine(store.yourTurn, store.allRunning, transient) { yourTurn, allRunning, t ->
+            t.copy(yourTurn = yourTurn, allRunning = allRunning)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            GamesUiState(yourTurn = store.yourTurn.value, allRunning = store.allRunning.value),
+        )
 
     init {
         refresh()

@@ -92,6 +92,19 @@ class DgsClient(
         return GameObjectParser.parseList(envelope, userId)
     }
 
+    override suspend fun myRunningGames(): List<GameSummary> {
+        val envelope =
+            quickDo(
+                "obj" to "game",
+                "cmd" to "list",
+                "view" to "running",
+                "uid" to "mine",
+                "lstyle" to "json",
+                "with" to "user_id",
+            )
+        return GameObjectParser.parseList(envelope, userId)
+    }
+
     override suspend fun game(id: GameId): GameDetail {
         val summary =
             GameObjectParser.parse(

@@ -73,6 +73,8 @@ data class GameSummary(
     val lastMoveAt: Instant?,
     val remainingTime: RemainingTime?,
     val pendingAction: PendingAction,
+    /** True when the server is waiting for this user to act; false when it is the opponent's turn. */
+    val isMyTurn: Boolean,
     val moveToken: MoveToken,
 )
 

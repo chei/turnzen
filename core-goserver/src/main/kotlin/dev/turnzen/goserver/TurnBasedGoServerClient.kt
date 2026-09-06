@@ -27,6 +27,12 @@ interface TurnBasedGoServerClient {
     /** Games in which it is the user's turn. Order is unspecified; the UI sorts. */
     suspend fun gamesAwaitingMe(): List<GameSummary>
 
+    /**
+     * All of the user's running games, whether it is their turn or the opponent's.
+     * Each entry's [GameSummary.isMyTurn] says which. Order is unspecified; the UI sorts.
+     */
+    suspend fun myRunningGames(): List<GameSummary>
+
     suspend fun game(id: GameId): GameDetail
 
     /**
