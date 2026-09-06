@@ -44,10 +44,12 @@ val LightColors =
 
 val DarkColors =
     TurnzenColors(
-        surface = Color(0xFF15191B),
+        // Kept clearly lighter than stoneBlack (#15171A) so black stone icons read as dark
+        // discs on the surface instead of vanishing into it.
+        surface = Color(0xFF1C2124),
         ink = Color(0xFFE9ECE8),
         ink2 = Color(0xFF97A09C),
-        line = Color(0xFF2B302E),
+        line = Color(0xFF333A38),
         accent = Color(0xFF93A9D6),
         accentSoft = Color(0xFF243049),
         urgent = Color(0xFFDB7B70),

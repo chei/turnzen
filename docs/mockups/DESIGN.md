@@ -55,10 +55,10 @@ to refinement:
 
 | Token | Dark hex | Note |
 |---|---|---|
-| `surface` | `#15191B` | Screen background |
+| `surface` | `#1C2124` | Screen background (kept lighter than `stoneBlack` so black stone icons read on it) |
 | `ink` | `#E9ECE8` | Primary text |
 | `ink2` | `#97A09C` | Secondary text |
-| `line` | `#2B302E` | Hairlines |
+| `line` | `#333A38` | Hairlines |
 | `accent` | `#93A9D6` | Lightened indigo (legible on dark) |
 | `accentSoft` | `#243049` | Reserved |
 | `urgent` | `#DB7B70` | Lightened red |
