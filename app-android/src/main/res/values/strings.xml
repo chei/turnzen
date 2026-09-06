@@ -37,18 +37,12 @@
     <string name="settings_group_account">Account</string>
     <string name="settings_group_board">Board</string>
     <string name="settings_group_about">About</string>
-    <string name="settings_server">Server</string>
     <string name="settings_sign_out">Sign out</string>
     <string name="settings_coordinates">Coordinates</string>
     <string name="settings_mark_last_move">Mark last move</string>
     <string name="settings_number_trial_stones">Number trial stones</string>
-    <string name="settings_version">Version</string>
-    <string name="settings_license">License</string>
     <string name="settings_source">Source code</string>
     <string name="settings_report">Report a problem</string>
     <string name="settings_on">On</string>
     <string name="settings_off">Off</string>
-    <string name="settings_server_dialog_title">Server URL</string>
-    <string name="settings_server_dialog_text">Changing the server signs you out.</string>
-    <string name="settings_save">Save</string>
 </resources>

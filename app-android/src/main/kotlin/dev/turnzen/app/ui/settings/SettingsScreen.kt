@@ -12,16 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,7 +32,6 @@ import dev.turnzen.app.ui.theme.Tokens
 fun SettingsScreen(viewModel: SettingsViewModel) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
-    var editingServer by remember { mutableStateOf(false) }
 
     Column(
         Modifier
@@ -54,12 +47,6 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
 
         Group(stringResource(R.string.settings_group_account)) {
             ValueRow(viewModel.serverName, viewModel.userHandle)
-            ValueRow(
-                stringResource(R.string.settings_server),
-                settings.serverUrl.removePrefix("https://").removeSuffix("/"),
-            ) {
-                editingServer = true
-            }
             ActionRow(stringResource(R.string.settings_sign_out), viewModel::signOut)
         }
 
@@ -76,48 +63,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
         }
 
         Group(stringResource(R.string.settings_group_about)) {
-            ValueRow(stringResource(R.string.settings_version), viewModel.version)
-            ValueRow(stringResource(R.string.settings_license), "MIT")
             ActionRow(stringResource(R.string.settings_source)) { uriHandler.openUri(viewModel.sourceUrl) }
             ActionRow(stringResource(R.string.settings_report)) { uriHandler.openUri(viewModel.issuesUrl) }
         }
         Spacer(Modifier.height(24.dp))
-    }
-
-    if (editingServer) {
-        var url by remember { mutableStateOf(settings.serverUrl) }
-        AlertDialog(
-            onDismissRequest = { editingServer = false },
-            containerColor = Tokens.surface,
-            title = {
-                Text(
-                    stringResource(R.string.settings_server_dialog_title),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            },
-            text = {
-                Column {
-                    Text(
-                        stringResource(R.string.settings_server_dialog_text),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Tokens.ink2,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedTextField(value = url, onValueChange = { url = it }, singleLine = true)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    editingServer = false
-                    viewModel.changeServer(url)
-                }) { Text(stringResource(R.string.settings_save), color = Tokens.accent) }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { editingServer = false },
-                ) { Text(stringResource(R.string.board_cancel), color = Tokens.ink) }
-            },
-        )
     }
 }
 
@@ -166,9 +115,8 @@ private fun SettingsRow(
 private fun ValueRow(
     label: String,
     value: String,
-    onClick: (() -> Unit)? = null,
 ) {
-    SettingsRow(label, onClick = onClick) {
+    SettingsRow(label) {
         Text(value, style = MaterialTheme.typography.bodyLarge, color = Tokens.ink2)
     }
 }

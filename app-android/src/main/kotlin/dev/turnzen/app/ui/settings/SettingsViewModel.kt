@@ -24,7 +24,6 @@ class SettingsViewModel(
     val serverName: String
         get() = session.serverName
 
-    val version: String = BuildConfig.VERSION_NAME
     val sourceUrl: String = BuildConfig.SOURCE_URL
     val issuesUrl: String = BuildConfig.SOURCE_URL + "/issues"
 
@@ -37,15 +36,6 @@ class SettingsViewModel(
         viewModelScope.launch {
             games.clear()
             session.signOut()
-        }
-    }
-
-    fun changeServer(url: String) {
-        val trimmed = url.trim()
-        if (trimmed.isEmpty() || trimmed == settings.value.serverUrl) return
-        viewModelScope.launch {
-            games.clear()
-            session.changeServer(if (trimmed.endsWith("/")) trimmed else "$trimmed/")
         }
     }
 }

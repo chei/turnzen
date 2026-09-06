@@ -21,7 +21,7 @@ android {
         versionName = "0.1.0"
 
         // Public project links shown on the Settings screen.
-        buildConfigField("String", "SOURCE_URL", "\"https://github.com/OWNER/turnzen\"")
+        buildConfigField("String", "SOURCE_URL", "\"https://github.com/chei/turnzen\"")
     }
 
     buildTypes {
