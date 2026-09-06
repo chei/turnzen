@@ -4,6 +4,13 @@ These notes accompany the SVG mockups in this folder. The mockups are the refere
 layout and hierarchy; this file turns them into tokens and rules for the Compose theme.
 Frame size is 390×844 (a common phone width); everything must adapt to other widths.
 
+> Note (September 2026): the SVGs predate several implemented changes and are now only a
+> rough reference. The prose below is current. Known drift in the SVGs: the games header is
+> now "Turnzen" with "Your turn"/"All games" tabs (not a "Your move" title); list rows have
+> no "left" caption; Settings has no Server row, drops Version/License, adds Appearance >
+> Theme, and labels the account "Signed in as"; a dark theme now exists. Regenerate the
+> SVGs from `generate_mockups.py` when convenient.
+
 ## Files
 
 | File | Screen |
@@ -20,9 +27,9 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 
 1. **The board is the only loud element.** Everything else is flat and quiet: no cards,
    no shadows, no gradients. Structure comes from hairlines, spacing and type weight.
-2. **One accent color, one meaning.** Indigo is used only for actions that change server
-   state (Send) and for signalling trial mode (indicator, board edge lines, trial-stone
-   rings). Never use it decoratively.
+2. **One accent color, one meaning.** Indigo marks actions: the Send button, trial mode
+   (indicator, board edge lines, trial-stone rings), the active nav item, and text
+   actions/links (Sign out, Source code). Never use it decoratively.
 3. **Urgency is the only other color.** A muted red marks low remaining time and nothing
    else.
 4. **Tapping the board never sends anything.** The Send button is the single path to the
@@ -94,7 +101,13 @@ Use tabular figures for time and move counts so columns don't jitter.
   `accent`, others in `ink2`. Icons are simple geometry (two stones / a ring with a dot).
 - **Screen padding**: 20dp horizontal for everything except the board.
 - **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. Left: a stone
-  in the user's color. Right column: the remaining time (600) over a "left" caption.
+  in the user's color. Title: opponent (rank). Secondary line: size, move number, and time
+  since the last move ("13x13, move 40, 45 h ago"), one line, ellipsised. Right: the
+  remaining time (600), urgent red when under a day; there is no "left" caption. On the
+  opponent's turn (in the "All games" tab) the row reads "their move" instead of a time.
+- **Games screen**: header is the wordmark "Turnzen". Below it, two tabs, "Your turn" and
+  "All games", each with a count, above the list (content filter, distinct from the bottom
+  destination bar). Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
@@ -104,12 +117,13 @@ Use tabular figures for time and move counts so columns don't jitter.
   info row → action row → flexible space → bottom nav. The space below the action row
   absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
 - **Info row (server position)**: move navigation on the left ("‹ 87 ›"), hint on the
-  right ("Tap the board to try moves").
+  right ("Tap the board to try moves", or "Opponent to move" when it is not the user's turn).
 - **Info row (trial mode)**: accent dot + "Trial, N moves" on the left; Undo and Reset as
   text actions on the right.
-- **Action row**: two equal pill buttons. Pass (outlined) and Send (filled accent). Send is
-  disabled (`line` fill, `ink2` text) while there is no trial stone, and reads
-  "Send <coordinate>" as soon as there is one.
+- **Action row**: two equal pill buttons, shown only on the user's turn. Pass (outlined)
+  and Send (filled accent). Send is disabled (`line` fill, `ink2` text) while there is no
+  trial stone, and reads "Send <coordinate>" as soon as there is one. On the opponent's
+  turn the row is hidden (the board is for exploring their move; nothing can be sent).
 - **Trial stones**: normal stone colors at 90% opacity, a 1.6dp `accent` ring, and the
   trial move number. Trial mode also draws a 3dp `accent` line along the top and bottom
   edge of the board.
