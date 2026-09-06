@@ -190,19 +190,12 @@ private fun GameRow(
             }
             Spacer(Modifier.width(12.dp))
             if (game.isMyTurn) {
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        Formatting.remaining(game.remainingTime),
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = if (Formatting.isUrgent(game.remainingTime)) Tokens.urgent else Tokens.ink,
-                    )
-                    Text(
-                        stringResource(R.string.games_left),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Tokens.ink2,
-                    )
-                }
+                Text(
+                    Formatting.remaining(game.remainingTime),
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (Formatting.isUrgent(game.remainingTime)) Tokens.urgent else Tokens.ink,
+                )
             } else {
                 Text(
                     stringResource(R.string.games_their_move),

@@ -18,7 +18,6 @@
     <string name="games_empty_title">No games waiting for you</string>
     <string name="games_empty_all_title">No running games</string>
     <string name="games_empty_hint">Pull down to check again.</string>
-    <string name="games_left">left</string>
     <string name="games_their_move">their move</string>
 
     <string name="board_to_move">to move</string>

@@ -20,6 +20,8 @@ object Formatting {
         val days = main.toDays()
         val hours = main.minusDays(days).toHours()
         val minutes = main.minusDays(days).minusHours(hours).toMinutes()
+        // DGS reports remaining time only down to whole hours (as its own web UI does), so
+        // the minute branch fires only if a server ever sends finer data; nothing is invented.
         return when {
             days > 0 && hours > 0 -> "$days d $hours h"
             days > 0 -> "$days d"
