@@ -30,6 +30,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
@@ -179,10 +180,12 @@ private fun GameRow(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 Text(
-                    "${Formatting.boardSize(game.boardSize, game.handicap)}, move ${game.moveNumber}, " +
-                        "last move ${Formatting.relative(game.lastMoveAt)}",
+                    "${Formatting.boardSize(game.boardSize, game.handicap)}, " +
+                        "move ${game.moveNumber}, ${Formatting.relative(game.lastMoveAt)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Tokens.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
             Spacer(Modifier.width(12.dp))
