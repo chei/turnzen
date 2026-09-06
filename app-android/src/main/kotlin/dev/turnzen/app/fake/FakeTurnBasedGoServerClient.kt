@@ -214,7 +214,8 @@ class FakeTurnBasedGoServerClient(
                 GameRecord(
                     boardSize = 19,
                     komi = 6.5,
-                    moves = moves(19, "Q16 D4 Q4 D16 C14 R14"),
+                    // Odd number of moves: last is Black's, so White (the opponent) is to move.
+                    moves = moves(19, "Q16 D4 Q4 D16 C14"),
                     black = PlayerInfo("Demo User", "8k"),
                     white = PlayerInfo("kaya_go", "5k"),
                 )

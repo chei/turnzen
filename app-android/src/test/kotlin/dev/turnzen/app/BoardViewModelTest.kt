@@ -58,6 +58,27 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `on the opponent's turn the board explores their move and cannot send`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(GameId("demo-waiting"))
+            advanceUntilIdle()
+
+            val loaded = h.vm.state.value
+            assertFalse(loaded.isMyTurn)
+            assertEquals(StoneColor.BLACK, loaded.detail?.summary?.myColor)
+            assertFalse(loaded.canPass)
+
+            // First tap places the side to move: the opponent (white), then alternates.
+            h.vm.onTap(Point(0, 0))
+            h.vm.onTap(Point(1, 0))
+            val s = h.vm.state.value
+            assertEquals(listOf(StoneColor.WHITE, StoneColor.BLACK), s.trialMoves.map { it.color })
+            // Even with a variation on the board, nothing can be sent on the opponent's turn.
+            assertFalse(s.canSend)
+        }
+
+    @Test
     fun `taps build a local trial variation and never touch the server`() =
         runTest(dispatcher) {
             val client = FakeTurnBasedGoServerClient(latencyMillis = 0)

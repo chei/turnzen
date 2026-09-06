@@ -40,6 +40,10 @@ data class BoardUiState(
     val moveCount: Int
         get() = replay?.moveCount ?: 0
 
+    /** False when the game is open only to explore the opponent's move; no move can be sent. */
+    val isMyTurn: Boolean
+        get() = detail?.summary?.isMyTurn ?: false
+
     val isTrial: Boolean
         get() = trial != null && !trial.isEmpty
 
@@ -68,10 +72,10 @@ data class BoardUiState(
         }
 
     val canSend: Boolean
-        get() = moveToSend != null && !sending && !loading
+        get() = isMyTurn && moveToSend != null && !sending && !loading
 
     val canPass: Boolean
-        get() = detail != null && !sending && !loading
+        get() = isMyTurn && detail != null && !sending && !loading
 }
 
 class BoardViewModel(
@@ -99,7 +103,9 @@ class BoardViewModel(
                         if (previousTrial != null && previousTrial.base.board == replay.finalPosition.board) {
                             previousTrial
                         } else {
-                            TrialVariation.start(replay.finalPosition, detail.summary.myColor)
+                            // Start with the colour that is actually to move: the user's own
+                            // colour on their turn, the opponent's when exploring their move.
+                            TrialVariation.start(replay.finalPosition)
                         }
                     current.copy(
                         loading = false,

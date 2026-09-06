@@ -22,6 +22,7 @@
 
     <string name="board_to_move">to move</string>
     <string name="board_hint_try">Tap the board to try moves</string>
+    <string name="board_opponent_to_move">Opponent to move</string>
     <string name="board_undo">Undo</string>
     <string name="board_reset">Reset</string>
     <string name="board_pass">Pass</string>

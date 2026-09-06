@@ -111,6 +111,7 @@ fun BoardScreen(
                     when {
                         state.notice != null -> state.notice.orEmpty()
                         !state.atLatest -> "Viewing move ${state.viewingMove} of ${state.moveCount}"
+                        !state.isMyTurn -> stringResource(R.string.board_opponent_to_move)
                         else -> stringResource(R.string.board_hint_try)
                     },
                     style = MaterialTheme.typography.bodyMedium,
@@ -123,30 +124,33 @@ fun BoardScreen(
             ErrorMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         }
 
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            PillButton(
-                text = stringResource(R.string.board_pass),
-                onClick = viewModel::askPass,
-                enabled = state.canPass,
-                modifier = Modifier.weight(1f),
-            )
-            PillButton(
-                text =
-                    when {
-                        state.sending -> "Sending…"
-                        state.sendLabel != null -> "${stringResource(R.string.board_send)} ${state.sendLabel}"
-                        else -> stringResource(R.string.board_send)
-                    },
-                onClick = viewModel::askSend,
-                primary = true,
-                enabled = state.canSend,
-                modifier = Modifier.weight(1f),
-            )
+        // Pass and Send only exist on the user's own turn; on the opponent's turn the board
+        // is for exploring their move, and nothing can be submitted.
+        if (state.isMyTurn) {
+            Spacer(Modifier.height(8.dp))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PillButton(
+                    text = stringResource(R.string.board_pass),
+                    onClick = viewModel::askPass,
+                    enabled = state.canPass,
+                    modifier = Modifier.weight(1f),
+                )
+                PillButton(
+                    text =
+                        when {
+                            state.sending -> "Sending…"
+                            state.sendLabel != null -> "${stringResource(R.string.board_send)} ${state.sendLabel}"
+                            else -> stringResource(R.string.board_send)
+                        },
+                    onClick = viewModel::askSend,
+                    primary = true,
+                    enabled = state.canSend,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
         Spacer(Modifier.height(24.dp))
     }
