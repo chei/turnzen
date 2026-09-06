@@ -38,7 +38,13 @@ object Formatting {
         return main < Duration.ofHours(24)
     }
 
-    /** "18 min ago", "2 h ago", "yesterday", "4 d ago", "12 Aug". */
+    /**
+     * "18 min ago", "2 h ago", "36 h ago", "4 d ago", "12 Aug".
+     *
+     * Hours run all the way to 48 rather than switching to a word like "yesterday": it is
+     * exact, carries more information, and avoids implying a calendar day (the elapsed
+     * time here is not aligned to the local date, and the source timestamps are UTC).
+     */
     fun relative(
         instant: Instant?,
         now: Instant = Instant.now(),
@@ -49,8 +55,7 @@ object Formatting {
         return when {
             minutes < 1 -> "just now"
             minutes < 60 -> "$minutes min ago"
-            elapsed.toHours() < 24 -> "${elapsed.toHours()} h ago"
-            elapsed.toDays() < 2 -> "yesterday"
+            elapsed.toHours() < 48 -> "${elapsed.toHours()} h ago"
             elapsed.toDays() < 14 -> "${elapsed.toDays()} d ago"
             else -> DateTimeFormatter.ofPattern("d MMM").withZone(ZoneId.systemDefault()).format(instant)
         }

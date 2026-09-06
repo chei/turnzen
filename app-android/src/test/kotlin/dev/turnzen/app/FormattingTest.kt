@@ -39,7 +39,11 @@ class FormattingTest {
         assertEquals("just now", Formatting.relative(now.minusSeconds(20), now))
         assertEquals("18 min ago", Formatting.relative(now.minusSeconds(18 * 60), now))
         assertEquals("2 h ago", Formatting.relative(now.minus(Duration.ofHours(2)), now))
-        assertEquals("yesterday", Formatting.relative(now.minus(Duration.ofHours(30)), now))
+        assertEquals("23 h ago", Formatting.relative(now.minus(Duration.ofHours(23)), now))
+        // Hours continue to 48 rather than becoming "yesterday".
+        assertEquals("30 h ago", Formatting.relative(now.minus(Duration.ofHours(30)), now))
+        assertEquals("47 h ago", Formatting.relative(now.minus(Duration.ofHours(47)), now))
+        assertEquals("2 d ago", Formatting.relative(now.minus(Duration.ofHours(48)), now))
         assertEquals("4 d ago", Formatting.relative(now.minus(Duration.ofDays(4)), now))
         assertEquals("–", Formatting.relative(null, now))
     }
