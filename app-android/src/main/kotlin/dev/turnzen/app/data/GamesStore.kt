@@ -37,9 +37,16 @@ class GamesStore(
         }
     }
 
-    fun remove(id: GameId) {
+    /**
+     * Record that the user has just played their move in [id]. It leaves the "Your turn"
+     * queue, but stays in the running list now on the opponent's turn, so the "All games"
+     * tab keeps showing it (without the "your turn" marker) until the next refresh.
+     */
+    fun onMovePlayed(id: GameId) {
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
-        _allRunning.update { list -> list?.filterNot { it.id == id } }
+        _allRunning.update { list ->
+            list?.map { if (it.id == id) it.copy(isMyTurn = false) else it }
+        }
     }
 
     /**

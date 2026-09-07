@@ -7,6 +7,8 @@ import dev.turnzen.goserver.GameId
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -36,22 +38,28 @@ class GamesStoreTest {
             store.refresh()
 
             assertEquals(GameId("demo-13"), store.nextAfter(GameId("demo-19")))
-            store.remove(GameId("demo-19"))
+            store.onMovePlayed(GameId("demo-19"))
             assertEquals(GameId("demo-9"), store.nextAfter(GameId("demo-13")))
-            store.remove(GameId("demo-13"))
-            store.remove(GameId("demo-9"))
+            store.onMovePlayed(GameId("demo-13"))
+            store.onMovePlayed(GameId("demo-9"))
             assertNull(store.nextAfter(GameId("demo-9")))
         }
 
     @Test
-    fun `remove drops a game from both lists`() =
+    fun `a played move leaves the your-turn queue but stays in all games`() =
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
             val store = GamesStore(session)
             store.refresh()
-            store.remove(GameId("demo-19"))
+            store.onMovePlayed(GameId("demo-19"))
+
+            // Gone from the "Your turn" queue.
             assertTrue(store.yourTurn.value!!.none { it.id.value == "demo-19" })
-            assertTrue(store.allRunning.value!!.none { it.id.value == "demo-19" })
+
+            // Still a running game, now shown as the opponent's turn.
+            val stillRunning = store.allRunning.value!!.firstOrNull { it.id.value == "demo-19" }
+            assertNotNull(stillRunning)
+            assertFalse(stillRunning.isMyTurn)
         }
 }

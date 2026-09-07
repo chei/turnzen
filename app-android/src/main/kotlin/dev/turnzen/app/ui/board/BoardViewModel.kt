@@ -209,7 +209,7 @@ class BoardViewModel(
         viewModelScope.launch {
             try {
                 session.call { it.sendMove(gameId, detail.summary.moveToken, move) }
-                games.remove(gameId)
+                games.onMovePlayed(gameId)
                 _state.update { it.copy(sending = false) }
                 // A short beat before auto-advancing to the next game, so the send does
                 // not feel like an instant, unexplained jump.
