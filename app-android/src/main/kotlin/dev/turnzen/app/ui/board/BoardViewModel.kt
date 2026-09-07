@@ -43,7 +43,7 @@ data class BoardUiState(
     val cursor: Int = 0,
     val sending: Boolean = false,
     val confirmation: PendingConfirmation? = null,
-    /** Short-lived feedback ("Sent", "The game changed on the server"). */
+    /** Short-lived feedback, e.g. "The game changed on the server. Reloaded." */
     val notice: String? = null,
 ) {
     /** Number of played server moves; also the header's "move N". */
@@ -108,8 +108,13 @@ data class BoardUiState(
             }
         }
 
+    /**
+     * Send is armed only while viewing exactly one move past the current state, so a
+     * multi-move exploration can never be sent by accident, and scrubbing back to the
+     * current state disarms it. The move sent is that single trial stone.
+     */
     val canSend: Boolean
-        get() = isMyTurn && moveToSend != null && !sending && !loading
+        get() = isMyTurn && cursor == moveCount + 1 && !sending && !loading
 
     /** Tapping the board places a stone only at or after the current state. */
     val canPlace: Boolean
@@ -179,14 +184,6 @@ class BoardViewModel(
         }
     }
 
-    fun undo() =
-        _state.update {
-            val next = it.trial?.undo() ?: return@update it
-            it.copy(trial = next, cursor = it.cursor.coerceAtMost(it.moveCount + next.size))
-        }
-
-    fun reset() = _state.update { it.copy(trial = it.trial?.reset(), cursor = it.moveCount) }
-
     fun toStart() = _state.update { it.copy(cursor = 0) }
 
     fun stepBack() = _state.update { it.copy(cursor = (it.cursor - 1).coerceAtLeast(0)) }
@@ -213,7 +210,9 @@ class BoardViewModel(
             try {
                 session.call { it.sendMove(gameId, detail.summary.moveToken, move) }
                 games.remove(gameId)
-                _state.update { it.copy(sending = false, notice = "Sent") }
+                _state.update { it.copy(sending = false) }
+                // A short beat before auto-advancing to the next game, so the send does
+                // not feel like an instant, unexplained jump.
                 delay(600)
                 onMoveSent(gameId)
             } catch (e: GoServerException.StaleGame) {

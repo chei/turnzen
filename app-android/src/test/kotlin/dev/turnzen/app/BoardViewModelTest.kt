@@ -113,7 +113,8 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertEquals(listOf(StoneColor.BLACK, StoneColor.WHITE), s.trialMoves.map { it.color })
             assertEquals(Move.Play(Point(0, 0)), s.moveToSend?.move)
             assertEquals("A9", s.sendLabel)
-            assertTrue(s.canSend)
+            // Two moves deep, the send is disarmed: only a single move ahead may be sent.
+            assertFalse(s.canSend)
 
             // The server record is untouched.
             assertEquals(
@@ -123,11 +124,15 @@ class BoardViewModelTest : MainDispatcherTest() {
                     .record.moves.size,
             )
 
-            h.vm.undo()
+            // Stepping back to a single move ahead arms the send.
+            h.vm.stepBack()
+            assertTrue(h.vm.state.value.canSend)
             assertEquals(1, h.vm.state.value.trialMoves.size)
-            h.vm.reset()
-            assertFalse(h.vm.state.value.hasTrial)
+
+            // Scrubbing to the current state disarms it again without discarding the trial.
+            h.vm.toCurrent()
             assertFalse(h.vm.state.value.canSend)
+            assertTrue(h.vm.state.value.hasTrial)
         }
 
     @Test
@@ -141,6 +146,9 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.onTap(Point(1, 0))
             h.vm.onTap(Point(2, 0))
 
+            // A three-move exploration cannot be sent; step back to a single move ahead first.
+            h.vm.stepBack()
+            h.vm.stepBack()
             h.vm.askSend()
             assertEquals(PendingConfirmation.SEND, h.vm.state.value.confirmation)
             h.vm.confirm()
@@ -193,14 +201,13 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.onTap(Point(0, 0))
-            h.vm.onTap(Point(1, 0))
             h.vm.askSend()
             h.vm.confirm()
             advanceUntilIdle()
 
             val s = h.vm.state.value
             assertNotNull(s.error)
-            assertEquals(2, s.trialMoves.size)
+            assertEquals(1, s.trialMoves.size)
             assertTrue(s.canSend)
             assertTrue(h.sent.isEmpty())
         }
