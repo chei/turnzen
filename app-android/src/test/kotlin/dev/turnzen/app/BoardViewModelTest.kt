@@ -76,6 +76,32 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `reopening a game clears the trial and lands on the current position`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+
+            // Explore a couple of moves, then leave and reopen (the cached ViewModel's load()).
+            h.vm.onTap(Point(0, 0))
+            h.vm.onTap(Point(1, 0))
+            assertTrue(h.vm.state.value.hasTrial)
+
+            h.vm.load()
+            // Even before the download lands, the board is already back on the current
+            // position with no trial stones, so nothing flashes away when it completes.
+            val whileLoading = h.vm.state.value
+            assertTrue(whileLoading.loading)
+            assertFalse(whileLoading.hasTrial)
+            assertTrue(whileLoading.atCurrent)
+
+            advanceUntilIdle()
+            val loaded = h.vm.state.value
+            assertFalse(loaded.hasTrial)
+            assertTrue(loaded.atCurrent)
+        }
+
+    @Test
     fun `on the opponent's turn the board explores their move and cannot send`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))

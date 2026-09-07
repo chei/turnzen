@@ -148,26 +148,32 @@ class BoardViewModel(
 
     fun load() {
         val preview = games.summary(gameId)
-        _state.update { it.copy(loading = true, error = null, preview = preview ?: it.preview) }
+        // Reopening or reloading starts fresh at the current position. A trial variation is
+        // local scratch work; leaving the game ends it. Clear it here, in the same
+        // synchronous update that sets loading, using the cached replay — so a reopened game
+        // shows its current position at once instead of briefly flashing the leftover trial
+        // stones from the previous viewing before the download lands.
+        _state.update { current ->
+            val replay = current.replay
+            current.copy(
+                loading = true,
+                error = null,
+                preview = preview ?: current.preview,
+                trial = replay?.let { TrialVariation.start(it.finalPosition) },
+                cursor = replay?.moveCount ?: 0,
+            )
+        }
         viewModelScope.launch {
             try {
                 val detail = session.call { it.game(gameId) }
                 val replay = Replay(detail.record)
                 _state.update { current ->
-                    val previousTrial = current.trial
-                    val trial =
-                        if (previousTrial != null && previousTrial.base.board == replay.finalPosition.board) {
-                            previousTrial
-                        } else {
-                            // Start with the colour that is actually to move: the user's own
-                            // colour on their turn, the opponent's when exploring their move.
-                            TrialVariation.start(replay.finalPosition)
-                        }
                     current.copy(
                         loading = false,
                         detail = detail,
                         replay = replay,
-                        trial = trial,
+                        // A fresh trial on the current position, coloured for the side to move.
+                        trial = TrialVariation.start(replay.finalPosition),
                         cursor = replay.moveCount,
                     )
                 }
