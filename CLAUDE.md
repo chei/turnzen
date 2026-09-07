@@ -54,7 +54,6 @@ Rules that follow from this:
   DGS / SGF notation only at the `:core-dgs` and SGF boundaries. Column letters skip "I".
 - Board sizes 9, 13, 19 are all first-class; never hardcode 19.
 - Small, focused commits with imperative messages ("Add trial-variation undo").
-  Before the first commit, set `git config user.email` to the GitHub no-reply address.
 
 ## Build & test
 
@@ -70,17 +69,7 @@ Toolchain notes: AGP 9 compiles Kotlin itself (no `kotlin-android` plugin); comp
 is required by the Compose version in use. See the "Implementation decisions" section of
 the brief before changing versions.
 
-Run the JVM tests before every commit; the Android build only when UI changed. All six
-MVP steps below are implemented (September 2026); work now continues on post-MVP items.
+Run the JVM tests before every commit; the Android build only when UI changed.
 
-## MVP order
-
-1. Repo skeleton, modules, Gradle, ktlint, CI running the JVM tests.
-2. `:core-game`: board state, captures, ko, trial-variation stack (place/undo/reset), SGF.
-3. `:app-android`: board Canvas + trial mode against a fake in-memory server client.
-4. `:core-dgs`: login, game list, fetch game/SGF, send move — parsers tested on fixtures.
-5. Wire the real client; "your move" list sorted by last move; auto-advance after Send.
-6. Settings, sign-out, session-expiry re-login.
-
-Post-MVP items (comments, resign, scoring, messages, other servers, live play) are listed
-in the brief. Do not start them before the six steps above work end to end.
+The six MVP steps are all implemented (September 2026); work continues on the post-MVP
+items listed in the brief (comments, resign, scoring, messages, other servers, live play).
