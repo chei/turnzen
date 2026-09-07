@@ -22,9 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,10 +44,11 @@ import dev.turnzen.goserver.GameSummary
 @Composable
 fun GamesScreen(
     viewModel: GamesViewModel,
+    tab: GamesTab,
+    onTabChange: (GamesTab) -> Unit,
     onOpenGame: (GameId) -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var tab by rememberSaveable { mutableStateOf(GamesTab.YOUR_TURN) }
     val games = state.listFor(tab)
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -65,13 +63,13 @@ fun GamesScreen(
                 label = stringResource(R.string.games_tab_your_turn),
                 count = state.yourTurn?.size,
                 selected = tab == GamesTab.YOUR_TURN,
-                onClick = { tab = GamesTab.YOUR_TURN },
+                onClick = { onTabChange(GamesTab.YOUR_TURN) },
             )
             GamesTab(
                 label = stringResource(R.string.games_tab_all),
                 count = state.allRunning?.size,
                 selected = tab == GamesTab.ALL,
-                onClick = { tab = GamesTab.ALL },
+                onClick = { onTabChange(GamesTab.ALL) },
             )
         }
 

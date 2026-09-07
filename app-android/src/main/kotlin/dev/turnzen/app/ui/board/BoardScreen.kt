@@ -43,6 +43,7 @@ import dev.turnzen.game.StoneColor
 fun BoardScreen(
     viewModel: BoardViewModel,
     boardSettings: BoardSettings,
+    onSkip: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val detail = state.detail
@@ -124,20 +125,20 @@ fun BoardScreen(
             ErrorMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         }
 
-        // Pass and Send only exist on the user's own turn; on the opponent's turn the board
-        // is for exploring their move, and nothing can be submitted.
-        if (state.isMyTurn) {
-            Spacer(Modifier.height(8.dp))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                PillButton(
-                    text = stringResource(R.string.board_pass),
-                    onClick = viewModel::askPass,
-                    enabled = state.canPass,
-                    modifier = Modifier.weight(1f),
-                )
+        // Skip is always available; Send only on the user's own turn. On the opponent's
+        // turn the board is just for exploring their move, so Skip stands alone.
+        Spacer(Modifier.height(8.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PillButton(
+                text = stringResource(R.string.board_skip),
+                onClick = onSkip,
+                enabled = !state.sending,
+                modifier = Modifier.weight(1f),
+            )
+            if (state.isMyTurn) {
                 PillButton(
                     text =
                         when {
@@ -161,16 +162,6 @@ fun BoardScreen(
                 title = "${stringResource(R.string.board_send)} ${state.sendLabel}?",
                 text = stringResource(R.string.board_send_explain),
                 confirmLabel = "${stringResource(R.string.board_send)} ${state.sendLabel}",
-                onConfirm = viewModel::confirm,
-                onDismiss = viewModel::cancelConfirmation,
-            )
-        }
-
-        PendingConfirmation.PASS -> {
-            Confirmation(
-                title = stringResource(R.string.board_pass_confirm),
-                text = stringResource(R.string.board_pass_explain),
-                confirmLabel = stringResource(R.string.board_pass),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
             )

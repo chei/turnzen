@@ -42,9 +42,16 @@ class GamesStore(
         _allRunning.update { list -> list?.filterNot { it.id == id } }
     }
 
-    /** The next game to play after [id], within the "your turn" queue, wrapping around. */
-    fun nextAfter(id: GameId): GameId? {
-        val list = _yourTurn.value ?: return null
+    /**
+     * The next game after [id], wrapping around, within the list the user is browsing:
+     * all running games when [all] is true, otherwise the "your turn" queue. Null when
+     * there is no other game.
+     */
+    fun nextAfter(
+        id: GameId,
+        all: Boolean = false,
+    ): GameId? {
+        val list = (if (all) _allRunning else _yourTurn).value ?: return null
         val index = list.indexOfFirst { it.id == id }
         val remaining = if (index < 0) list else list.drop(index + 1) + list.take(index)
         return remaining.firstOrNull { it.id != id }?.id

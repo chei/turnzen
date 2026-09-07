@@ -25,14 +25,12 @@
     <string name="board_opponent_to_move">Opponent to move</string>
     <string name="board_undo">Undo</string>
     <string name="board_reset">Reset</string>
-    <string name="board_pass">Pass</string>
+    <string name="board_skip">Skip</string>
     <string name="board_send">Send</string>
     <string name="board_previous_move">Previous move</string>
     <string name="board_next_move">Next move</string>
     <string name="board_sent">Sent</string>
     <string name="board_cancel">Cancel</string>
-    <string name="board_pass_confirm">Pass?</string>
-    <string name="board_pass_explain">Passing is sent to the server immediately. Trial stones are discarded.</string>
     <string name="board_send_explain">Only this move is sent. The other trial stones stay on your device.</string>
     <string name="board_back">Back to games</string>
 

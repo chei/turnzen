@@ -84,7 +84,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             val loaded = h.vm.state.value
             assertFalse(loaded.isMyTurn)
             assertEquals(StoneColor.BLACK, loaded.detail?.summary?.myColor)
-            assertFalse(loaded.canPass)
+            assertFalse(loaded.canSend)
 
             // First tap places the side to move: the opponent (white), then alternates.
             h.vm.onTap(Point(0, 0))
@@ -153,26 +153,6 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertNull(
                 h.games.yourTurn.value
                     ?.firstOrNull { it.id == game },
-            )
-        }
-
-    @Test
-    fun `pass is sent as a pass regardless of trial stones`() =
-        runTest(dispatcher) {
-            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
-            val h = Harness(client)
-            h.start(game)
-            advanceUntilIdle()
-            h.vm.onTap(Point(0, 0))
-            h.vm.askPass()
-            h.vm.confirm()
-            advanceUntilIdle()
-            assertEquals(
-                Move.Pass,
-                client
-                    .game(game)
-                    .record.moves[12]
-                    .move,
             )
         }
 

@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class PendingConfirmation { SEND, PASS }
+enum class PendingConfirmation { SEND }
 
 data class BoardUiState(
     val loading: Boolean = true,
@@ -73,9 +73,6 @@ data class BoardUiState(
 
     val canSend: Boolean
         get() = isMyTurn && moveToSend != null && !sending && !loading
-
-    val canPass: Boolean
-        get() = isMyTurn && detail != null && !sending && !loading
 }
 
 class BoardViewModel(
@@ -159,21 +156,13 @@ class BoardViewModel(
         if (_state.value.canSend) _state.update { it.copy(confirmation = PendingConfirmation.SEND) }
     }
 
-    fun askPass() {
-        if (_state.value.canPass) _state.update { it.copy(confirmation = PendingConfirmation.PASS) }
-    }
-
     fun cancelConfirmation() = _state.update { it.copy(confirmation = null) }
 
     fun confirm() {
         val s = _state.value
         val detail = s.detail ?: return
-        val move: Move =
-            when (s.confirmation) {
-                PendingConfirmation.SEND -> s.moveToSend?.move ?: return
-                PendingConfirmation.PASS -> Move.Pass
-                null -> return
-            }
+        if (s.confirmation != PendingConfirmation.SEND) return
+        val move: Move = s.moveToSend?.move ?: return
         _state.update { it.copy(confirmation = null, sending = true, notice = null) }
         viewModelScope.launch {
             try {

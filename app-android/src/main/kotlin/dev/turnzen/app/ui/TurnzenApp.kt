@@ -28,6 +28,7 @@ import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.common.MainTab
 import dev.turnzen.app.ui.common.TurnzenBottomBar
 import dev.turnzen.app.ui.games.GamesScreen
+import dev.turnzen.app.ui.games.GamesTab
 import dev.turnzen.app.ui.games.GamesViewModel
 import dev.turnzen.app.ui.settings.SettingsScreen
 import dev.turnzen.app.ui.settings.SettingsViewModel
@@ -81,8 +82,15 @@ fun TurnzenApp(container: AppContainer) {
 @Composable
 private fun SignedInShell(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(MainTab.GAMES) }
+    // Which games tab is active. Lifted above the open-game boundary so it survives opening
+    // and closing a game, and so Skip and auto-advance know which list to move through.
+    var gamesTab by rememberSaveable { mutableStateOf(GamesTab.YOUR_TURN) }
     var openGame by remember { mutableStateOf<GameId?>(null) }
     val settings by container.settings.settings.collectAsStateWithLifecycle()
+
+    fun advanceFrom(id: GameId) {
+        openGame = container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)
+    }
 
     BackHandler(enabled = openGame != null) { openGame = null }
 
@@ -97,18 +105,23 @@ private fun SignedInShell(container: AppContainer) {
                                 gameId = game,
                                 session = container.session,
                                 games = container.games,
-                                onMoveSent = { sent -> openGame = container.games.nextAfter(sent) },
+                                onMoveSent = { sent -> advanceFrom(sent) },
                             )
                         }
                     // Reload whenever the game is (re)opened: the cached ViewModel may hold
                     // state from before a move was sent, so its board could be stale.
                     LaunchedEffect(game) { vm.load() }
-                    BoardScreen(vm, settings.board)
+                    BoardScreen(vm, settings.board, onSkip = { advanceFrom(game) })
                 }
 
                 tab == MainTab.GAMES -> {
                     val vm = viewModel { GamesViewModel(container.session, container.games) }
-                    GamesScreen(vm, onOpenGame = { openGame = it })
+                    GamesScreen(
+                        vm,
+                        tab = gamesTab,
+                        onTabChange = { gamesTab = it },
+                        onOpenGame = { openGame = it },
+                    )
                 }
 
                 else -> {
