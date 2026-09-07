@@ -27,9 +27,9 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 
 1. **The board is the only loud element.** Everything else is flat and quiet: no cards,
    no shadows, no gradients. Structure comes from hairlines, spacing and type weight.
-2. **One accent color, one meaning.** Indigo marks actions: the Send button, trial mode
-   (indicator, board edge lines, trial-stone rings), the active nav item, and text
-   actions/links (Sign out, Source code). Never use it decoratively.
+2. **One accent color, one meaning.** Indigo marks actions: the Send button, the active
+   nav item, and text actions/links (Sign out, Source code). Never use it decoratively.
+   Trial stones are not accented; they read as ordinary stones (see "Trial stones" below).
 3. **Urgency is the only other color.** A muted red marks low remaining time and nothing
    else.
 4. **Tapping the board never sends anything.** The Send button is the single path to the
@@ -45,7 +45,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `ink` | `#1F2A26` | Primary text, icons |
 | `ink2` | `#6B7470` | Secondary text |
 | `line` | `#D6DAD5` | Hairlines, disabled fills, outlined buttons |
-| `accent` | `#2E54C0` | Send button, trial-mode indicator and rings, active nav item, text actions (Sign out, links). A saturated indigo so text actions stay clearly distinct from `ink` labels while white text on the Send fill stays legible. |
+| `accent` | `#2E54C0` | Send button, active nav item, text actions (Sign out, links). A saturated indigo so text actions stay clearly distinct from `ink` labels while white text on the Send fill stays legible. |
 | `accentSoft` | `#E4E9F2` | Reserved for accent backgrounds if ever needed (not used in MVP) |
 | `urgent` | `#B8483E` | Low remaining time |
 | `board` | `#D9B778` | Board surface (muted kaya) |
@@ -124,9 +124,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   and Send (filled accent). Send is disabled (`line` fill, `ink2` text) while there is no
   trial stone, and reads "Send <coordinate>" as soon as there is one. On the opponent's
   turn the row is hidden (the board is for exploring their move; nothing can be sent).
-- **Trial stones**: normal stone colors at 90% opacity, a 1.6dp `accent` ring, and the
-  trial move number. Trial mode also draws a 3dp `accent` line along the top and bottom
-  edge of the board.
+- **Trial stones**: drawn like any other stone — full opacity, no ring, no board-edge
+  accent. With trial-stone numbering on, the move number is their only marking; with it
+  off, only the most recently played trial stone is marked, using the same last-move dot
+  the real board uses.
 - **Sign-in**: content centered vertically; two underlined text fields; one primary
   button; the explanation that this is the DGS account sits below the button; the "I don't
   have a DGS account" link is the only accent text on the screen.

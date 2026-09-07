@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -34,8 +33,8 @@ import dev.turnzen.game.StoneColor
  * first line half a cell from the edge (DESIGN.md).
  *
  * [position] is what is drawn; [trialMoves] are the stones within it that belong to the
- * trial variation (numbered, ringed). Tapping calls [onTap] with the intersection and
- * nothing else: this composable never talks to a server.
+ * trial variation (numbered, or the most recent one dotted when numbering is off). Tapping
+ * calls [onTap] with the intersection and nothing else: this composable never talks to a server.
  */
 @Composable
 fun GoBoard(
@@ -101,14 +100,15 @@ fun GoBoard(
             }
         }
 
+        // Trial stones look like any other stone. When numbering is on, the numbers are
+        // their only marking; when it is off, only the most recently played trial stone is
+        // marked, with the same dot the last real move uses.
+        val lastTrialPoint = trialMoves.lastOrNull { it.point != null }?.point
         for ((point, color) in position.board.stones()) {
             val trialNumber = trialPoints[point]
             val c = center(point)
-            if (trialNumber == null) {
-                drawStone(c, radius, color, palette)
-            } else {
-                drawStone(c, radius, color, palette, alpha = 0.9f)
-                drawCircle(palette.accent, radius + 1.2.dp.toPx(), c, style = Stroke(1.6.dp.toPx()))
+            drawStone(c, radius, color, palette)
+            if (trialNumber != null) {
                 if (settings.numberTrialStones) {
                     val style =
                         TextStyle(
@@ -119,6 +119,9 @@ fun GoBoard(
                         )
                     val label = textMeasurer.measure(trialNumber.toString(), style)
                     drawText(label, topLeft = Offset(c.x - label.size.width / 2f, c.y - label.size.height / 2f))
+                } else if (point == lastTrialPoint) {
+                    val dot = if (color == StoneColor.BLACK) palette.stoneWhite else palette.stoneBlack
+                    drawCircle(dot, radius * 0.28f, c)
                 }
             }
         }
@@ -131,12 +134,6 @@ fun GoBoard(
                 drawCircle(dot, radius * 0.28f, center(lastPoint))
             }
         }
-
-        if (trialMode) {
-            val edge = 3.dp.toPx()
-            drawRect(palette.accent, Offset.Zero, Size(size.width, edge))
-            drawRect(palette.accent, Offset(0f, size.height - edge), Size(size.width, edge))
-        }
     }
 }
 
@@ -145,13 +142,10 @@ private fun DrawScope.drawStone(
     radius: Float,
     color: StoneColor,
     palette: TurnzenColors,
-    alpha: Float = 1f,
 ) {
     val fill: Color = if (color == StoneColor.BLACK) palette.stoneBlack else palette.stoneWhite
-    drawCircle(fill, radius, center, alpha = alpha)
-    if (color ==
-        StoneColor.WHITE
-    ) {
-        drawCircle(palette.stoneBlack, radius, center, alpha = alpha, style = Stroke(0.6.dp.toPx()))
+    drawCircle(fill, radius, center)
+    if (color == StoneColor.WHITE) {
+        drawCircle(palette.stoneBlack, radius, center, style = Stroke(0.6.dp.toPx()))
     }
 }
