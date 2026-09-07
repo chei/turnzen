@@ -50,6 +50,7 @@ import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
+import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,8 +63,10 @@ fun BoardScreen(
     onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val detail = state.detail
-    val position = state.position
+    val summary = state.headerSummary
+    // Draw the real position once loaded; while it loads, an empty grid at the known board
+    // size, so the board keeps its final position instead of flashing a blank rectangle.
+    val position = state.position ?: state.boardSize?.let { Position.empty(it) }
 
     Column(
         Modifier
@@ -78,15 +81,16 @@ fun BoardScreen(
             modifier = Modifier.padding(start = 16.dp, top = 4.dp),
         )
 
-        if (detail != null) {
+        if (summary != null) {
+            val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
             Header(
-                myColor = detail.summary.myColor,
-                opponent = Formatting.opponent(detail.summary.opponent.handle, detail.summary.opponent.rank),
+                myColor = summary.myColor,
+                opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
                 subtitle =
-                    "You play ${if (detail.summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
-                        "move ${state.moveCount}",
-                remaining = Formatting.remaining(detail.summary.remainingTime),
-                urgent = Formatting.isUrgent(detail.summary.remainingTime),
+                    "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
+                        "move $moveNumber",
+                remaining = Formatting.remaining(summary.remainingTime),
+                urgent = Formatting.isUrgent(summary.remainingTime),
             )
         } else {
             Spacer(Modifier.height(60.dp))
@@ -97,7 +101,8 @@ fun BoardScreen(
                 position = position,
                 trialMoves = state.trialMoves,
                 settings = boardSettings,
-                enabled = !state.sending,
+                // No interaction with the placeholder grid until the real position loads.
+                enabled = !state.sending && !state.loading,
                 onTap = viewModel::onTap,
             )
         } else {
@@ -140,8 +145,9 @@ fun BoardScreen(
             )
         }
 
-        // Skip is always available; Send only on the user's own turn. On the opponent's
-        // turn the board is just for exploring their move, so Skip stands alone.
+        // Skip keeps a fixed half-width slot on the left in every game; Send fills the
+        // right slot only on the user's own turn (an empty spacer holds it otherwise), so
+        // Skip never changes size or position.
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -174,6 +180,8 @@ fun BoardScreen(
                     enabled = state.canSend,
                     modifier = Modifier.weight(1f),
                 )
+            } else {
+                Spacer(Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(24.dp))

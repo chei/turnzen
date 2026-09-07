@@ -30,18 +30,17 @@ class GamesStoreTest {
         }
 
     @Test
-    fun `auto-advance walks the your-turn queue and wraps`() =
+    fun `auto-advance walks the your-turn queue and stops at the end`() =
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
             val store = GamesStore(session)
             store.refresh()
 
+            // your-turn order: demo-19, demo-13, demo-9
             assertEquals(GameId("demo-13"), store.nextAfter(GameId("demo-19")))
-            store.onMovePlayed(GameId("demo-19"))
             assertEquals(GameId("demo-9"), store.nextAfter(GameId("demo-13")))
-            store.onMovePlayed(GameId("demo-13"))
-            store.onMovePlayed(GameId("demo-9"))
+            // The last game does not wrap around to the first: null means "back to the list".
             assertNull(store.nextAfter(GameId("demo-9")))
         }
 

@@ -50,9 +50,17 @@ class GamesStore(
     }
 
     /**
-     * The next game after [id], wrapping around, within the list the user is browsing:
-     * all running games when [all] is true, otherwise the "your turn" queue. Null when
-     * there is no other game.
+     * The known summary for [id], if it is in either list. Lets the board screen draw the
+     * header and an empty grid in their final position while the full record loads.
+     */
+    fun summary(id: GameId): GameSummary? =
+        _allRunning.value?.firstOrNull { it.id == id }
+            ?: _yourTurn.value?.firstOrNull { it.id == id }
+
+    /**
+     * The next game strictly after [id] within the list the user is browsing: all running
+     * games when [all] is true, otherwise the "your turn" queue. Does not wrap: null when
+     * [id] is the last game (or not in the list), which the UI reads as "back to the list".
      */
     fun nextAfter(
         id: GameId,
@@ -60,8 +68,8 @@ class GamesStore(
     ): GameId? {
         val list = (if (all) _allRunning else _yourTurn).value ?: return null
         val index = list.indexOfFirst { it.id == id }
-        val remaining = if (index < 0) list else list.drop(index + 1) + list.take(index)
-        return remaining.firstOrNull { it.id != id }?.id
+        if (index < 0) return null
+        return list.drop(index + 1).firstOrNull()?.id
     }
 
     fun clear() {

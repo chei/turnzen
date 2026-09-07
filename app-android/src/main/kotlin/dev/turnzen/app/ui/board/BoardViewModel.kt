@@ -14,6 +14,7 @@ import dev.turnzen.game.TrialOutcome
 import dev.turnzen.game.TrialVariation
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,7 +46,17 @@ data class BoardUiState(
     val confirmation: PendingConfirmation? = null,
     /** Short-lived feedback, e.g. "The game changed on the server. Reloaded." */
     val notice: String? = null,
+    /** The summary known from the games list, shown while the full record loads. */
+    val preview: GameSummary? = null,
 ) {
+    /** The summary to render the header from, before or after the record arrives. */
+    val headerSummary: GameSummary?
+        get() = detail?.summary ?: preview
+
+    /** Board size, known from the games list even while loading, so the grid can be drawn. */
+    val boardSize: Int?
+        get() = detail?.record?.boardSize ?: preview?.boardSize
+
     /** Number of played server moves; also the header's "move N". */
     val moveCount: Int
         get() = replay?.moveCount ?: 0
@@ -59,9 +70,10 @@ data class BoardUiState(
     val hasTrial: Boolean
         get() = trialCount > 0
 
-    /** False when the game is open only to explore the opponent's move; no move can be sent. */
+    /** False when the game is open only to explore the opponent's move; no move can be sent.
+     *  Uses the preview while loading so the Send button takes its final place from the start. */
     val isMyTurn: Boolean
-        get() = detail?.summary?.isMyTurn ?: false
+        get() = headerSummary?.isMyTurn ?: false
 
     val atStart: Boolean
         get() = cursor <= 0
@@ -135,7 +147,8 @@ class BoardViewModel(
     // game may have moved on since it was last viewed).
 
     fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+        val preview = games.summary(gameId)
+        _state.update { it.copy(loading = true, error = null, preview = preview ?: it.preview) }
         viewModelScope.launch {
             try {
                 val detail = session.call { it.game(gameId) }
@@ -209,12 +222,14 @@ class BoardViewModel(
         viewModelScope.launch {
             try {
                 session.call { it.sendMove(gameId, detail.summary.moveToken, move) }
-                games.onMovePlayed(gameId)
                 _state.update { it.copy(sending = false) }
                 // A short beat before auto-advancing to the next game, so the send does
                 // not feel like an instant, unexplained jump.
                 delay(600)
+                // Advance first (nextAfter still sees this game, so the queue steps to the
+                // one after it, or back to the list if it was the last), then drop it.
                 onMoveSent(gameId)
+                games.onMovePlayed(gameId)
             } catch (e: GoServerException.StaleGame) {
                 _state.update { it.copy(sending = false, notice = "The game changed on the server. Reloaded.") }
                 load()
