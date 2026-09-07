@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,13 @@ fun GamesScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val games = state.listFor(tab)
 
+    // One scroll position per tab: the two lists differ in length, and a single shared
+    // LazyListState re-anchors on its keyed items when the tab switches, which could leave
+    // the other list scrolled to the bottom. Each tab now keeps and restores its own place.
+    val yourTurnListState = rememberLazyListState()
+    val allListState = rememberLazyListState()
+    val listState = if (tab == GamesTab.YOUR_TURN) yourTurnListState else allListState
+
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(
             stringResource(R.string.app_name),
@@ -78,7 +86,7 @@ fun GamesScreen(
             onRefresh = viewModel::refresh,
             modifier = Modifier.fillMaxSize(),
         ) {
-            LazyColumn(Modifier.fillMaxSize()) {
+            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                 state.error?.let { error ->
                     item { ErrorMessage(error, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
                 }
