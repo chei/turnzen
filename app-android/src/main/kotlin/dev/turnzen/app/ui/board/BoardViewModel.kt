@@ -24,38 +24,75 @@ import kotlinx.coroutines.launch
 
 enum class PendingConfirmation { SEND }
 
+/**
+ * The board state is navigated by a single [cursor] over one timeline:
+ *
+ *     0 .......... serverCount .......... total
+ *     start        current server state   end of trial
+ *
+ * `0..serverCount` replays the played moves; `serverCount..total` walks the trial moves on
+ * top of the current position. Tapping the board branches a trial from the cursor (only at
+ * or after the current state); sending always transmits the trial's first move.
+ */
 data class BoardUiState(
     val loading: Boolean = true,
     val error: String? = null,
     val detail: GameDetail? = null,
     val replay: Replay? = null,
-    /** Which server move is displayed while browsing history (0..moveCount). */
-    val viewingMove: Int = 0,
     val trial: TrialVariation? = null,
+    val cursor: Int = 0,
     val sending: Boolean = false,
     val confirmation: PendingConfirmation? = null,
     /** Short-lived feedback ("Sent", "The game changed on the server"). */
     val notice: String? = null,
 ) {
+    /** Number of played server moves; also the header's "move N". */
     val moveCount: Int
         get() = replay?.moveCount ?: 0
+
+    val trialCount: Int
+        get() = trial?.size ?: 0
+
+    private val total: Int
+        get() = moveCount + trialCount
+
+    val hasTrial: Boolean
+        get() = trialCount > 0
 
     /** False when the game is open only to explore the opponent's move; no move can be sent. */
     val isMyTurn: Boolean
         get() = detail?.summary?.isMyTurn ?: false
 
-    val isTrial: Boolean
-        get() = trial != null && !trial.isEmpty
+    val atStart: Boolean
+        get() = cursor <= 0
 
-    val atLatest: Boolean
-        get() = viewingMove == moveCount
+    val atCurrent: Boolean
+        get() = cursor == moveCount
 
-    /** What the board shows right now. */
+    val atEnd: Boolean
+        get() = cursor >= total
+
+    val canGoBack: Boolean
+        get() = cursor > 0
+
+    val canGoForward: Boolean
+        get() = cursor < total
+
+    /** How far into the trial the cursor is (0 when at or before the current state). */
+    val trialDepthShown: Int
+        get() = (cursor - moveCount).coerceIn(0, trialCount)
+
+    /** What the board shows at the cursor. */
     val position: Position?
-        get() = if (isTrial) trial?.position else replay?.positionAfter(viewingMove)
+        get() =
+            when {
+                cursor <= moveCount -> replay?.positionAfter(cursor)
+                else -> trial?.positionAt(trialDepthShown)
+            }
 
+    /** Trial stones visible at the cursor (for numbering/rings); empty before the trial. */
     val trialMoves: List<ColoredMove>
-        get() = trial?.moves ?: emptyList()
+        get() = if (cursor > moveCount) trial?.moves?.take(trialDepthShown) ?: emptyList() else emptyList()
 
     /** The move Send would transmit: the first trial stone. */
     val moveToSend: ColoredMove?
@@ -73,6 +110,10 @@ data class BoardUiState(
 
     val canSend: Boolean
         get() = isMyTurn && moveToSend != null && !sending && !loading
+
+    /** Tapping the board places a stone only at or after the current state. */
+    val canPlace: Boolean
+        get() = !sending && cursor >= moveCount && trial != null
 }
 
 class BoardViewModel(
@@ -108,8 +149,8 @@ class BoardViewModel(
                         loading = false,
                         detail = detail,
                         replay = replay,
-                        viewingMove = replay.moveCount,
                         trial = trial,
+                        cursor = replay.moveCount,
                     )
                 }
             } catch (e: GoServerException) {
@@ -118,39 +159,43 @@ class BoardViewModel(
         }
     }
 
-    /** Board taps only ever change local state. */
+    /** Board taps only ever change local state: they branch a trial from the cursor. */
     fun onTap(point: Point) {
         val s = _state.value
         val trial = s.trial ?: return
-        if (s.sending) return
-        when (val outcome = trial.place(point)) {
+        if (!s.canPlace) return
+        val fromDepth = trial.truncatedTo(s.trialDepthShown)
+        when (val outcome = fromDepth.place(point)) {
             is TrialOutcome.Placed -> {
+                val next = outcome.variation
                 _state.update {
-                    it.copy(trial = outcome.variation, viewingMove = it.moveCount, notice = null)
+                    it.copy(trial = next, cursor = it.moveCount + next.size, notice = null)
                 }
             }
 
             is TrialOutcome.Rejected -> {
-                // Illegal point: the variation is left exactly as it was.
+                // Illegal point: nothing changes.
             }
         }
     }
 
-    fun undo() = _state.update { it.copy(trial = it.trial?.undo()) }
-
-    fun reset() = _state.update { it.copy(trial = it.trial?.reset()) }
-
-    fun showPrevious() =
+    fun undo() =
         _state.update {
-            if (it.isTrial) it else it.copy(viewingMove = (it.viewingMove - 1).coerceAtLeast(0))
+            val next = it.trial?.undo() ?: return@update it
+            it.copy(trial = next, cursor = it.cursor.coerceAtMost(it.moveCount + next.size))
         }
 
-    fun showNext() =
-        _state.update {
-            if (it.isTrial) it else it.copy(viewingMove = (it.viewingMove + 1).coerceAtMost(it.moveCount))
-        }
+    fun reset() = _state.update { it.copy(trial = it.trial?.reset(), cursor = it.moveCount) }
 
-    fun showLatest() = _state.update { it.copy(viewingMove = it.moveCount) }
+    fun toStart() = _state.update { it.copy(cursor = 0) }
+
+    fun stepBack() = _state.update { it.copy(cursor = (it.cursor - 1).coerceAtLeast(0)) }
+
+    fun toCurrent() = _state.update { it.copy(cursor = it.moveCount) }
+
+    fun stepForward() = _state.update { it.copy(cursor = (it.cursor + 1).coerceAtMost(it.moveCount + it.trialCount)) }
+
+    fun toEnd() = _state.update { it.copy(cursor = it.moveCount + it.trialCount) }
 
     fun askSend() {
         if (_state.value.canSend) _state.update { it.copy(confirmation = PendingConfirmation.SEND) }

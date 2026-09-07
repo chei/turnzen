@@ -39,6 +39,21 @@ class TrialVariation private constructor(
     val position: Position
         get() = steps.lastOrNull()?.position ?: base
 
+    /** Positions along the variation: index 0 is [base], index i is after i trial moves. */
+    val positions: List<Position>
+        get() =
+            buildList {
+                add(base)
+                steps.forEach { add(it.position) }
+            }
+
+    /** The position after the first [depth] trial moves (0 = [base]). */
+    fun positionAt(depth: Int): Position = positions[depth.coerceIn(0, steps.size)]
+
+    /** A copy keeping only the first [depth] trial moves; used to branch a new line. */
+    fun truncatedTo(depth: Int): TrialVariation =
+        TrialVariation(base, firstColor, steps.take(depth.coerceIn(0, steps.size)))
+
     val size: Int
         get() = steps.size
 

@@ -1,15 +1,21 @@
 package dev.turnzen.app.ui.board
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -23,11 +29,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.data.BoardSettings
@@ -38,12 +47,15 @@ import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @Composable
 fun BoardScreen(
     viewModel: BoardViewModel,
     boardSettings: BoardSettings,
     onSkip: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val detail = state.detail
@@ -55,6 +67,13 @@ fun BoardScreen(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
+        TextAction(
+            "←  " + stringResource(R.string.board_back),
+            onClick = onBack,
+            color = colors.ink2,
+            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
+        )
+
         if (detail != null) {
             Header(
                 myColor = detail.summary.myColor,
@@ -81,17 +100,18 @@ fun BoardScreen(
             Box(Modifier.fillMaxWidth().aspectRatio(1f).background(colors.board))
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
 
+        // Info line: trial status with Undo/Reset, or a context hint.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp).height(32.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).heightIn(min = 32.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (state.isTrial) {
+            if (state.hasTrial) {
                 Box(Modifier.size(10.dp).background(colors.accent, CircleShape))
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    "Trial, ${state.trialMoves.size} ${if (state.trialMoves.size == 1) "move" else "moves"}",
+                    "Trial, ${state.trialCount} ${if (state.trialCount == 1) "move" else "moves"}",
                     style = MaterialTheme.typography.labelLarge,
                     color = colors.accent,
                     modifier = Modifier.weight(1f),
@@ -100,25 +120,30 @@ fun BoardScreen(
                 Spacer(Modifier.width(20.dp))
                 TextAction(stringResource(R.string.board_reset), onClick = viewModel::reset)
             } else {
-                TextAction("‹", onClick = viewModel::showPrevious, color = colors.ink2, enabled = state.viewingMove > 0)
-                Text(
-                    state.viewingMove.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                )
-                TextAction("›", onClick = viewModel::showNext, color = colors.ink2, enabled = !state.atLatest)
-                Spacer(Modifier.weight(1f))
                 Text(
                     when {
                         state.notice != null -> state.notice.orEmpty()
-                        !state.atLatest -> "Viewing move ${state.viewingMove} of ${state.moveCount}"
                         !state.isMyTurn -> stringResource(R.string.board_opponent_to_move)
-                        else -> stringResource(R.string.board_hint_try)
+                        state.atEnd -> stringResource(R.string.board_hint_try)
+                        else -> ""
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (state.notice != null) colors.accent else colors.ink2,
+                    modifier = Modifier.weight(1f),
                 )
             }
+        }
+
+        // Move navigation: start, back, current server state, forward, end of trial.
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            NavButton("«", enabled = state.canGoBack, onClick = viewModel::toStart)
+            RepeatNavButton("‹", enabled = state.canGoBack, onStep = viewModel::stepBack)
+            NavButton("0", enabled = true, onClick = viewModel::toCurrent)
+            RepeatNavButton("›", enabled = state.canGoForward, onStep = viewModel::stepForward)
+            NavButton("»", enabled = state.canGoForward, onClick = viewModel::toEnd)
         }
 
         state.error?.let {
@@ -170,6 +195,67 @@ fun BoardScreen(
         null -> {
             // No dialog on screen.
         }
+    }
+}
+
+/** A single move-navigation glyph: jumps once per tap. */
+@Composable
+private fun RowScope.NavButton(
+    glyph: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) {
+    Box(
+        Modifier
+            .weight(1f)
+            .height(44.dp)
+            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, fontSize = 22.sp, color = if (enabled) colors.ink else colors.line)
+    }
+}
+
+/**
+ * A move-navigation glyph that steps once on tap and, if held, replays in sequence:
+ * the first step is immediate, then after ~0.9s it repeats about every 0.5s until release.
+ */
+@Composable
+private fun RowScope.RepeatNavButton(
+    glyph: String,
+    enabled: Boolean,
+    onStep: () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    Box(
+        Modifier
+            .weight(1f)
+            .height(44.dp)
+            .then(
+                if (!enabled) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(Unit) {
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            onStep()
+                            val repeat =
+                                scope.launch {
+                                    delay(900)
+                                    while (true) {
+                                        onStep()
+                                        delay(500)
+                                    }
+                                }
+                            waitForUpOrCancellation()
+                            repeat.cancel()
+                        }
+                    }
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(glyph, fontSize = 22.sp, color = if (enabled) colors.ink else colors.line)
     }
 }
 

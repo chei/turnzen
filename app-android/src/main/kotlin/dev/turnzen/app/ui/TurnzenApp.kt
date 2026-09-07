@@ -111,7 +111,12 @@ private fun SignedInShell(container: AppContainer) {
                     // Reload whenever the game is (re)opened: the cached ViewModel may hold
                     // state from before a move was sent, so its board could be stale.
                     LaunchedEffect(game) { vm.load() }
-                    BoardScreen(vm, settings.board, onSkip = { advanceFrom(game) })
+                    BoardScreen(
+                        vm,
+                        settings.board,
+                        onSkip = { advanceFrom(game) },
+                        onBack = { openGame = null },
+                    )
                 }
 
                 tab == MainTab.GAMES -> {

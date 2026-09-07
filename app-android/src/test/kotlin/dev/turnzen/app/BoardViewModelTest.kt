@@ -52,8 +52,9 @@ class BoardViewModelTest : MainDispatcherTest() {
             val s = h.vm.state.value
             assertFalse(s.loading)
             assertEquals(12, s.moveCount)
-            assertTrue(s.atLatest)
-            assertFalse(s.isTrial)
+            assertTrue(s.atCurrent)
+            assertTrue(s.atEnd)
+            assertFalse(s.hasTrial)
             assertNull(s.moveToSend)
             assertEquals(StoneColor.BLACK, s.detail?.summary?.myColor)
         }
@@ -107,7 +108,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.onTap(Point(1, 0))
             h.vm.onTap(Point(1, 0)) // occupied, ignored
             val s = h.vm.state.value
-            assertTrue(s.isTrial)
+            assertTrue(s.hasTrial)
             assertEquals(2, s.trialMoves.size)
             assertEquals(listOf(StoneColor.BLACK, StoneColor.WHITE), s.trialMoves.map { it.color })
             assertEquals(Move.Play(Point(0, 0)), s.moveToSend?.move)
@@ -125,7 +126,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.undo()
             assertEquals(1, h.vm.state.value.trialMoves.size)
             h.vm.reset()
-            assertFalse(h.vm.state.value.isTrial)
+            assertFalse(h.vm.state.value.hasTrial)
             assertFalse(h.vm.state.value.canSend)
         }
 
@@ -205,24 +206,80 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `history navigation is disabled while a trial is in progress`() =
+    fun `move navigation scrubs the whole timeline`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(game)
             advanceUntilIdle()
-            h.vm.showPrevious()
-            h.vm.showPrevious()
-            assertEquals(10, h.vm.state.value.viewingMove)
+            val vm = h.vm
+            assertTrue(vm.state.value.atCurrent)
+            assertTrue(vm.state.value.atEnd)
+
+            vm.toStart()
+            assertTrue(vm.state.value.atStart)
             assertEquals(
-                10,
-                h.vm.state.value.position
+                0,
+                vm.state.value.position
                     ?.board
                     ?.stones()
                     ?.size,
             )
-            h.vm.onTap(Point(0, 0))
-            assertTrue(h.vm.state.value.atLatest)
-            h.vm.showPrevious()
-            assertTrue(h.vm.state.value.atLatest)
+
+            vm.stepForward()
+            assertEquals(
+                1,
+                vm.state.value.position
+                    ?.board
+                    ?.stones()
+                    ?.size,
+            )
+
+            vm.toCurrent()
+            assertTrue(vm.state.value.atCurrent)
+
+            // Two trial stones extend the timeline past the current state.
+            vm.onTap(Point(0, 0))
+            vm.onTap(Point(1, 0))
+            assertTrue(vm.state.value.hasTrial)
+            assertTrue(vm.state.value.atEnd)
+            assertEquals(2, vm.state.value.trialMoves.size)
+
+            // Scrub back into the trial: one stone shown, no longer at the end.
+            vm.stepBack()
+            assertEquals(1, vm.state.value.trialMoves.size)
+            assertFalse(vm.state.value.atEnd)
+
+            // Back at the current state: no trial stones shown, but the trial still exists.
+            vm.toCurrent()
+            assertEquals(0, vm.state.value.trialMoves.size)
+            assertTrue(vm.state.value.hasTrial)
+
+            // Jump to the end shows the whole trial again.
+            vm.toEnd()
+            assertEquals(2, vm.state.value.trialMoves.size)
+        }
+
+    @Test
+    fun `tapping while scrubbed into the trial branches a new line`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            val vm = h.vm
+            vm.onTap(Point(0, 0))
+            vm.onTap(Point(1, 0))
+            vm.onTap(Point(2, 0))
+            assertEquals(3, vm.state.value.trialCount)
+
+            // Step back to depth 2, then tap: the trial truncates and a new move is added.
+            vm.stepBack()
+            vm.onTap(Point(3, 0))
+            assertEquals(3, vm.state.value.trialCount)
+            assertEquals(
+                Point(3, 0),
+                vm.state.value.trialMoves
+                    .last()
+                    .point,
+            )
         }
 }
