@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -74,6 +75,7 @@ fun PillButton(
     Box(
         modifier
             .height(48.dp)
+            .clip(CircleShape)
             .background(background, CircleShape)
             .then(if (primary) Modifier else Modifier.border(1.dp, colors.line, CircleShape))
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
