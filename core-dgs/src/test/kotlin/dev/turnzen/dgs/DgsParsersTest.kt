@@ -7,6 +7,10 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
 import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
+import java.util.TimeZone
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -16,6 +20,17 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class DgsParsersTest {
+    // The fixture-driven assertions below expect UTC instants, and the parser now reads
+    // bare DGS times in the JVM's default zone. Pin it to UTC so the tests are the same on
+    // any machine; the zone-conversion behaviour itself is covered explicitly further down.
+    private val savedZone = TimeZone.getDefault()
+
+    @BeforeTest
+    fun pinUtc() = TimeZone.setDefault(TimeZone.getTimeZone("UTC"))
+
+    @AfterTest
+    fun restoreZone() = TimeZone.setDefault(savedZone)
+
     @Test
     fun `login error lines map to exceptions`() {
         val unknownUser = LoginResponse.failure(Fixtures.text("login_error_wrong_userid.txt"))
@@ -70,11 +85,14 @@ class DgsParsersTest {
     }
 
     @Test
-    fun `dates are read as UTC`() {
-        assertEquals(Instant.parse("2026-09-02T19:42:11Z"), DgsDates.parse("2026-09-02 19:42:11"))
-        assertEquals(Instant.parse("2026-09-02T19:42:11Z"), DgsDates.parse("2026-09-02 19:42:11 GMT"))
-        assertNull(DgsDates.parse(""))
-        assertNull(DgsDates.parse("yesterday"))
+    fun `a bare date is read in the given zone, a GMT date stays UTC`() {
+        val budapest = ZoneId.of("Europe/Budapest") // CEST (+2) on this date
+        // The bare DGS wall-clock is the user's local time: 19:42 in Budapest is 17:42 UTC.
+        assertEquals(Instant.parse("2026-09-02T17:42:11Z"), DgsDates.parse("2026-09-02 19:42:11", budapest))
+        // A trailing GMT means the value really is UTC, whatever the device zone.
+        assertEquals(Instant.parse("2026-09-02T19:42:11Z"), DgsDates.parse("2026-09-02 19:42:11 GMT", budapest))
+        assertNull(DgsDates.parse("", budapest))
+        assertNull(DgsDates.parse("yesterday", budapest))
     }
 
     @Test

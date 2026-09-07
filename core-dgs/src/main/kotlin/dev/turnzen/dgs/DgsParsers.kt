@@ -17,6 +17,7 @@ import kotlinx.serialization.json.JsonObject
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
@@ -33,18 +34,31 @@ internal object LoginResponse {
 }
 
 /**
- * DGS date-times are "YYYY-MM-DD hh:mm:ss" in the *user's profile time zone*, which the
- * QuickSuite does not expose. They are read as UTC here; ordering is exact, absolute
- * values may be off by the user's DGS time-zone offset.
+ * DGS date-times are "YYYY-MM-DD hh:mm:ss" with no offset, rendered in the *user's DGS
+ * profile time zone*, which the QuickSuite does not expose. We interpret them in the
+ * device's own zone ([zone]): a real user's phone is set to where they live, which is the
+ * time zone they also chose on DGS, so this reads correctly for them. (Interpreting the
+ * bare string as UTC instead shifts every value by the user's offset, which for a UTC+2
+ * user made a move from minutes ago look hours in the future — hence "just now" everywhere.)
+ * The rare user whose DGS profile zone differs from their phone is still off by that gap.
+ *
+ * A trailing "GMT" (not seen in practice, but cheap to honour) means the value really is
+ * UTC and is read as such.
  */
 internal object DgsDates {
     private val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
-    fun parse(text: String?): Instant? {
-        val v = text?.trim()?.removeSuffix("GMT")?.trim() ?: return null
+    fun parse(
+        text: String?,
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): Instant? {
+        val trimmed = text?.trim() ?: return null
+        val isGmt = trimmed.endsWith("GMT")
+        val v = trimmed.removeSuffix("GMT").trim()
         if (v.isEmpty()) return null
         return try {
-            LocalDateTime.parse(v, formatter).toInstant(ZoneOffset.UTC)
+            val local = LocalDateTime.parse(v, formatter)
+            if (isGmt) local.toInstant(ZoneOffset.UTC) else local.atZone(zone).toInstant()
         } catch (e: DateTimeParseException) {
             null
         }
