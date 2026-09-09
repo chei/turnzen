@@ -188,6 +188,12 @@ class BoardViewModel(
         val s = _state.value
         val trial = s.trial ?: return
         if (!s.canPlace) return
+        // Tapping the newest trial stone takes it back, exactly as the step-back button
+        // does, so a variation can be walked forward and back without leaving the board.
+        if (s.trialMoves.lastOrNull()?.point == point) {
+            stepBack()
+            return
+        }
         val fromDepth = trial.truncatedTo(s.trialDepthShown)
         when (val outcome = fromDepth.place(point)) {
             is TrialOutcome.Placed -> {

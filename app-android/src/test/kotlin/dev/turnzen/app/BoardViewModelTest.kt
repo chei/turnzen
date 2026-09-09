@@ -132,7 +132,7 @@ class BoardViewModelTest : MainDispatcherTest() {
 
             h.vm.onTap(Point(0, 0))
             h.vm.onTap(Point(1, 0))
-            h.vm.onTap(Point(1, 0)) // occupied, ignored
+            h.vm.onTap(Point(0, 0)) // occupied by an earlier trial stone, ignored
             val s = h.vm.state.value
             assertTrue(s.hasTrial)
             assertEquals(2, s.trialMoves.size)
@@ -159,6 +159,32 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.toCurrent()
             assertFalse(h.vm.state.value.canSend)
             assertTrue(h.vm.state.value.hasTrial)
+        }
+
+    @Test
+    fun `tapping the newest trial stone takes it back`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+
+            h.vm.onTap(Point(0, 0))
+            h.vm.onTap(Point(1, 0))
+            assertEquals(2, h.vm.state.value.trialMoves.size)
+
+            // Same effect as the step-back button: the stone goes, the variation is kept,
+            // so stepping forward brings it back.
+            h.vm.onTap(Point(1, 0))
+            assertEquals(1, h.vm.state.value.trialMoves.size)
+            assertEquals(2, h.vm.state.value.trialCount)
+            h.vm.stepForward()
+            assertEquals(2, h.vm.state.value.trialMoves.size)
+
+            // Taking back every trial stone returns the board to the server position.
+            h.vm.onTap(Point(1, 0))
+            h.vm.onTap(Point(0, 0))
+            assertTrue(h.vm.state.value.atCurrent)
+            assertEquals(0, h.vm.state.value.trialMoves.size)
         }
 
     @Test
