@@ -9,6 +9,7 @@ import dev.turnzen.game.Point
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.TurnBasedGoServerClient
@@ -236,6 +237,68 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertNotNull(s.notice)
             assertEquals(14, s.moveCount)
             assertTrue(h.sent.isEmpty())
+        }
+
+    @Test
+    fun `a move rejected as not your turn reloads the game and rechecks the list`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            var listLoads = 0
+            val client =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                    ): Unit = throw GoServerException.MoveRejected("not_your_turn", "not your turn")
+
+                    override suspend fun gamesAwaitingMe(): List<GameSummary> {
+                        listLoads++
+                        return fake.gamesAwaitingMe()
+                    }
+                }
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            val loadsAfterStart = listLoads
+
+            h.vm.onTap(Point(0, 0))
+            h.vm.askSend()
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            // Not a rejection the user can act on: the game moved on, so it is reloaded and
+            // the games list is re-read rather than an error being shown.
+            assertNotNull(s.notice)
+            assertNull(s.error)
+            assertTrue(h.sent.isEmpty())
+            assertEquals(loadsAfterStart + 1, listLoads)
+        }
+
+    @Test
+    fun `a move rejected as illegal is reported and keeps the variation`() =
+        runTest(dispatcher) {
+            val rejecting =
+                object : TurnBasedGoServerClient by FakeTurnBasedGoServerClient(latencyMillis = 0) {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                    ): Unit = throw GoServerException.MoveRejected("ko", "ko")
+                }
+            val h = Harness(rejecting)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.askSend()
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            assertNotNull(s.error)
+            assertNull(s.notice)
+            assertTrue(s.hasTrial)
         }
 
     @Test

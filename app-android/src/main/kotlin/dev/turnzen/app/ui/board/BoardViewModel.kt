@@ -25,6 +25,9 @@ import kotlinx.coroutines.launch
 
 enum class PendingConfirmation { SEND }
 
+/** DGS's code for a move sent when it is the opponent's turn. */
+private const val CODE_NOT_YOUR_TURN = "not_your_turn"
+
 /**
  * The board state is navigated by a single [cursor] over one timeline:
  *
@@ -243,8 +246,16 @@ class BoardViewModel(
                 onMoveSent(gameId)
                 games.onMovePlayed(gameId)
             } catch (e: GoServerException.StaleGame) {
-                _state.update { it.copy(sending = false, notice = "The game changed on the server. Reloaded.") }
-                load()
+                onGameMovedOn()
+            } catch (e: GoServerException.MoveRejected) {
+                // "Not your turn" is not a bad move, it means the game moved on without us
+                // (the opponent played, or this player moved in another client). Treat it
+                // like a stale game rather than showing a rejection the user cannot act on.
+                if (e.code == CODE_NOT_YOUR_TURN) {
+                    onGameMovedOn()
+                } else {
+                    _state.update { it.copy(sending = false, error = messageFor(e)) }
+                }
             } catch (e: GoServerException) {
                 // The trial variation is kept so nothing is lost.
                 _state.update { it.copy(sending = false, error = messageFor(e)) }
@@ -253,6 +264,23 @@ class BoardViewModel(
     }
 
     fun dismissError() = _state.update { it.copy(error = null) }
+
+    /**
+     * The game moved on without us. Reload it so the board shows the real position, and
+     * re-check the games list in the background: the same event that invalidated this move
+     * usually changed whose turn it is elsewhere, and the list is what the user goes back to.
+     */
+    private fun onGameMovedOn() {
+        _state.update { it.copy(sending = false, notice = "The game changed on the server. Reloaded.") }
+        load()
+        viewModelScope.launch {
+            try {
+                games.refresh()
+            } catch (e: GoServerException) {
+                // Best effort: the list keeps what it has and refreshes again when shown.
+            }
+        }
+    }
 
     private fun messageFor(e: GoServerException): String {
         val server = session.serverName

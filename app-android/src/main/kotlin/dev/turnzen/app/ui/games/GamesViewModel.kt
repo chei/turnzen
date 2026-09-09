@@ -13,9 +13,13 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Duration.Companion.seconds
 
 /** The two content filters on the Games screen. */
 enum class GamesTab { YOUR_TURN, ALL }
+
+/** How recent a refresh has to be for [GamesViewModel.refreshOnShow] to skip a new one. */
+private val MIN_AUTO_REFRESH_NANOS = 15.seconds.inWholeNanoseconds
 
 data class GamesUiState(
     /** Games where it is the user's move. null while the first load is in flight. */
@@ -43,19 +47,39 @@ class GamesViewModel(
             GamesUiState(yourTurn = store.yourTurn.value, allRunning = store.allRunning.value),
         )
 
-    init {
-        refresh()
+    private var inFlight = false
+    private var lastRefreshAt = 0L
+
+    /** Pull to refresh: the user asked, so the spinner shows. */
+    fun refresh() = start(silent = false)
+
+    /**
+     * Called whenever the list comes back into view — app start, returning from a game, or
+     * resuming the app — so it is never the list from the last time it was opened.
+     *
+     * Silent: the games already on screen stay put and no spinner appears; rows update when
+     * the answer lands. Skipped when a refresh finished moments ago, so walking through a
+     * queue of games does not re-ask the server on every step back to the list.
+     */
+    fun refreshOnShow() {
+        if (System.nanoTime() - lastRefreshAt < MIN_AUTO_REFRESH_NANOS) return
+        start(silent = true)
     }
 
-    fun refresh() {
-        if (transient.value.refreshing) return
-        transient.update { it.copy(refreshing = true, error = null) }
+    private fun start(silent: Boolean) {
+        if (inFlight) return
+        inFlight = true
+        if (!silent) transient.update { it.copy(refreshing = true, error = null) }
         viewModelScope.launch {
             try {
                 store.refresh()
-                transient.update { it.copy(refreshing = false) }
+                lastRefreshAt = System.nanoTime()
+                transient.update { it.copy(refreshing = false, error = null) }
             } catch (e: GoServerException) {
+                // Shown for a silent refresh too: it explains why the list looks unchanged.
                 transient.update { it.copy(refreshing = false, error = messageFor(e)) }
+            } finally {
+                inFlight = false
             }
         }
     }

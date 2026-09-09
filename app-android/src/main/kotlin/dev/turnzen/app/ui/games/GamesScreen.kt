@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.ErrorMessage
@@ -51,6 +52,14 @@ fun GamesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val games = state.listFor(tab)
+
+    // Refresh every time the list is shown: on app start, on returning from a game, and on
+    // resume after the app was in the background. Tied to the resumed state rather than to
+    // composition so that a game finished while the app was away is not still listed.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refreshOnShow()
+        onPauseOrDispose {}
+    }
 
     // One scroll position per tab: the two lists differ in length, and a single shared
     // LazyListState re-anchors on its keyed items when the tab switches, which could leave
