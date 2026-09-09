@@ -276,9 +276,18 @@ private fun RowScope.NavButton(
     }
 }
 
+// Held-button replay speed. A 19x19 game runs past 200 moves, so a fixed slow repeat makes
+// crossing one a chore. The repeat instead accelerates: it opens slow enough to stop on a
+// chosen move, then winds up to a rate that crosses a long game in a few seconds.
+private const val REPEAT_HOLD_MS = 350L
+private const val REPEAT_FIRST_MS = 110L
+private const val REPEAT_FASTEST_MS = 35L
+private const val REPEAT_RAMP_STEPS = 12
+
 /**
- * A move-navigation button that steps once on tap and, if held, replays in sequence:
- * the first step is immediate, then after ~0.9s it repeats about every 0.5s until release.
+ * A move-navigation button that steps once on tap and, if held, replays in sequence: the
+ * first step is immediate, then after [REPEAT_HOLD_MS] it repeats, accelerating from
+ * [REPEAT_FIRST_MS] to [REPEAT_FASTEST_MS] per move over [REPEAT_RAMP_STEPS] steps.
  */
 @Composable
 private fun RowScope.RepeatNavButton(
@@ -301,10 +310,12 @@ private fun RowScope.RepeatNavButton(
                             onStep()
                             val repeat =
                                 scope.launch {
-                                    delay(900)
+                                    delay(REPEAT_HOLD_MS)
+                                    var stepsSoFar = 0
                                     while (true) {
                                         onStep()
-                                        delay(500)
+                                        delay(repeatDelayMs(stepsSoFar))
+                                        stepsSoFar++
                                     }
                                 }
                             waitForUpOrCancellation()
@@ -317,6 +328,12 @@ private fun RowScope.RepeatNavButton(
     ) {
         content(if (enabled) colors.ink else colors.line)
     }
+}
+
+/** Linear ramp from [REPEAT_FIRST_MS] down to [REPEAT_FASTEST_MS]; flat after the ramp. */
+private fun repeatDelayMs(stepsSoFar: Int): Long {
+    val progress = (stepsSoFar.toFloat() / REPEAT_RAMP_STEPS).coerceAtMost(1f)
+    return (REPEAT_FIRST_MS + (REPEAT_FASTEST_MS - REPEAT_FIRST_MS) * progress).toLong()
 }
 
 @Composable
