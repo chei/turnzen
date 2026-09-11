@@ -467,6 +467,15 @@ Decisions taken while building the MVP that refine or amend the sections above.
   vocabularies. `:core-game` still depends on nothing.
 - **Server clients return a parsed `GameRecord`, not SGF text.** `:core-dgs` downloads the
   SGF and parses it with `:core-game`'s reader, so the UI never sees a server response.
+- **Orientation: not locked, but not specially designed for either.** Correspondence Go on a
+  phone is portrait work, and a square board in landscape leaves wide empty margins while the
+  header, navigation and action row compete for a short viewport — a dedicated landscape
+  layout is not worth the maintenance for this audience. Locking to portrait is not the
+  answer either: with `targetSdk 36`, Android 16 ignores orientation restrictions on large
+  screens, so a lock would hold on phones and fail on exactly the tablets and foldables where
+  landscape actually happens. Instead the one layout is made to behave in any window, the
+  board sizing itself to the *short* edge rather than the width. That covers foldables,
+  tablets and multi-window, not just a rotated phone.
 - **A narrow record prefetch, qualifying "don't call the network unless the user asked"**
   (the stance above). `GamesStore` keeps a small cache of downloaded records and warms
   exactly two things: the game at the top of "Your turn" when the list lands, and the queue's

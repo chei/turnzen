@@ -85,14 +85,19 @@ private fun SignedInShell(container: AppContainer) {
     // Which games tab is active. Lifted above the open-game boundary so it survives opening
     // and closing a game, and so Skip and auto-advance know which list to move through.
     var gamesTab by rememberSaveable { mutableStateOf(GamesTab.YOUR_TURN) }
-    var openGame by remember { mutableStateOf<GameId?>(null) }
+    // Saved rather than merely remembered: any configuration change (rotation, theme, font
+    // size, a multi-window resize) or process death recreates the activity, and a plain
+    // remember would drop the open game and bounce the user back to the list. Held as the
+    // raw id because that is what a Bundle can carry.
+    var openGameId by rememberSaveable { mutableStateOf<String?>(null) }
+    val openGame = openGameId?.let(::GameId)
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
     fun advanceFrom(id: GameId) {
-        openGame = container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)
+        openGameId = container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)?.value
     }
 
-    BackHandler(enabled = openGame != null) { openGame = null }
+    BackHandler(enabled = openGame != null) { openGameId = null }
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -126,7 +131,7 @@ private fun SignedInShell(container: AppContainer) {
                         vm,
                         tab = gamesTab,
                         onTabChange = { gamesTab = it },
-                        onOpenGame = { openGame = it },
+                        onOpenGame = { openGameId = it.value },
                     )
                 }
 
@@ -139,7 +144,7 @@ private fun SignedInShell(container: AppContainer) {
         TurnzenBottomBar(
             selected = tab,
             onSelect = { selected ->
-                if (selected == MainTab.GAMES && tab == MainTab.GAMES) openGame = null
+                if (selected == MainTab.GAMES && tab == MainTab.GAMES) openGameId = null
                 tab = selected
             },
             gamesLabel = stringResource(R.string.nav_games),

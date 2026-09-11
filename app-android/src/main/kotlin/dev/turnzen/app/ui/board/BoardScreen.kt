@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -37,8 +38,10 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,17 +92,25 @@ fun BoardScreen(
             Spacer(Modifier.height(60.dp))
         }
 
-        if (position != null) {
-            GoBoard(
-                position = position,
-                trialMoves = state.trialMoves,
-                settings = boardSettings,
-                // No interaction with the placeholder grid until the real position loads.
-                enabled = !state.sending && !state.loading,
-                onTap = viewModel::onTap,
-            )
-        } else {
-            Box(Modifier.fillMaxWidth().aspectRatio(1f).background(colors.board))
+        // The board is square, so it has to fit the *short* edge of the window. Sizing it to
+        // the width is right in portrait but makes it taller than the viewport in landscape
+        // (and on anything wide), where it would simply overflow into the scroll. Centred,
+        // and capped so a strip of the header and the move navigation stays visible.
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            val boardWidth = Modifier.widthIn(max = maxBoardEdge())
+            if (position != null) {
+                GoBoard(
+                    position = position,
+                    modifier = boardWidth,
+                    trialMoves = state.trialMoves,
+                    settings = boardSettings,
+                    // No interaction with the placeholder grid until the real position loads.
+                    enabled = !state.sending && !state.loading,
+                    onTap = viewModel::onTap,
+                )
+            } else {
+                Box(boardWidth.fillMaxWidth().aspectRatio(1f).background(colors.board))
+            }
         }
 
         Spacer(Modifier.height(20.dp))
@@ -272,6 +283,25 @@ private fun RowScope.NavButton(
 // Held-button replay speed. A 19x19 game runs past 200 moves, so a fixed slow repeat makes
 // crossing one a chore. The repeat instead accelerates: it opens slow enough to stop on a
 // chosen move, then winds up to a rate that crosses a long game in a few seconds.
+
+/** Vertical space the board leaves for the header and move navigation around it. */
+private const val BOARD_HEIGHT_ALLOWANCE = 96
+
+/** Below this the board would be unreadable; better to overflow than to shrink past it. */
+private const val MIN_BOARD_EDGE = 240
+
+/**
+ * The largest square the board may occupy. The width wins in portrait, so the board stays
+ * full width exactly as before; in landscape — or any window wider than it is tall — the
+ * height wins and the board shrinks to fit instead of running off the bottom.
+ */
+@Composable
+private fun maxBoardEdge(): Dp {
+    val window = LocalConfiguration.current
+    val limitedByHeight = window.screenHeightDp - BOARD_HEIGHT_ALLOWANCE
+    return minOf(window.screenWidthDp, limitedByHeight).coerceAtLeast(MIN_BOARD_EDGE).dp
+}
+
 private const val REPEAT_HOLD_MS = 350L
 private const val REPEAT_FIRST_MS = 110L
 private const val REPEAT_FASTEST_MS = 35L
