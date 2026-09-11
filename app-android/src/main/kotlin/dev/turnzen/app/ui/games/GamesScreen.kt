@@ -188,8 +188,6 @@ private fun GameRow(
             Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            StoneIcon(game.myColor, 22.dp)
-            Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(
                     Formatting.opponent(game.opponent.handle, game.opponent.rank),

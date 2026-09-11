@@ -151,9 +151,8 @@ LAST_9 = ("D4", "W")
 
 def header_game(opp, rank, you, mv, time_left, urgent=False):
     s = f'<rect x="20" y="52" width="24" height="1" fill="none"/>'
-    s += stone_icon(30, 70, 9, BLACK if you == "black" else WHITE)
-    s += text(50, 66, f"{opp} ({rank})", 16, 600)
-    s += text(50, 86, f"You play {you}, move {mv}", 13, 400, INK2)
+    s += text(20, 66, f"{opp} ({rank})", 16, 600)
+    s += text(20, 86, f"You play {you}, move {mv}", 13, 400, INK2)
     s += text(W - 20, 66, time_left, 15, 600, URGENT if urgent else INK, "end")
     s += text(W - 20, 86, "to move", 13, 400, INK2, "end")
     return s
@@ -198,9 +197,8 @@ def screen_games(empty=False):
     ]
     y = 120
     for opp, rank, size, you, mv, left, urgent, when in rows:
-        s += stone_icon(34, y + 30, 11, BLACK if you == "black" else WHITE)
-        s += text(60, y + 25, f"{opp} ({rank})", 16, 600)
-        s += text(60, y + 46, f"{size}, move {mv}, last move {when}", 13, 400, INK2)
+        s += text(20, y + 25, f"{opp} ({rank})", 16, 600)
+        s += text(20, y + 46, f"{size}, move {mv}, last move {when}", 13, 400, INK2)
         s += text(W - 20, y + 25, left, 15, 600, URGENT if urgent else INK, "end")
         s += text(W - 20, y + 46, "left", 13, 400, INK2, "end")
         y += 72

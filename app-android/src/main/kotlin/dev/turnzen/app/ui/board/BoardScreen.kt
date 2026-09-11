@@ -48,7 +48,6 @@ import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.RemainingTimeLabel
-import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.Position
@@ -86,7 +85,6 @@ fun BoardScreen(
         if (summary != null) {
             val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
             Header(
-                myColor = summary.myColor,
                 opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
                 subtitle =
                     "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
@@ -339,7 +337,6 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
 
 @Composable
 private fun Header(
-    myColor: StoneColor,
     opponent: String,
     subtitle: String,
     remaining: RemainingTime?,
@@ -348,8 +345,6 @@ private fun Header(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StoneIcon(myColor, 18.dp)
-        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(opponent, style = MaterialTheme.typography.titleMedium)
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)

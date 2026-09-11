@@ -102,8 +102,10 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **Bottom navigation**: 80dp, two items in the MVP (Games, Settings). Active item in
   `accent`, others in `ink2`. Icons are simple geometry (two stones / a ring with a dot).
 - **Screen padding**: 20dp horizontal for everything except the board.
-- **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. Left: a stone
-  in the user's color. Title: opponent (rank). Secondary line: size, move number, and time
+- **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. The row leads
+  with its title: opponent (rank). (No stone in the user's color: a filled disc was the
+  loudest thing in the row while saying only which colour you play, which the board tells
+  you anyway.) Secondary line: size, move number, and time
   since the last move ("13x13, move 40, 45 h ago"), one line, ellipsised. Right: the
   remaining time (600), urgent red under three days and bold on a soft red pill under
   twelve hours (see rule 3); there is no "left" caption. On the opponent's turn (in the
@@ -117,8 +119,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
   move gets a small dot in the opposite color.
-- **Board screen, top to bottom**: status bar → header (user's color stone, opponent name
-  and rank, "You play black, move N"; right: remaining time over "to move") → board →
+- **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
+  black, move N" — which states the colour, so no stone icon repeats it; right: remaining
+  time over "to move") → board →
   info row → action row → flexible space → bottom nav. The space below the action row
   absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
 - **Info row (server position)**: move navigation on the left ("‹ 87 ›"), hint on the
