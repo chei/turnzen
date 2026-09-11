@@ -8,6 +8,7 @@ import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
@@ -69,8 +70,11 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
             assertEquals(12, h.vm.state.value.moveCount)
 
-            // The game moves on elsewhere; reopening the board must show the new state.
+            // The game moves on elsewhere. Once the list knows (it is refreshed whenever it is
+            // shown), reopening the board downloads the record again and shows the new state.
             client.sendMove(game, MoveToken("12"), Move.Play(Point(0, 0)))
+            h.games.refresh()
+            advanceUntilIdle()
             h.vm.load()
             advanceUntilIdle()
             assertEquals(14, h.vm.state.value.moveCount)
@@ -89,17 +93,80 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertTrue(h.vm.state.value.hasTrial)
 
             h.vm.load()
-            // Even before the download lands, the board is already back on the current
-            // position with no trial stones, so nothing flashes away when it completes.
-            val whileLoading = h.vm.state.value
-            assertTrue(whileLoading.loading)
-            assertFalse(whileLoading.hasTrial)
-            assertTrue(whileLoading.atCurrent)
+            // The record already held is still current (the list agrees), so reopening lands
+            // on the current position at once, with the previous viewing's trial gone.
+            val reopened = h.vm.state.value
+            assertFalse(reopened.loading)
+            assertFalse(reopened.hasTrial)
+            assertTrue(reopened.atCurrent)
 
             advanceUntilIdle()
             val loaded = h.vm.state.value
             assertFalse(loaded.hasTrial)
             assertTrue(loaded.atCurrent)
+        }
+
+    @Test
+    fun `a prefetched game opens instantly without another download`() =
+        runTest(dispatcher) {
+            var downloads = 0
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val counting =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun game(id: GameId): GameDetail {
+                        downloads++
+                        return fake.game(id)
+                    }
+                }
+            val h = Harness(counting)
+            h.session.signIn(Credentials("demo", "pw"))
+            h.games.refresh()
+            advanceUntilIdle()
+
+            // Warmed in the background, the way the queue's next game is.
+            val warmed = GameId("demo-13")
+            h.games.prefetch(warmed)
+            advanceUntilIdle()
+            assertEquals(1, downloads)
+
+            val vm = BoardViewModel(warmed, h.session, h.games) { }
+            vm.load()
+            // Instantaneous: the record is already here, so there is no second download and
+            // no loading state to sit through.
+            val opened = vm.state.value
+            assertFalse(opened.loading)
+            assertNotNull(opened.position)
+            advanceUntilIdle()
+            assertEquals(1, downloads)
+        }
+
+    @Test
+    fun `reopening a game that advanced on the server shows no stale position while loading`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(12, h.vm.state.value.moveCount)
+            assertNotNull(h.vm.state.value.position)
+
+            // The game moves on (the user played and/or the opponent did) and the games list
+            // learns about it, but the board's cached replay is still the old one.
+            client.sendMove(game, MoveToken("12"), Move.Play(Point(0, 0)))
+            h.games.refresh()
+            advanceUntilIdle()
+
+            h.vm.load()
+            // While the fresh record downloads, the board must not paint the stale position:
+            // it falls back to the loading placeholder (no position) instead of flashing the
+            // old board and then jumping.
+            val whileLoading = h.vm.state.value
+            assertTrue(whileLoading.loading)
+            assertNull(whileLoading.position)
+
+            advanceUntilIdle()
+            assertEquals(14, h.vm.state.value.moveCount)
+            assertNotNull(h.vm.state.value.position)
         }
 
     @Test

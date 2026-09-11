@@ -140,6 +140,8 @@ class BoardViewModel(
     private val gameId: GameId,
     private val session: SessionManager,
     private val games: GamesStore,
+    /** The game the queue moves to after this one; its record is warmed in the background. */
+    private val nextGame: () -> GameId? = { null },
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
     private val _state = MutableStateFlow(BoardUiState())
@@ -149,26 +151,55 @@ class BoardViewModel(
     // screen calls load() every time it is opened to pull the current server state (the
     // game may have moved on since it was last viewed).
 
-    fun load() {
+    /**
+     * Opening or reopening a game. A trial variation is local scratch work, so it is dropped
+     * here and the board lands on the current position.
+     *
+     * The record already held — loaded by this ViewModel earlier, or warmed in the background
+     * by [GamesStore.prefetch] — is used when the games list (refreshed whenever the list is
+     * shown) agrees the game has not moved on since. That makes opening a warm game
+     * instantaneous and costs no request. Otherwise the game *has* moved on (the user played
+     * in it, or the opponent has), so the held record would flash a stale position that then
+     * jumps: show the loading placeholder instead and fetch the real one.
+     *
+     * [force] downloads unconditionally, for the one case where the server has told us
+     * directly that the game moved on — the list has not caught up yet and must not be
+     * trusted.
+     */
+    fun load(force: Boolean = false) {
         val preview = games.summary(gameId)
-        // Reopening or reloading starts fresh at the current position. A trial variation is
-        // local scratch work; leaving the game ends it. Clear it here, in the same
-        // synchronous update that sets loading, using the cached replay — so a reopened game
-        // shows its current position at once instead of briefly flashing the leftover trial
-        // stones from the previous viewing before the download lands.
-        _state.update { current ->
-            val replay = current.replay
-            current.copy(
+        val known = if (force) null else _state.value.detail ?: games.cachedDetail(gameId)
+        if (known != null && (preview == null || preview.moveNumber <= known.summary.moveNumber)) {
+            val replay = Replay(known.record)
+            _state.update {
+                it.copy(
+                    loading = false,
+                    error = null,
+                    preview = preview ?: it.preview,
+                    detail = known,
+                    replay = replay,
+                    trial = TrialVariation.start(replay.finalPosition),
+                    cursor = replay.moveCount,
+                )
+            }
+            warmNext()
+            return
+        }
+        _state.update {
+            it.copy(
                 loading = true,
                 error = null,
-                preview = preview ?: current.preview,
-                trial = replay?.let { TrialVariation.start(it.finalPosition) },
-                cursor = replay?.moveCount ?: 0,
+                preview = preview ?: it.preview,
+                detail = null,
+                replay = null,
+                trial = null,
+                cursor = 0,
             )
         }
         viewModelScope.launch {
             try {
                 val detail = session.call { it.game(gameId) }
+                games.cache(detail)
                 val replay = Replay(detail.record)
                 _state.update { current ->
                     current.copy(
@@ -180,10 +211,21 @@ class BoardViewModel(
                         cursor = replay.moveCount,
                     )
                 }
+                warmNext()
             } catch (e: GoServerException) {
                 _state.update { it.copy(loading = false, error = messageFor(e)) }
             }
         }
+    }
+
+    /**
+     * Download the next game in the queue while the user studies this one, so the jump after
+     * a Send (or Skip) lands on a board that is already there. One game ahead only — see
+     * [GamesStore.prefetch].
+     */
+    private fun warmNext() {
+        val next = nextGame() ?: return
+        viewModelScope.launch { games.prefetch(next) }
     }
 
     /** Board taps only ever change local state: they branch a trial from the cursor. */
@@ -272,7 +314,7 @@ class BoardViewModel(
      */
     private fun onGameMovedOn() {
         _state.update { it.copy(sending = false, notice = "The game changed on the server. Reloaded.") }
-        load()
+        load(force = true)
         viewModelScope.launch {
             try {
                 games.refresh()

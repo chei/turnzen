@@ -458,6 +458,18 @@ Decisions taken while building the MVP that refine or amend the sections above.
   vocabularies. `:core-game` still depends on nothing.
 - **Server clients return a parsed `GameRecord`, not SGF text.** `:core-dgs` downloads the
   SGF and parses it with `:core-game`'s reader, so the UI never sees a server response.
+- **A narrow record prefetch, qualifying "don't call the network unless the user asked"**
+  (the stance above). `GamesStore` keeps a small cache of downloaded records and warms
+  exactly two things: the game at the top of "Your turn" when the list lands, and the queue's
+  *next* game while the current one is on screen. Stepping through the queue — the dominant
+  flow — is then instantaneous. Deliberately not a bulk sync of every waiting game: DGS
+  meters requests with a quota (`quota_count`/`quota_expire` in every QuickSuite reply), and
+  a player can have dozens of games they will never open in a session.
+  Opening a game uses the held record when the games list (refreshed whenever it is shown)
+  agrees the game has not moved on, which makes a warm game cost *no* request; when the list
+  reports a higher move number the record is refetched, and the board shows its loading
+  placeholder rather than a stale position. A `StaleGame` answer from the server forces a
+  download outright, since there the list is known to be behind.
 - **SGF parsing is a small custom reader/writer** in `:core-game` (about 150 lines). No
   maintained, permissively licensed Kotlin SGF library with a small footprint was found,
   and the DGS export uses a plain FF[4] subset.

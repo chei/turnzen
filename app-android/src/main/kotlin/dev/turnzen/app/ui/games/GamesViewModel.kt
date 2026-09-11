@@ -75,6 +75,7 @@ class GamesViewModel(
                 store.refresh()
                 lastRefreshAt = System.nanoTime()
                 transient.update { it.copy(refreshing = false, error = null) }
+                warmFirstGame()
             } catch (e: GoServerException) {
                 // Shown for a silent refresh too: it explains why the list looks unchanged.
                 transient.update { it.copy(refreshing = false, error = messageFor(e)) }
@@ -82,6 +83,19 @@ class GamesViewModel(
                 inFlight = false
             }
         }
+    }
+
+    /**
+     * Download the record of the game at the top of "Your turn" once the list lands, so the
+     * first game the user opens is already there. One game only: the rest of the queue is
+     * warmed a game at a time from the board itself.
+     */
+    private fun warmFirstGame() {
+        val first =
+            store.yourTurn.value
+                ?.firstOrNull()
+                ?.id ?: return
+        viewModelScope.launch { store.prefetch(first) }
     }
 
     private fun messageFor(e: GoServerException): String {
