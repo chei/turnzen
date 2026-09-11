@@ -477,8 +477,12 @@ Decisions taken while building the MVP that refine or amend the sections above.
   credentials. If that fails with a credential error, the sign-in screen explains why.
 - **Navigation is hand-rolled** (two tabs plus an open game) instead of navigation-compose;
   three destinations do not justify the dependency yet.
-- **Package and ids**: Kotlin packages `dev.turnzen.*`, application id `dev.turnzen`. The
-  source-code and issue links in Settings point at a `SOURCE_URL` build config field
-  that still carries a placeholder owner.
+- **Package and ids**: Kotlin packages `dev.turnzen.*` (code identity, one per module:
+  `.game`, `.dgs`, `.goserver`, `.app`); application id `io.github.chei.turnzen` (the
+  distribution identity, reverse-DNS of the `chei.github.io` Pages subdomain the source
+  lives under). The two are deliberately decoupled — the applicationId need not match the
+  package namespace, and the packages need not track a domain. The source-code and issue
+  links in Settings come from the `SOURCE_URL` build config field, set to
+  `https://github.com/chei/turnzen`.
 - **Demo server**: `FakeTurnBasedGoServerClient` lives in the app module for previews and
   for `-Pturnzen.fakeServer=true` builds, which is how the MVP was verified on an emulator.

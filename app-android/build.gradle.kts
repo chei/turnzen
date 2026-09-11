@@ -14,7 +14,7 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        applicationId = "dev.turnzen"
+        applicationId = "io.github.chei.turnzen"
         minSdk = 26
         targetSdk = 36
         versionCode = 1
