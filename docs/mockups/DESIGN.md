@@ -31,7 +31,9 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
    nav item, and text actions/links (Sign out, Source code). Never use it decoratively.
    Trial stones are not accented; they read as ordinary stones (see "Trial stones" below).
 3. **Urgency is the only other color.** A muted red marks low remaining time and nothing
-   else.
+   else. It comes in two steps of the *same* red: plain red text under three days
+   (matching DGS's own status page), and bold red on a soft red pill under twelve hours,
+   for a game about to time out. No second hue — only the emphasis grows.
 4. **Tapping the board never sends anything.** The Send button is the single path to the
    server, and it always names the move it sends ("Send O15").
 5. **Sentence case everywhere. No all-caps labels, no icon-only actions** on the board
@@ -103,8 +105,11 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. Left: a stone
   in the user's color. Title: opponent (rank). Secondary line: size, move number, and time
   since the last move ("13x13, move 40, 45 h ago"), one line, ellipsised. Right: the
-  remaining time (600), urgent red when under a day; there is no "left" caption. On the
-  opponent's turn (in the "All games" tab) the row reads "their move" instead of a time.
+  remaining time (600), urgent red under three days and bold on a soft red pill under
+  twelve hours (see rule 3); there is no "left" caption. On the opponent's turn (in the
+  "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
+  regular weight, never coloured) with no caption; the mute alone marks the row as waiting
+  on them, so the eye skips to the games that are actually yours to play.
 - **Games screen**: header is the wordmark "Turnzen". Below it, two tabs, "Your turn" and
   "All games", each with a count, above the list (content filter, distinct from the bottom
   destination bar). Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.

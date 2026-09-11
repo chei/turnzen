@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.RemainingTime
 
 @Composable
 fun StoneIcon(
@@ -116,6 +118,53 @@ fun ErrorMessage(
     modifier: Modifier = Modifier,
 ) {
     Text(text, modifier, style = MaterialTheme.typography.bodyMedium, color = colors.urgent)
+}
+
+/**
+ * The remaining-time figure, coloured by how close the game is to timing out. Under three
+ * days it turns urgent red (matching DGS); under twelve hours it also sits on a soft red
+ * pill and goes bold, so an almost-lost game stands out at a glance. One colour throughout,
+ * only the emphasis grows (DESIGN.md). Shared by the games list and the board header so the
+ * two read identically.
+ *
+ * On the opponent's turn ([muted]) it is instead shown quietly in [colors.ink2] with no
+ * weight or urgency: the figure is your own clock, which is paused until they move, so it
+ * carries information without competing with the games actually waiting on you. The mute is
+ * what distinguishes a their-turn row — no "their move" caption needed.
+ */
+@Composable
+fun RemainingTimeLabel(
+    time: RemainingTime?,
+    modifier: Modifier = Modifier,
+    muted: Boolean = false,
+) {
+    if (muted) {
+        Text(
+            Formatting.remaining(time),
+            modifier = modifier,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.ink2,
+        )
+        return
+    }
+    val urgency = Formatting.urgency(time)
+    val critical = urgency == Urgency.CRITICAL
+    val pill =
+        if (critical) {
+            modifier
+                .clip(RoundedCornerShape(6.dp))
+                .background(colors.urgent.copy(alpha = 0.14f))
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        } else {
+            modifier
+        }
+    Text(
+        Formatting.remaining(time),
+        modifier = pill,
+        style = MaterialTheme.typography.bodyLarge,
+        fontWeight = if (critical) FontWeight.Bold else FontWeight.SemiBold,
+        color = if (urgency == Urgency.NONE) colors.ink else colors.urgent,
+    )
 }
 
 enum class MainTab { GAMES, SETTINGS }

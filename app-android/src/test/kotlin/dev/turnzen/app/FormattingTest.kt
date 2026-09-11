@@ -1,6 +1,7 @@
 package dev.turnzen.app
 
 import dev.turnzen.app.ui.common.Formatting
+import dev.turnzen.app.ui.common.Urgency
 import dev.turnzen.goserver.RemainingTime
 import java.time.Duration
 import java.time.Instant
@@ -31,6 +32,28 @@ class FormattingTest {
         // Unknown wording must not be shown as urgent just because it could not be parsed.
         assertFalse(Formatting.isUrgent(RemainingTime("3xy 20zz", null)))
         assertFalse(Formatting.isUrgent(null))
+    }
+
+    @Test
+    fun `urgency steps at three days and twelve hours, matching DGS`() {
+        // At or above three days: not urgent (DGS shows these white; e.g. 4d 5h).
+        assertEquals(Urgency.NONE, Formatting.urgency(RemainingTime("4d 5h", Duration.ofDays(4).plusHours(5))))
+        assertEquals(Urgency.NONE, Formatting.urgency(RemainingTime("3d", Duration.ofDays(3))))
+        // Below three days: urgent red (e.g. the 2d 13h that DGS paints red).
+        assertEquals(
+            Urgency.URGENT,
+            Formatting.urgency(RemainingTime("2d 13h", Duration.ofDays(2).plusHours(13))),
+        )
+        assertEquals(Urgency.URGENT, Formatting.urgency(RemainingTime("12h", Duration.ofHours(12))))
+        // Below twelve hours: critical.
+        assertEquals(
+            Urgency.CRITICAL,
+            Formatting.urgency(RemainingTime("11h", Duration.ofHours(11).plusMinutes(59))),
+        )
+        assertEquals(Urgency.CRITICAL, Formatting.urgency(RemainingTime("6h", Duration.ofHours(6))))
+        // Uninterpretable wording and null stay calm.
+        assertEquals(Urgency.NONE, Formatting.urgency(RemainingTime("3xy 20zz", null)))
+        assertEquals(Urgency.NONE, Formatting.urgency(null))
     }
 
     @Test

@@ -47,11 +47,13 @@ import dev.turnzen.app.data.BoardSettings
 import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
+import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.RemainingTime
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -89,8 +91,7 @@ fun BoardScreen(
                 subtitle =
                     "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
                         "move $moveNumber",
-                remaining = Formatting.remaining(summary.remainingTime),
-                urgent = Formatting.isUrgent(summary.remainingTime),
+                remaining = summary.remainingTime,
             )
         } else {
             Spacer(Modifier.height(60.dp))
@@ -341,8 +342,7 @@ private fun Header(
     myColor: StoneColor,
     opponent: String,
     subtitle: String,
-    remaining: String,
-    urgent: Boolean,
+    remaining: RemainingTime?,
 ) {
     Row(
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
@@ -355,12 +355,7 @@ private fun Header(
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                remaining,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = if (urgent) colors.urgent else colors.ink,
-            )
+            RemainingTimeLabel(remaining)
             Text(
                 stringResource(R.string.board_to_move),
                 style = MaterialTheme.typography.bodyMedium,

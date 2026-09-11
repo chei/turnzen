@@ -36,6 +36,7 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
@@ -204,20 +205,7 @@ private fun GameRow(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            if (game.isMyTurn) {
-                Text(
-                    Formatting.remaining(game.remainingTime),
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (Formatting.isUrgent(game.remainingTime)) colors.urgent else colors.ink,
-                )
-            } else {
-                Text(
-                    stringResource(R.string.games_their_move),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                )
-            }
+            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }
