@@ -3,7 +3,8 @@
 import os
 
 W, H = 390, 844
-OUT = "/mnt/user-data/outputs/mockups"
+# Write the SVGs next to this script — that is where they live in the repo.
+OUT = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(OUT, exist_ok=True)
 
 # ---- tokens ---------------------------------------------------------------
@@ -170,16 +171,14 @@ def screen_signin():
     s = frame_open() + status_bar()
     s += stone_icon(W / 2 - 12, 190, 16, BLACK) + stone_icon(W / 2 + 12, 190, 16, WHITE)
     s += text(W / 2, 250, "Turnzen", 30, 600, INK, "middle")
-    s += text(W / 2, 276, "Correspondence Go, at your pace", 14, 400, INK2, "middle")
-    for i, (label, val) in enumerate([("DGS username", "csaba"), ("Password", "••••••••••")]):
+    for i, (label, val) in enumerate([("DGS username", "csaba"), ("DGS password", "••••••••••")]):
         y = 340 + i * 76
         s += text(20, y, label, 13, 400, INK2)
         s += text(20, y + 30, val, 17, 400, INK)
         s += hairline(y + 42)
     s += button(20, 520, W - 40, 50, "Sign in", primary=True)
     s += text(W / 2, 606, "Turnzen signs you in with your Dragon Go Server account.", 12, 400, INK2, "middle")
-    s += text(W / 2, 624, "There is no separate Turnzen account.", 12, 400, INK2, "middle")
-    s += text(W / 2, 680, "I don't have a DGS account", 14, 500, ACCENT, "middle")
+    s += text(W / 2, 680, "Register a Dragon Go Server account on the web", 14, 500, ACCENT, "middle")
     return s + "</svg>"
 
 

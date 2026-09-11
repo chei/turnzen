@@ -62,7 +62,6 @@ fun SignInScreen(viewModel: SignInViewModel) {
         }
         Spacer(Modifier.height(28.dp))
         Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Text(stringResource(R.string.tagline), style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         Spacer(Modifier.height(44.dp))
 
         UnderlinedField(
@@ -99,14 +98,14 @@ fun SignInScreen(viewModel: SignInViewModel) {
         )
         Spacer(Modifier.height(28.dp))
         Text(
-            stringResource(R.string.signin_note_1) + "\n" + stringResource(R.string.signin_note_2),
+            stringResource(R.string.signin_note_1),
             style = MaterialTheme.typography.bodySmall,
             color = colors.ink2,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(40.dp))
         Text(
-            stringResource(R.string.signin_no_account),
+            stringResource(R.string.signin_register),
             style = MaterialTheme.typography.titleSmall,
             color = colors.accent,
             modifier = Modifier.clickable { uriHandler.openUri(viewModel.registrationUrl) }.padding(8.dp),

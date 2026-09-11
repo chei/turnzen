@@ -369,8 +369,9 @@ Recommended order, cheapest/lowest-risk first:
 
 **1. Sign-in**
 - Fields: DGS username, password. Primary action: Sign in.
-- One line explaining that this is the user's DGS account, not a separate Turnzen account,
-  plus an "I don't have a DGS account" link (browser).
+- One line explaining that this is the user's DGS account ("Turnzen signs you in with your
+  Dragon Go Server account."), plus a "Register a Dragon Go Server account on the web" link
+  (browser).
 - States: loading, wrong credentials, network error.
 - Also shown when the DGS session has expired and silent re-login fails (e.g. password
   changed on the server).
