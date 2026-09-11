@@ -48,7 +48,6 @@ import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.RemainingTimeLabel
-import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
@@ -61,7 +60,6 @@ fun BoardScreen(
     viewModel: BoardViewModel,
     boardSettings: BoardSettings,
     onSkip: () -> Unit,
-    onBack: () -> Unit,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val summary = state.headerSummary
@@ -75,13 +73,9 @@ fun BoardScreen(
             .statusBarsPadding()
             .verticalScroll(rememberScrollState()),
     ) {
-        TextAction(
-            "←  " + stringResource(R.string.board_back),
-            onClick = onBack,
-            color = colors.ink2,
-            modifier = Modifier.padding(start = 16.dp, top = 4.dp),
-        )
-
+        // No back control of its own: Android's back (gesture or button) closes the game, as
+        // does the Games tab in the bottom bar. A third affordance only cost the board the
+        // vertical space it sat in.
         if (summary != null) {
             val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
             Header(

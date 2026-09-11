@@ -25,7 +25,6 @@
     <string name="board_sent">Sent</string>
     <string name="board_cancel">Cancel</string>
     <string name="board_send_explain">Only this move is sent. The other trial stones stay on your device.</string>
-    <string name="board_back">Games</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_group_account">Account</string>

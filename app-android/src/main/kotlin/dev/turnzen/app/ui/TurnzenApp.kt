@@ -117,7 +117,6 @@ private fun SignedInShell(container: AppContainer) {
                         vm,
                         settings.board,
                         onSkip = { advanceFrom(game) },
-                        onBack = { openGame = null },
                     )
                 }
 
