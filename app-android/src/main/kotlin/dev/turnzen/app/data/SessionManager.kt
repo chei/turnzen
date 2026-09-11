@@ -38,6 +38,13 @@ class SessionManager(
     private var client: TurnBasedGoServerClient = clientFactory(servers.serverUrl)
     private val reloginLock = Mutex()
 
+    // Bumped on every successful (re-)sign-in. When a burst of calls all fail against the
+    // same dead session (the Games screen fires two at once), only the first should sign in;
+    // the rest reuse its fresh session. A second, redundant sign-in would race on the shared
+    // client's cookies and could invalidate the very session the first retry is about to use
+    // — which surfaced as a spurious "signed out" message even though re-login had worked.
+    private var sessionGeneration = 0
+
     val serverName: String
         get() = client.serverName
 
@@ -61,7 +68,7 @@ class SessionManager(
             remember(user)
         } catch (e: GoServerException.SessionExpired) {
             try {
-                reSignIn()
+                reSignIn(sessionGeneration)
             } catch (e: GoServerException) {
                 // reSignIn already updated the state for credential problems.
                 if (e !is GoServerException.InvalidCredentials && storedUser != null) {
@@ -105,16 +112,21 @@ class SessionManager(
         client = clientFactory(serverUrl)
     }
 
-    suspend fun <T> call(block: suspend (TurnBasedGoServerClient) -> T): T =
-        try {
+    suspend fun <T> call(block: suspend (TurnBasedGoServerClient) -> T): T {
+        val generationBefore = sessionGeneration
+        return try {
             block(client)
         } catch (e: GoServerException.SessionExpired) {
-            reSignIn()
+            reSignIn(generationBefore)
             block(client)
         }
+    }
 
-    private suspend fun reSignIn() {
+    private suspend fun reSignIn(seenGeneration: Int) {
         reloginLock.withLock {
+            // Another call already re-signed-in while we waited for the lock: reuse its
+            // session instead of signing in a second time.
+            if (sessionGeneration != seenGeneration) return
             val creds = credentials.credentials
             if (creds == null) {
                 _state.value = AuthState.SignedOut()
@@ -135,6 +147,7 @@ class SessionManager(
     private fun remember(user: SignedInUser) {
         credentials.user = user
         credentials.session = client.exportSession()
+        sessionGeneration++
         _state.value = AuthState.SignedIn(user)
     }
 }
