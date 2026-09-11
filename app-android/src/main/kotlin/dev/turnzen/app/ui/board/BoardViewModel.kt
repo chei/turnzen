@@ -31,12 +31,20 @@ private const val CODE_NOT_YOUR_TURN = "not_your_turn"
 /**
  * The board state is navigated by a single [cursor] over one timeline:
  *
- *     0 .......... serverCount .......... total
- *     start        current server state   end of trial
+ *     0 .......... trialStart .......... total
+ *     start        where the trial       end of trial
+ *                  branches off
  *
- * `0..serverCount` replays the played moves; `serverCount..total` walks the trial moves on
- * top of the current position. Tapping the board branches a trial from the cursor (only at
- * or after the current state); sending always transmits the trial's first move.
+ * `0..trialStart` replays the played moves; `trialStart..total` walks the trial moves on top
+ * of the position there. [trialStart] is the current server state in the ordinary case, so
+ * the timeline is the whole game followed by the variation being considered.
+ *
+ * Tapping an empty point branches a trial from wherever the cursor is — including a rewound
+ * position, which is how "what if I had played there instead" works. That line then replaces
+ * the game's later moves on the timeline, and [trialStart] sits in the past until the user
+ * returns to the current state. Sending is possible only from a line that branches at the
+ * current state ([trialFromCurrent]); a what-if about a past position answers a question the
+ * game has already moved beyond.
  */
 data class BoardUiState(
     val loading: Boolean = true,
@@ -44,6 +52,8 @@ data class BoardUiState(
     val detail: GameDetail? = null,
     val replay: Replay? = null,
     val trial: TrialVariation? = null,
+    /** The played-move index the trial branches from; equals [moveCount] unless rewound. */
+    val trialStart: Int = 0,
     val cursor: Int = 0,
     val sending: Boolean = false,
     val confirmation: PendingConfirmation? = null,
@@ -67,11 +77,19 @@ data class BoardUiState(
     val trialCount: Int
         get() = trial?.size ?: 0
 
-    private val total: Int
-        get() = moveCount + trialCount
+    /** The far end of the timeline: the trial's branch point plus its moves. */
+    val total: Int
+        get() = trialStart + trialCount
 
     val hasTrial: Boolean
         get() = trialCount > 0
+
+    /**
+     * True while the trial branches from the current server state — the only line whose
+     * first stone is a legal answer to the position the opponent is actually waiting on.
+     */
+    val trialFromCurrent: Boolean
+        get() = trialStart == moveCount
 
     /** False when the game is open only to explore the opponent's move; no move can be sent.
      *  Uses the preview while loading so the Send button takes its final place from the start. */
@@ -81,8 +99,9 @@ data class BoardUiState(
     val atStart: Boolean
         get() = cursor <= 0
 
+    /** Viewing the real current position, not a what-if branched out of the past. */
     val atCurrent: Boolean
-        get() = cursor == moveCount
+        get() = trialFromCurrent && cursor == moveCount
 
     val atEnd: Boolean
         get() = cursor >= total
@@ -93,25 +112,25 @@ data class BoardUiState(
     val canGoForward: Boolean
         get() = cursor < total
 
-    /** How far into the trial the cursor is (0 when at or before the current state). */
+    /** How far into the trial the cursor is (0 when at or before the branch point). */
     val trialDepthShown: Int
-        get() = (cursor - moveCount).coerceIn(0, trialCount)
+        get() = (cursor - trialStart).coerceIn(0, trialCount)
 
     /** What the board shows at the cursor. */
     val position: Position?
         get() =
             when {
-                cursor <= moveCount -> replay?.positionAfter(cursor)
+                cursor <= trialStart -> replay?.positionAfter(cursor)
                 else -> trial?.positionAt(trialDepthShown)
             }
 
     /** Trial stones visible at the cursor (for numbering/rings); empty before the trial. */
     val trialMoves: List<ColoredMove>
-        get() = if (cursor > moveCount) trial?.moves?.take(trialDepthShown) ?: emptyList() else emptyList()
+        get() = if (cursor > trialStart) trial?.moves?.take(trialDepthShown) ?: emptyList() else emptyList()
 
-    /** The move Send would transmit: the first trial stone. */
+    /** The move Send would transmit: the first stone of a line branching at the current state. */
     val moveToSend: ColoredMove?
-        get() = trial?.firstMove
+        get() = if (trialFromCurrent) trial?.firstMove else null
 
     val sendLabel: String?
         get() {
@@ -129,11 +148,11 @@ data class BoardUiState(
      * current state disarms it. The move sent is that single trial stone.
      */
     val canSend: Boolean
-        get() = isMyTurn && cursor == moveCount + 1 && !sending && !loading
+        get() = isMyTurn && trialFromCurrent && cursor == moveCount + 1 && !sending && !loading
 
-    /** Tapping the board places a stone only at or after the current state. */
+    /** The board is live once a record is loaded: taps explore from wherever the cursor is. */
     val canPlace: Boolean
-        get() = !sending && cursor >= moveCount && trial != null
+        get() = !sending && !loading && replay != null
 }
 
 class BoardViewModel(
@@ -179,6 +198,7 @@ class BoardViewModel(
                     detail = known,
                     replay = replay,
                     trial = TrialVariation.start(replay.finalPosition),
+                    trialStart = replay.moveCount,
                     cursor = replay.moveCount,
                 )
             }
@@ -193,6 +213,7 @@ class BoardViewModel(
                 detail = null,
                 replay = null,
                 trial = null,
+                trialStart = 0,
                 cursor = 0,
             )
         }
@@ -208,6 +229,7 @@ class BoardViewModel(
                         replay = replay,
                         // A fresh trial on the current position, coloured for the side to move.
                         trial = TrialVariation.start(replay.finalPosition),
+                        trialStart = replay.moveCount,
                         cursor = replay.moveCount,
                     )
                 }
@@ -228,23 +250,50 @@ class BoardViewModel(
         viewModelScope.launch { games.prefetch(next) }
     }
 
-    /** Board taps only ever change local state: they branch a trial from the cursor. */
+    /** Board taps only ever change local state: they rewind, or branch a trial from the cursor. */
     fun onTap(point: Point) {
         val s = _state.value
-        val trial = s.trial ?: return
         if (!s.canPlace) return
-        // Tapping the newest trial stone takes it back, exactly as the step-back button
-        // does, so a variation can be walked forward and back without leaving the board.
+        val replay = s.replay ?: return
+        // Tapping the newest stone on the board takes it back, exactly as the step-back
+        // button does, so a game can be walked backwards with the same gesture that walks a
+        // variation backwards. That is the newest trial stone when one is shown...
         if (s.trialMoves.lastOrNull()?.point == point) {
             stepBack()
             return
         }
-        val fromDepth = trial.truncatedTo(s.trialDepthShown)
-        when (val outcome = fromDepth.place(point)) {
+        // ...and otherwise the most recently played stone, which rewinds past it. Played
+        // stones are of course not removed from the game, only stepped behind.
+        if (s.cursor in 1..s.trialStart) {
+            val played =
+                replay.record.moves
+                    .getOrNull(s.cursor - 1)
+                    ?.move
+            if (played is Move.Play && played.point == point) {
+                stepBack()
+                return
+            }
+        }
+        // Any other point starts or extends a variation from wherever the cursor is. Rewound
+        // into the game, that branches a new line off the past — "what if I had played here
+        // instead" — replacing the moves that followed for as long as the line is being read.
+        val branchAt = minOf(s.cursor, s.trialStart)
+        val from =
+            if (s.cursor <= s.trialStart) {
+                TrialVariation.start(replay.positionAfter(s.cursor))
+            } else {
+                s.trial?.truncatedTo(s.trialDepthShown) ?: return
+            }
+        when (val outcome = from.place(point)) {
             is TrialOutcome.Placed -> {
                 val next = outcome.variation
                 _state.update {
-                    it.copy(trial = next, cursor = it.moveCount + next.size, notice = null)
+                    it.copy(
+                        trial = next,
+                        trialStart = branchAt,
+                        cursor = branchAt + next.size,
+                        notice = null,
+                    )
                 }
             }
 
@@ -258,11 +307,27 @@ class BoardViewModel(
 
     fun stepBack() = _state.update { it.copy(cursor = (it.cursor - 1).coerceAtLeast(0)) }
 
-    fun toCurrent() = _state.update { it.copy(cursor = it.moveCount) }
+    /**
+     * Back to the live position. A line branched out of the past is dropped on the way: it
+     * answers a question about a position the game has already moved beyond, so keeping it
+     * would leave the board showing moves that never happened.
+     */
+    fun toCurrent() =
+        _state.update { s ->
+            if (s.trialFromCurrent) {
+                s.copy(cursor = s.moveCount)
+            } else {
+                s.copy(
+                    trial = s.replay?.let { TrialVariation.start(it.finalPosition) },
+                    trialStart = s.moveCount,
+                    cursor = s.moveCount,
+                )
+            }
+        }
 
-    fun stepForward() = _state.update { it.copy(cursor = (it.cursor + 1).coerceAtMost(it.moveCount + it.trialCount)) }
+    fun stepForward() = _state.update { it.copy(cursor = (it.cursor + 1).coerceAtMost(it.total)) }
 
-    fun toEnd() = _state.update { it.copy(cursor = it.moveCount + it.trialCount) }
+    fun toEnd() = _state.update { it.copy(cursor = it.total) }
 
     fun askSend() {
         if (_state.value.canSend) _state.update { it.copy(confirmation = PendingConfirmation.SEND) }

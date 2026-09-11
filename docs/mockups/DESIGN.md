@@ -132,6 +132,11 @@ Use tabular figures for time and move counts so columns don't jitter.
   and Send (filled accent). Send is disabled (`line` fill, `ink2` text) while there is no
   trial stone, and reads "Send <coordinate>" as soon as there is one. On the opponent's
   turn the row is hidden (the board is for exploring their move; nothing can be sent).
+- **Tapping**: the newest stone on the board is a back button — tapping it steps behind
+  that move, whether it is the newest trial stone or the last played one. Tapping anywhere
+  else starts or extends a variation from wherever the cursor is, so a rewound board branches
+  a what-if off the past. A line branched in the past cannot be sent (Send stays disabled),
+  and returning to the current position drops it.
 - **Trial stones**: drawn like any other stone — full opacity, no ring, no board-edge
   accent. With trial-stone numbering on, the move number is their only marking; with it
   off, only the most recently played trial stone is marked, using the same last-move dot

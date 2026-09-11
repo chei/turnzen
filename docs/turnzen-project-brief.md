@@ -399,6 +399,15 @@ Recommended order, cheapest/lowest-risk first:
     trial stone can be undone one step at a time, and a single action resets to the
     server position. Trial stones are visually distinct (e.g. numbered and/or with a
     different outline or opacity), and a small indicator states "trial: N moves".
+- **Walking the game by tapping**: tapping the newest stone on the board steps behind it —
+  the newest trial stone when a variation is shown, otherwise the most recently played move.
+  Played stones are of course never removed from the game, only stepped past, so the same
+  gesture walks a variation and the game itself backwards.
+- **What-ifs about the past**: a variation branches from wherever the cursor is, so after
+  rewinding, tapping an empty point asks "what if I had played here instead" and replaces
+  the moves that followed for as long as the line is being read. Such a line is *not*
+  sendable — it answers a question the game has moved beyond — and returning to the current
+  position drops it. Only a variation branching at the current state can be sent.
 - **Send move**: only the *first* stone of the current variation (the user's actual move)
   is sent; all later trial stones are discarded. The confirmation states exactly what is
   sent ("Send D4?"). Pass is available from the same action row.

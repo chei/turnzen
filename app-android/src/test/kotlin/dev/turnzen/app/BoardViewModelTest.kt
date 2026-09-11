@@ -449,6 +449,61 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `tapping the last played stone rewinds past it`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            val replay = h.vm.state.value.replay!!
+            assertEquals(12, h.vm.state.value.cursor)
+
+            // The newest stone on the board is the last played move; tapping it steps behind
+            // it, the same as the back button. Nothing is placed and the game is untouched.
+            h.vm.onTap((replay.record.moves[11].move as Move.Play).point)
+            assertEquals(11, h.vm.state.value.cursor)
+            assertFalse(h.vm.state.value.hasTrial)
+
+            // Repeating walks further back: now the newest stone is the move before it.
+            h.vm.onTap((replay.record.moves[10].move as Move.Play).point)
+            assertEquals(10, h.vm.state.value.cursor)
+            assertEquals(12, h.vm.state.value.moveCount)
+        }
+
+    @Test
+    fun `a trial can branch from a rewound position but cannot be sent`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            val vm = h.vm
+            assertTrue(vm.state.value.isMyTurn)
+
+            // Rewind six moves into the game and ask "what if I had played here instead".
+            repeat(6) { vm.stepBack() }
+            assertEquals(6, vm.state.value.cursor)
+            vm.onTap(Point(0, 0))
+
+            val branched = vm.state.value
+            assertTrue(branched.hasTrial)
+            assertEquals(6, branched.trialStart)
+            assertEquals(7, branched.cursor)
+            assertEquals(1, branched.trialMoves.size)
+            assertFalse(branched.atCurrent)
+            // The line answers a question the game has moved beyond, so it is not sendable
+            // even though it is the user's turn and it is one move deep.
+            assertFalse(branched.trialFromCurrent)
+            assertFalse(branched.canSend)
+            assertNull(branched.moveToSend)
+
+            // Returning to the live position drops the what-if line.
+            vm.toCurrent()
+            val back = vm.state.value
+            assertTrue(back.atCurrent)
+            assertEquals(12, back.cursor)
+            assertFalse(back.hasTrial)
+        }
+
+    @Test
     fun `tapping while scrubbed into the trial branches a new line`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
