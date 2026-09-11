@@ -124,10 +124,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   time over "to move") → board →
   info row → action row → flexible space → bottom nav. The space below the action row
   absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
-- **Info row (server position)**: move navigation on the left ("‹ 87 ›"), hint on the
-  right ("Tap the board to try moves", or "Opponent to move" when it is not the user's turn).
-- **Info row (trial mode)**: accent dot + "Trial, N moves" on the left; Undo and Reset as
-  text actions on the right.
+- **Move-navigation row**: five controls across the width — start, step back, the cursor's
+  move number (tapping it returns to the current position), step forward, end; back and
+  forward repeat while held. There is no separate info row, trial counter or hint line: the
+  numbered stones and this counter already say where the board stands.
 - **Action row**: two equal pill buttons, shown only on the user's turn. Pass (outlined)
   and Send (filled accent). Send is disabled (`line` fill, `ink2` text) while there is no
   trial stone, and reads "Send <coordinate>" as soon as there is one. On the opponent's

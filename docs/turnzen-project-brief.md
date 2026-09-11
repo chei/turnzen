@@ -381,8 +381,7 @@ Recommended order, cheapest/lowest-risk first:
 **2. Games — "Your move"** (default tab of the Games destination; the home screen)
 - Fetch starts on app start and on tab open; pull-to-refresh.
 - **Sort: most recent move first** (the game where someone moved most recently is at the
-  top). Verify whether the QuickSuite `game list` payload includes a last-move timestamp;
-  if not, choose the closest available key or fetch it separately.
+  top), keyed on the `time_lastmove` the QuickSuite game list carries for every game.
 - Row content: opponent name (and rank), board size / handicap, remaining thinking time,
   move count, optionally a small board thumbnail. Remaining time is the only true urgency
   signal — give it visual weight.
@@ -395,10 +394,12 @@ Recommended order, cheapest/lowest-risk first:
 - Two clearly distinguished modes; the visual design must make the difference obvious:
   - **Server position** — the actual game state as it is on DGS.
   - **Trial variation** — as soon as the user places a stone, they are in a local
-    variation. Stones alternate colors automatically (the user plays both sides), each
-    trial stone can be undone one step at a time, and a single action resets to the
-    server position. Trial stones are visually distinct (e.g. numbered and/or with a
-    different outline or opacity), and a small indicator states "trial: N moves".
+    variation. Stones alternate colors automatically (the user plays both sides). There is
+    no separate undo, reset or "trial: N moves" indicator: the move-navigation row walks a
+    variation backwards and forwards exactly as it walks the played game, tapping the newest
+    stone steps behind it, and returning to the current position abandons the line. Trial
+    stones are drawn like any other stone, numbered when that setting is on; with it off,
+    only the newest carries the last-move mark.
 - **Walking the game by tapping**: tapping the newest stone on the board steps behind it —
   the newest trial stone when a variation is shown, otherwise the most recently played move.
   Played stones are of course never removed from the game, only stepped past, so the same
@@ -498,11 +499,15 @@ Decisions taken while building the MVP that refine or amend the sections above.
   The client posts the login form instead of putting the password in the URL. The
   game list uses `cmd=list&view=status&limit=all&lstyle=json&with=user_id` and moves are
   sent as SGF coordinates (`move=qd`) or `move=pass` with the `move_id` context.
-  The exact success body of `login.php` is not verified against a real account yet; the
-  client treats "no `[#Error:` line and a session cookie was set" as success.
-- **DGS times are in the user's profile time zone**, which the QuickSuite does not
-  expose. They are parsed as UTC: sorting is exact, "last move N h ago" can be off by the
-  profile offset. Post-MVP: a time-zone setting or reading it from the profile page.
+  The client treats "no `[#Error:` line and a session cookie was set" as success, which has
+  held against a real account in daily use.
+- **DGS times are in the user's profile time zone**, which the QuickSuite does not expose.
+  Bare timestamps are therefore read in the device's own zone: a player's phone is set to
+  where they live, which is the zone they also chose on DGS. Reading them as UTC instead
+  shifts every value by the account's offset — far enough that a move made minutes ago reads
+  as lying in the future. A trailing "GMT", where it appears, is honoured as UTC. A player
+  whose DGS profile zone differs from their phone's is still off by that gap; reading the
+  zone from the profile page would close it.
 - **Session persistence**: the app stores the DGS cookies (encrypted) and restores them on
   start; a `not_logged_in` answer triggers one silent re-login with the stored
   credentials. If that fails with a credential error, the sign-in screen explains why.
