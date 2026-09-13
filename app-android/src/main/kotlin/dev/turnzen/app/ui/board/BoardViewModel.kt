@@ -277,6 +277,24 @@ class BoardViewModel(
                 return
             }
         }
+        // The mirror of that gesture: tapping the point the game played *next* replays it,
+        // exactly as the forward button does. Rewinding and tapping the move back in is
+        // otherwise indistinguishable from proposing it as a what-if, which used to leave the
+        // board holding a one-stone variation that merely coincided with the game — the same
+        // stones as the server, but marked as a trial and unable to claim the live position.
+        // Only this exact point qualifies, so a genuine what-if is never swallowed; and only
+        // while the cursor is on the played line, since once a variation branches here
+        // "forward" means into that variation, not into the game.
+        if (s.cursor < s.trialStart) {
+            val next =
+                replay.record.moves
+                    .getOrNull(s.cursor)
+                    ?.move
+            if (next is Move.Play && next.point == point) {
+                stepForward()
+                return
+            }
+        }
         // Any other point starts or extends a variation from wherever the cursor is. Rewound
         // into the game, that branches a new line off the past — "what if I had played here
         // instead" — replacing the moves that followed for as long as the line is being read.

@@ -404,7 +404,13 @@ Recommended order, cheapest/lowest-risk first:
 - **Walking the game by tapping**: tapping the newest stone on the board steps behind it —
   the newest trial stone when a variation is shown, otherwise the most recently played move.
   Played stones are of course never removed from the game, only stepped past, so the same
-  gesture walks a variation and the game itself backwards.
+  gesture walks a variation and the game itself backwards. Its mirror: tapping the point the
+  game played *next* steps forward into the record, the same as the forward button. Without
+  that, rewinding a move and tapping it back in was indistinguishable from proposing it as a
+  what-if, and left the board holding a one-stone variation that coincided with the game —
+  the server's stones, but marked as a trial and unable to claim the live position. Only that
+  exact point replays, so a genuine what-if is never swallowed, and only while the cursor is
+  on the played line, since once a variation branches there "forward" means into it.
 - **What-ifs about the past**: a variation branches from wherever the cursor is, so after
   rewinding, tapping an empty point asks "what if I had played here instead" and replaces
   the moves that followed for as long as the line is being read. Such a line is *not*

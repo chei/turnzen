@@ -4,6 +4,7 @@ import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
+import dev.turnzen.game.Coordinates
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.StoneColor
@@ -227,6 +228,44 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.toCurrent()
             assertFalse(h.vm.state.value.canSend)
             assertTrue(h.vm.state.value.hasTrial)
+        }
+
+    @Test
+    fun `tapping the point the game played next replays it instead of branching`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            // demo-9's last played move.
+            val lastPlayed = checkNotNull(Coordinates.parse("D4", 9))
+
+            h.vm.stepBack()
+            h.vm.onTap(lastPlayed)
+
+            val s = h.vm.state.value
+            // Back on the game's own line, not holding a variation that merely matches it.
+            assertFalse(s.hasTrial)
+            assertEquals(s.moveCount, s.cursor)
+            assertTrue(s.atCurrent)
+        }
+
+    @Test
+    fun `tapping any other point from the same place still branches a what-if`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+
+            h.vm.stepBack()
+            h.vm.onTap(Point(0, 0))
+
+            val s = h.vm.state.value
+            assertTrue(s.hasTrial)
+            assertEquals(s.moveCount - 1, s.trialStart)
+            // The number matches the server's move count, but the line does not: this is a
+            // what-if about move 12, so the board is not the current position.
+            assertEquals(s.moveCount, s.cursor)
+            assertFalse(s.atCurrent)
         }
 
     @Test
