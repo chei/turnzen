@@ -2,6 +2,7 @@ package dev.turnzen.game
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 
@@ -130,5 +131,69 @@ class RulesTest {
         val forced = Rules.force(p, ColoredMove(StoneColor.BLACK, Move.Play(Point(0, 0))))
         assertNull(forced.board[Point(0, 0)])
         assertEquals(StoneColor.WHITE, forced.toMove)
+    }
+
+    @Test
+    fun `the ColoredMove overload plays the same move`() {
+        val p = Rules.play(Position.empty(9), ColoredMove(StoneColor.BLACK, Move.Play(Point(4, 4))))
+        assertIs<PlayResult.Legal>(p)
+        assertEquals(StoneColor.BLACK, p.position.board[Point(4, 4)])
+        assertEquals(StoneColor.WHITE, p.position.toMove)
+    }
+
+    @Test
+    fun `a recorded pass can be forced like any other move`() {
+        // Server records routinely end in two passes; replaying one must not throw.
+        val start = Position.empty(9).play(StoneColor.BLACK, 4, 4)
+        val after = Rules.force(start, ColoredMove(StoneColor.WHITE, Move.Pass))
+        assertEquals(StoneColor.BLACK, after.toMove)
+        assertEquals(start.board, after.board)
+        assertEquals(ColoredMove(StoneColor.WHITE, Move.Pass), after.lastMove)
+    }
+
+    @Test
+    fun `forcing a move onto an occupied point is an error, not a silently wrong board`() {
+        // If a record and these rules ever disagree, failing loudly beats drawing a
+        // position that never existed.
+        val p = Position.empty(9).play(StoneColor.BLACK, 4, 4)
+        val e =
+            assertFailsWith<IllegalArgumentException> {
+                Rules.force(p, ColoredMove(StoneColor.WHITE, Move.Play(Point(4, 4))))
+            }
+        assertEquals(true, e.message?.contains("OCCUPIED"), e.message)
+    }
+
+    @Test
+    fun `prisoner counts add up over several captures`() {
+        // Two separate captures by the same player: the second must not reset the first.
+        var p = Position.empty(9)
+        p = p.play(StoneColor.WHITE, 0, 0)
+        p = p.play(StoneColor.BLACK, 1, 0)
+        p = p.play(StoneColor.WHITE, 8, 8)
+        p = p.play(StoneColor.BLACK, 0, 1) // captures (0,0)
+        assertEquals(1, p.prisonersOf(StoneColor.BLACK))
+        // The far corner needs both its liberties filled before it comes off.
+        p = p.play(StoneColor.BLACK, 8, 7)
+        p = p.play(StoneColor.WHITE, 5, 5)
+        p = p.play(StoneColor.BLACK, 7, 8) // captures (8,8)
+        assertEquals(2, p.prisonersOf(StoneColor.BLACK))
+        assertEquals(0, p.prisonersOf(StoneColor.WHITE))
+    }
+
+    @Test
+    fun `capturing two stones at once leaves no ko point`() {
+        // Ko only arises from a single-stone capture by a single stone with one liberty;
+        // a two-stone capture must stay recapturable.
+        var p = Position.empty(9)
+        p = p.play(StoneColor.WHITE, 0, 0)
+        p = p.play(StoneColor.BLACK, 1, 0)
+        p = p.play(StoneColor.WHITE, 0, 1)
+        p = p.play(StoneColor.BLACK, 1, 1)
+        p = p.play(StoneColor.WHITE, 8, 8)
+        p = p.play(StoneColor.BLACK, 0, 2) // takes both white corner stones
+        assertNull(p.board[Point(0, 0)])
+        assertNull(p.board[Point(0, 1)])
+        assertEquals(2, p.prisonersOf(StoneColor.BLACK))
+        assertNull(p.koPoint, "two stones came off, so nothing is forbidden")
     }
 }

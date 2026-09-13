@@ -64,6 +64,84 @@ class SessionManagerTest {
             assertNotNull(state.reason)
         }
 
+    /** Signs in and restores fine, but every other call fails while the phone is offline. */
+    private class OfflineClient(
+        private val fake: FakeTurnBasedGoServerClient = FakeTurnBasedGoServerClient(latencyMillis = 0),
+    ) : TurnBasedGoServerClient by fake {
+        override suspend fun currentUser(): SignedInUser = throw GoServerException.Unreachable("no network")
+    }
+
+    private fun storedFor(user: SignedInUser? = SignedInUser("1", "demo", null, null)) =
+        InMemoryCredentialStore().apply {
+            credentials = Credentials("demo", "pw")
+            // "demo" is the session the fake server considers live.
+            session = "demo"
+            this.user = user
+        }
+
+    @Test
+    fun `a stored session that still works costs no sign-in`() =
+        runTest {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            var signIns = 0
+            val counting =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun signIn(credentials: Credentials): SignedInUser {
+                        signIns++
+                        return fake.signIn(credentials)
+                    }
+                }
+            val session = sessionFor(counting, storedFor())
+
+            session.restore()
+
+            assertIs<AuthState.SignedIn>(session.state.value)
+            assertEquals(0, signIns, "the stored session was good; re-sending the password is wasted")
+        }
+
+    @Test
+    fun `restoring while offline keeps the last known user`() =
+        runTest {
+            // The app must open on the games list, not bounce the user to a sign-in form
+            // they cannot complete without a network.
+            val session = sessionFor(OfflineClient(), storedFor())
+
+            session.restore()
+
+            val state = assertIs<AuthState.SignedIn>(session.state.value)
+            assertEquals("demo", state.user.handle)
+        }
+
+    @Test
+    fun `restoring while offline with nobody remembered signs out`() =
+        runTest {
+            val session = sessionFor(OfflineClient(), storedFor(user = null))
+
+            session.restore()
+
+            assertIs<AuthState.SignedOut>(session.state.value)
+        }
+
+    @Test
+    fun `an expired session that cannot be renewed offline still opens the app`() =
+        runTest {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val expiredThenOffline =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun currentUser(): SignedInUser = throw GoServerException.SessionExpired()
+
+                    override suspend fun signIn(credentials: Credentials): SignedInUser =
+                        throw GoServerException.Unreachable("no network")
+                }
+            val session = sessionFor(expiredThenOffline, storedFor())
+
+            session.restore()
+
+            // The password was never rejected — only unreachable — so the user stays in.
+            val state = assertIs<AuthState.SignedIn>(session.state.value)
+            assertEquals("demo", state.user.handle)
+        }
+
     @Test
     fun `call retries once after the session expired`() =
         runTest {
