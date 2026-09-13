@@ -193,6 +193,33 @@ class SignInViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `a blocked account is not blamed on the password`() =
+        runTest(dispatcher) {
+            val message = messageAfterFailing(GoServerException.InvalidCredentials(CredentialProblem.BLOCKED))
+
+            assertTrue(message.contains("Demo server"), message)
+            assertFalse(message.contains("Wrong"), message)
+        }
+
+    @Test
+    fun `a response the client cannot parse is reported as the server's fault`() =
+        runTest(dispatcher) {
+            val message = messageAfterFailing(GoServerException.Protocol("no user id in the reply"))
+
+            assertTrue(message.contains("Demo server"), message)
+            // Here the detail is deliberate: it is the only clue for a bug report.
+            assertTrue(message.contains("no user id in the reply"), message)
+        }
+
+    @Test
+    fun `a failure nobody anticipated still says something`() =
+        runTest(dispatcher) {
+            val message = messageAfterFailing(GoServerException.ServerError("500", "database is down"))
+
+            assertEquals("Sign-in failed: database is down", message)
+        }
+
+    @Test
     fun `a failed sign-in unlocks the form so it can be retried`() =
         runTest(dispatcher) {
             val client =

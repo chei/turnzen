@@ -97,6 +97,25 @@ class CredentialStoreTest {
     }
 
     @Test
+    fun `forgetting the cached user keeps the stored password usable`() {
+        val prefs = FakeSharedPreferences()
+        val store =
+            EncryptedCredentialStore(prefs).apply {
+                credentials = Credentials("demo", "hunter2")
+                user = SignedInUser("42", "demo", "Demo User", "8k")
+            }
+
+        store.user = null
+
+        assertNull(store.user)
+        assertFalse(prefs.contains("user_id"))
+        assertFalse(prefs.contains("user_handle"))
+        assertFalse(prefs.contains("user_name"))
+        assertFalse(prefs.contains("user_rank"))
+        assertEquals(Credentials("demo", "hunter2"), store.credentials)
+    }
+
+    @Test
     fun `signing out leaves no trace of the account`() {
         val prefs = FakeSharedPreferences()
         val store =

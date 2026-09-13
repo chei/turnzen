@@ -1,6 +1,7 @@
 package dev.turnzen.app
 
 import dev.turnzen.app.data.AuthState
+import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GoServerException
@@ -115,6 +116,29 @@ class SessionManagerTest {
             val session = sessionFor(client)
             assertFailsWith<GoServerException.SessionExpired> { session.call { it.gamesAwaitingMe() } }
             assertIs<AuthState.SignedOut>(session.state.value)
+        }
+
+    @Test
+    fun `changing server signs out and talks to the new server from then on`() =
+        runTest {
+            val store = InMemoryCredentialStore()
+            val selection = InMemoryServerSelection()
+            val asked = mutableListOf<String>()
+            val session =
+                SessionManager(store, selection) { url ->
+                    asked += url
+                    FakeTurnBasedGoServerClient(latencyMillis = 0)
+                }
+            session.signIn(Credentials("demo", "pw"))
+
+            session.changeServer("https://other.example.test/")
+
+            // A session belongs to one server, so the old one must not survive the switch.
+            assertIs<AuthState.SignedOut>(session.state.value)
+            assertEquals(null, store.credentials)
+            assertEquals(null, store.session)
+            assertEquals("https://other.example.test/", selection.serverUrl)
+            assertEquals(listOf("https://dgs.example.test/", "https://other.example.test/"), asked)
         }
 
     @Test
