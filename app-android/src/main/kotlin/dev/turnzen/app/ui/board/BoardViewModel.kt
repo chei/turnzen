@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class PendingConfirmation { SEND }
+enum class PendingConfirmation { SEND, PASS, RESIGN }
 
 /** DGS's code for a move sent when it is the opponent's turn. */
 private const val CODE_NOT_YOUR_TURN = "not_your_turn"
@@ -156,6 +156,34 @@ data class BoardUiState(
     /** The board is live once a record is loaded: taps explore from wherever the cursor is. */
     val canPlace: Boolean
         get() = !sending && !loading && replay != null
+
+    /**
+     * Passing is a move like any other, so it needs the same thing Send needs: the user's
+     * turn and a loaded game. It does not care where the cursor stands — what is on the
+     * board is scratch work, and a pass answers the position the server is waiting on.
+     */
+    val canPass: Boolean
+        get() = isMyTurn && detail != null && !sending && !loading
+
+    /** The opponent's last move was a pass, so they have offered to end the game. */
+    val opponentPassed: Boolean
+        get() =
+            replay
+                ?.record
+                ?.moves
+                ?.lastOrNull()
+                ?.move == Move.Pass
+
+    /**
+     * Whether Pass takes the action row's right slot — the slot that always holds the move
+     * that would go to the server. It does so once the opponent has passed and Send has
+     * nothing armed to send: a pass is then the move on offer, and that is the moment a
+     * player looks for the button. An armed Send outranks it, so trying a stone puts "Send
+     * D10" back in the slot and stepping off it brings Pass back. Outside this state passing
+     * stays in the game-info sheet, where it costs the board nothing.
+     */
+    val passPromoted: Boolean
+        get() = canPass && opponentPassed && !canSend
 }
 
 class BoardViewModel(
@@ -164,10 +192,21 @@ class BoardViewModel(
     private val games: GamesStore,
     /** The game the queue moves to after this one; its record is warmed in the background. */
     private val nextGame: () -> GameId? = { null },
+    /** The game is over (resigned): close the board rather than step to the next game. */
+    private val onGameEnded: () -> Unit = {},
+    /** Last so that the common case — only this callback — can be a trailing lambda. */
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
     private val _state = MutableStateFlow(BoardUiState())
     val state: StateFlow<BoardUiState> = _state.asStateFlow()
+
+    /** For copy that names the server ("finish it on Dragon Go Server"). */
+    val serverName: String
+        get() = session.serverName
+
+    /** This game's page on the server's website, or null if it has none. */
+    val gameUrl: String?
+        get() = session.gameUrl(gameId)
 
     // Not loaded in init: this ViewModel is cached per game across navigations, so the
     // screen calls load() every time it is opened to pull the current server state (the
@@ -354,13 +393,52 @@ class BoardViewModel(
         if (_state.value.canSend) _state.update { it.copy(confirmation = PendingConfirmation.SEND) }
     }
 
+    /** Passing and resigning both go through a confirmation; neither can be undone locally. */
+    fun askPass() {
+        if (_state.value.canPass) _state.update { it.copy(confirmation = PendingConfirmation.PASS) }
+    }
+
+    fun askResign() {
+        if (_state.value.detail != null && !_state.value.sending) {
+            _state.update { it.copy(confirmation = PendingConfirmation.RESIGN) }
+        }
+    }
+
     fun cancelConfirmation() = _state.update { it.copy(confirmation = null) }
 
     fun confirm() {
         val s = _state.value
-        val detail = s.detail ?: return
-        if (s.confirmation != PendingConfirmation.SEND) return
-        val move: Move = s.moveToSend?.move ?: return
+        when (s.confirmation) {
+            PendingConfirmation.SEND -> s.moveToSend?.move?.let { send(it) }
+            PendingConfirmation.PASS -> send(Move.Pass)
+            PendingConfirmation.RESIGN -> resign()
+            null -> Unit
+        }
+    }
+
+    /**
+     * Gives the game up. Unlike a move, this does not step the queue on: resigning is a
+     * deliberate exit, so the board closes and the user lands back on their games.
+     */
+    private fun resign() {
+        val detail = _state.value.detail ?: return
+        _state.update { it.copy(confirmation = null, sending = true, notice = null) }
+        viewModelScope.launch {
+            try {
+                session.call { it.resign(gameId, detail.summary.moveToken) }
+                _state.update { it.copy(sending = false) }
+                games.onGameEnded(gameId)
+                onGameEnded()
+            } catch (e: GoServerException.StaleGame) {
+                onGameMovedOn()
+            } catch (e: GoServerException) {
+                _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
+            }
+        }
+    }
+
+    private fun send(move: Move) {
+        val detail = _state.value.detail ?: return
         _state.update { it.copy(confirmation = null, sending = true, notice = null) }
         viewModelScope.launch {
             try {

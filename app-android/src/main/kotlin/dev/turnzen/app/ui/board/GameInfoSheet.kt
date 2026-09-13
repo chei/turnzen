@@ -1,0 +1,245 @@
+package dev.turnzen.app.ui.board
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import dev.turnzen.app.R
+import dev.turnzen.app.ui.common.Formatting
+import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.StoneIcon
+import dev.turnzen.app.ui.theme.colors
+import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.PlayerDetail
+
+/**
+ * Everything the server already told us about a game that the board has no room for: how it
+ * was set up, where both players stand in it, and the rare actions — pass and resign.
+ *
+ * A sheet rather than a screen: it is reading material *about* the board behind it, which
+ * stays visible, and dismissing it is a swipe. It also keeps the hand-rolled navigation at
+ * two destinations plus an open game.
+ *
+ * Resign lives here because it is irreversible and wants to be hard to reach by accident.
+ * Pass lives here too, but unlike resign it is a move, so it is also promoted into the action
+ * row when the opponent has passed — see [BoardUiState.passPromoted].
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun GameInfoSheet(
+    state: BoardUiState,
+    serverName: String,
+    gameUrl: String?,
+    onPass: () -> Unit,
+    onResign: () -> Unit,
+    onOpenWeb: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val summary = state.headerSummary ?: return
+    val info = state.detail?.info
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = colors.surface,
+        contentColor = colors.ink,
+    ) {
+        Column(
+            Modifier
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .navigationBarsPadding(),
+        ) {
+            Text(
+                stringResource(R.string.info_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Spacer(Modifier.height(16.dp))
+
+            // Both players, each with their own clock — the board header can only show the
+            // clock of whoever is to move, and in correspondence the other one matters too.
+            val toMove = state.detail?.record?.nextToMove
+            PlayerLine(
+                color = StoneColor.BLACK,
+                player = info?.black,
+                fallbackName = nameFor(state, StoneColor.BLACK),
+                isYou = summary.myColor == StoneColor.BLACK,
+                isToMove = toMove == StoneColor.BLACK,
+            )
+            Hairline()
+            PlayerLine(
+                color = StoneColor.WHITE,
+                player = info?.white,
+                fallbackName = nameFor(state, StoneColor.WHITE),
+                isYou = summary.myColor == StoneColor.WHITE,
+                isToMove = toMove == StoneColor.WHITE,
+            )
+
+            Spacer(Modifier.height(20.dp))
+
+            val size = state.boardSize
+            if (size != null) InfoRow(stringResource(R.string.info_board), "${size}x$size")
+            val handicap = info?.handicap ?: summary.handicap
+            if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
+            val komi = info?.komi ?: state.detail?.record?.komi
+            if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.komi(komi))
+            info?.ruleset?.let { InfoRow(stringResource(R.string.info_rules), it) }
+            info?.rated?.let { InfoRow(stringResource(R.string.info_rated), yesNo(it)) }
+            // The server's own wording for the time system, as everywhere else.
+            info?.timeLimit?.let { InfoRow(stringResource(R.string.info_time), it) }
+            info?.weekendClock?.let { InfoRow(stringResource(R.string.info_weekend_clock), yesNo(it)) }
+            info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.date(it)) }
+            // Only the server's id for it: the name and the standings are not in the game
+            // payload, so the web link below is the way to the tournament itself.
+            info?.tournamentId?.let { InfoRow(stringResource(R.string.info_tournament), "#$it") }
+
+            Spacer(Modifier.height(20.dp))
+
+            if (state.canPass) {
+                ActionLine(stringResource(R.string.board_pass), colors.accent, onPass)
+            }
+            if (gameUrl != null) {
+                ActionLine(
+                    stringResource(R.string.info_open_web, serverName),
+                    colors.accent,
+                ) { onOpenWeb(gameUrl) }
+            }
+            // Last, and the only urgent thing in the sheet: giving the game up.
+            ActionLine(stringResource(R.string.board_resign), colors.urgent, onResign)
+
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+/** The handle to show for a side when the server sent no game info (an offline reopen). */
+private fun nameFor(
+    state: BoardUiState,
+    color: StoneColor,
+): String {
+    val summary = state.headerSummary ?: return "?"
+    return if (summary.myColor == color) {
+        state.detail
+            ?.record
+            ?.let { if (color == StoneColor.BLACK) it.black.name else it.white.name }
+            .orEmpty()
+            .ifEmpty { "?" }
+    } else {
+        summary.opponent.handle
+    }
+}
+
+/**
+ * One side of the game: stone, who they are, how they stand, and their clock. The clock is
+ * muted for the side not to move, exactly as a their-turn row is muted in the games list.
+ */
+@Composable
+private fun PlayerLine(
+    color: StoneColor,
+    player: PlayerDetail?,
+    fallbackName: String,
+    isYou: Boolean,
+    isToMove: Boolean,
+) {
+    val name = player?.handle ?: fallbackName
+    val details =
+        buildList {
+            if (isYou) add(stringResource(R.string.info_you))
+            player?.prisoners?.let { add(stringResource(R.string.info_captures, it)) }
+            // Only worth a word when the rank actually moved during the game.
+            player?.rankAtStart?.takeIf { it != player.rank }?.let {
+                add(stringResource(R.string.info_was_rank, it))
+            }
+        }.joinToString(" · ")
+
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StoneIcon(color, 18.dp, Modifier.padding(end = 12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                Formatting.opponent(name, player?.rank),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            if (details.isNotEmpty()) {
+                Text(details, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            }
+        }
+        RemainingTimeLabel(player?.remainingTime, muted = !isToMove)
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String,
+) {
+    Column {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.ink,
+                modifier = Modifier.weight(1f).padding(end = 16.dp),
+            )
+            Text(
+                value,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.ink2,
+            )
+        }
+        Hairline()
+    }
+}
+
+/** A full-width action, in the Settings screen's row vocabulary. */
+@Composable
+private fun ActionLine(
+    label: String,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Column {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onClick)
+                .heightIn(min = 48.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(label, style = MaterialTheme.typography.titleMedium, color = color)
+        }
+        Hairline()
+    }
+}
+
+@Composable
+private fun yesNo(value: Boolean): String = stringResource(if (value) R.string.info_yes else R.string.info_no)

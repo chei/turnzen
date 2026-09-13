@@ -106,16 +106,17 @@ class DgsClient(
     }
 
     override suspend fun game(id: GameId): GameDetail {
-        val summary =
-            GameObjectParser.parse(
-                quickDo(
-                    "obj" to "game",
-                    "cmd" to "info",
-                    "gid" to id.value,
-                    "with" to "user_id",
-                ),
-                userId,
+        val game =
+            quickDo(
+                "obj" to "game",
+                "cmd" to "info",
+                "gid" to id.value,
+                "with" to "user_id",
             )
+        val summary = GameObjectParser.parse(game, userId)
+        // Same payload, read twice: the summary is what every screen needs, the info is the
+        // rest of what DGS already told us (ruleset, komi, both clocks, captures, tournament).
+        val info = GameInfoParser.parse(game)
         val sgf =
             send(
                 HttpRequest(
@@ -134,7 +135,7 @@ class DgsClient(
             } catch (e: SgfParseException) {
                 throw GoServerException.Protocol("Could not read SGF for game ${id.value}", e)
             }
-        return GameDetail(summary, record)
+        return GameDetail(summary, record, info)
     }
 
     override suspend fun sendMove(
@@ -156,6 +157,21 @@ class DgsClient(
             "move" to encoded,
         )
     }
+
+    override suspend fun resign(
+        id: GameId,
+        token: MoveToken,
+    ) {
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "game",
+            "cmd" to "resign",
+            "gid" to id.value,
+            "move_id" to token.value,
+        )
+    }
+
+    override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)
 
     override fun exportSession(): String? {
         if (cookies.isEmpty) return null

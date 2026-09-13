@@ -4,6 +4,7 @@ import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
+import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
@@ -20,6 +21,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -36,12 +38,13 @@ class BoardViewModelTest : MainDispatcherTest() {
         val session = sessionFor(client, store)
         val games = GamesStore(session)
         val sent = ArrayList<GameId>()
+        var ended = 0
         lateinit var vm: BoardViewModel
 
         suspend fun start(id: GameId) {
             session.signIn(Credentials("demo", "pw"))
             games.refresh()
-            vm = BoardViewModel(id, session, games) { sent += it }
+            vm = BoardViewModel(id, session, games, onGameEnded = { ended++ }) { sent += it }
             vm.load()
         }
     }
@@ -228,6 +231,95 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.toCurrent()
             assertFalse(h.vm.state.value.canSend)
             assertTrue(h.vm.state.value.hasTrial)
+        }
+
+    @Test
+    fun `passing sends a pass and steps the queue on like any other move`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            val before =
+                client
+                    .game(game)
+                    .record.moves.size
+
+            h.vm.askPass()
+            assertEquals(PendingConfirmation.PASS, h.vm.state.value.confirmation)
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            // A pass is a move: it reaches the server and the queue advances past the game.
+            assertEquals(
+                Move.Pass,
+                client
+                    .game(game)
+                    .record.moves[before]
+                    .move,
+            )
+            assertEquals(listOf(game), h.sent)
+            assertEquals(0, h.ended)
+        }
+
+    @Test
+    fun `pass takes the send slot only when the opponent has passed and nothing is armed`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            // An ordinary position: passing is possible, but stays out of the action row.
+            assertTrue(h.vm.state.value.canPass)
+            assertFalse(h.vm.state.value.opponentPassed)
+            assertFalse(h.vm.state.value.passPromoted)
+
+            // The same game after the opponent has passed.
+            val passed =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun game(id: GameId): GameDetail {
+                        val detail = fake.game(id)
+                        val record = detail.record
+                        return detail.copy(
+                            record = record.copy(moves = record.moves + ColoredMove(StoneColor.WHITE, Move.Pass)),
+                        )
+                    }
+                }
+            val offered = Harness(passed)
+            offered.start(game)
+            advanceUntilIdle()
+            assertTrue(offered.vm.state.value.opponentPassed)
+            assertTrue(offered.vm.state.value.passPromoted)
+
+            // An armed trial stone is a move to send, so Send takes the slot back...
+            offered.vm.onTap(Point(0, 0))
+            assertTrue(offered.vm.state.value.canSend)
+            assertFalse(offered.vm.state.value.passPromoted)
+
+            // ...and stepping off it disarms Send, so the pass on offer returns.
+            offered.vm.stepBack()
+            assertFalse(offered.vm.state.value.canSend)
+            assertTrue(offered.vm.state.value.passPromoted)
+        }
+
+    @Test
+    fun `resigning ends the game, drops it from the lists and closes the board`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+
+            h.vm.askResign()
+            assertEquals(PendingConfirmation.RESIGN, h.vm.state.value.confirmation)
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            // Not a move: the queue does not step on, the board simply closes.
+            assertEquals(1, h.ended)
+            assertTrue(h.sent.isEmpty())
+            assertNull(h.games.summary(game))
+            assertFailsWith<GoServerException.ServerError> { client.game(game) }
         }
 
     @Test

@@ -5,15 +5,18 @@ import dev.turnzen.game.Coordinates
 import dev.turnzen.game.GameRecord
 import dev.turnzen.game.Move
 import dev.turnzen.game.PlayerInfo
+import dev.turnzen.game.Replay
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
@@ -79,7 +82,7 @@ class FakeTurnBasedGoServerClient(
         delay(latencyMillis)
         requireSession()
         val g = find(id)
-        return GameDetail(g.summary(), g.record)
+        return GameDetail(g.summary(), g.record, g.info())
     }
 
     override suspend fun sendMove(
@@ -99,6 +102,20 @@ class FakeTurnBasedGoServerClient(
         g.moveId += 2
         g.lastMoveAt = Instant.now()
     }
+
+    override suspend fun resign(
+        id: GameId,
+        token: MoveToken,
+    ) {
+        delay(latencyMillis)
+        requireSession()
+        val g = find(id)
+        if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
+        // A resigned game is over, so it leaves both lists exactly as it would on a real server.
+        games.remove(g)
+    }
+
+    override fun gameUrl(id: GameId): String = "https://www.dragongoserver.net/game.php?gid=${id.value}"
 
     override fun exportSession(): String? = if (signedIn) "demo" else null
 
@@ -127,6 +144,37 @@ class FakeTurnBasedGoServerClient(
             isMyTurn = awaitingMe,
             moveToken = MoveToken(moveId.toString()),
         )
+
+    /** The demo server's stand-in for what DGS reports about a game beyond the summary. */
+    private fun FakeGame.info(): GameInfo {
+        val prisoners = Replay(record).finalPosition.prisoners
+
+        fun side(color: StoneColor): PlayerDetail {
+            val player = if (color == StoneColor.BLACK) record.black else record.white
+            val mine = color == myColor
+            return PlayerDetail(
+                handle = if (mine) user.handle else opponent.handle,
+                displayName = player.name,
+                rank = player.rank,
+                country = if (mine) "ch" else "de",
+                rankAtStart = player.rank,
+                prisoners = prisoners[color] ?: 0,
+                remainingTime = remaining,
+            )
+        }
+        return GameInfo(
+            black = side(StoneColor.BLACK),
+            white = side(StoneColor.WHITE),
+            komi = record.komi,
+            handicap = record.handicap,
+            ruleset = "Japanese",
+            rated = true,
+            timeLimit = "F: 30d (+ 1d)",
+            weekendClock = true,
+            startedAt = lastMoveAt.minus(Duration.ofDays(40)),
+            tournamentId = if (id.value == "demo-13") "1042" else null,
+        )
+    }
 
     private companion object {
         fun moves(

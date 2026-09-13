@@ -418,7 +418,10 @@ Recommended order, cheapest/lowest-risk first:
   position drops it. Only a variation branching at the current state can be sent.
 - **Send move**: only the *first* stone of the current variation (the user's actual move)
   is sent; all later trial stones are discarded. The confirmation states exactly what is
-  sent ("Send D4?"). Pass is available from the same action row.
+  sent ("Send D4?"). **Pass** is a move like any other and takes the same path, but it does
+  not hold a permanent place on the board: it lives in the game-info sheet, and is promoted
+  into the action row's send slot exactly when the opponent has passed and no trial stone is
+  armed. **Resign** lives only in that sheet, confirmed and coloured urgent.
 - After a successful send, automatically advance to the next "your move" game; if none
   remain, return to the (empty) list.
 - States: sending, send failed (the variation must not be lost), stale state (the game
@@ -426,6 +429,17 @@ Recommended order, cheapest/lowest-risk first:
 - Move history navigation (step backward/forward through played moves with a move
   counter) is likely needed already in the MVP: in a weeks-long correspondence game the
   user has to be able to recover the context of the position.
+
+**3b. Game info sheet** (opened from the board's header)
+- Read-only context the board has no room for, all of it already present in the game payload
+  the summary is parsed from: both players (rank, rank at the start, captures, and each
+  side's own clock), board size, handicap, komi, ruleset, rated, time system, weekend clock,
+  start date, and the tournament id when the game belongs to one.
+- The tournament's *name and standings are not in that payload*; only `tournament_id` is. A
+  ladder is not there at all. Both would need either another QuickSuite object (unverified)
+  or the HTML client, so the sheet links out to the game's page on the server instead.
+- Also the home of the rare actions: Pass (when it is the user's turn), "Open on <server>",
+  and Resign.
 
 **4. Settings**
 - Signed-in DGS account, sign out.
@@ -438,8 +452,10 @@ Recommended order, cheapest/lowest-risk first:
 
 5. **Move comment** — a text field added to the send confirmation, plus display of
    existing per-move comments / in-game messages on the board screen (DGS supports both).
-6. **Resign** — from the board screen's overflow menu, always with a confirmation
-   (irreversible; must not be reachable by accident).
+6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed
+   (irreversible; must not be reachable by accident). A resigned game leaves both lists and
+   the record cache, and the board closes back to the list rather than stepping the queue on,
+   because resigning is a deliberate exit, not a move.
 7. **Scoring at game end** — a distinct mode of the board screen: tap to mark dead
    stones, show territory, accept / reject. If the opponent disagrees, the game returns to
    normal play. Built on the QuickSuite `score` / `status_score` commands.
@@ -524,6 +540,22 @@ Decisions taken while building the MVP that refine or amend the sections above.
   Android killed the app does not: the games list and the record cache are in memory only,
   so a board restored into a fresh process has no header, no grid and no list behind it —
   which is exactly the screen an offline cold start used to land on.
+- **Pass and resign are placed by what they are, not by how often they are used.** Resign is
+  an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
+  confirmation. A pass is a *move*: it takes the same confirm-and-send path as a stone, it is
+  clock-sensitive, and it is how every game ends — so it is reachable in two taps from the
+  sheet and is promoted into the action row's send slot when the opponent has passed and
+  nothing is armed to send. Scoring is still missing, so passing into a finished game leads
+  to a phase the app cannot render; rather than hide the button, the confirmation says so and
+  names the server where the game can be finished.
+- **The client interface gained `resign` and `gameUrl`.** `gameUrl` is the escape hatch for
+  everything a server can do that Turnzen cannot yet, and keeps the UI from knowing which
+  server it talks to: the URL comes from the client, not from a constant in a screen.
+- **`GameDetail` carries a `GameInfo`** parsed from the *same* `cmd=info` payload as the
+  summary — ruleset, komi, rated, time system, weekend clock, start date, tournament id, and
+  a `PlayerDetail` per side with rank, rank at the start, captures and that side's clock.
+  None of it costs a request; the fields were simply being discarded. It is deliberately not
+  on `GameSummary`: the list rows never need it.
 - **Failures are shown in two tones** (`ServerProblem`): unreachable and rate-limited are
   states to wait out, shown quietly with a retry; signed-out, rejected moves and protocol
   errors are errors and keep the urgent colour. Connectivity is not probed — that would

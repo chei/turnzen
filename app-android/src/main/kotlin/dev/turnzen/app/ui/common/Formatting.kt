@@ -83,6 +83,24 @@ object Formatting {
         }
     }
 
+    /** An absolute date for something that happened long ago ("24 Jun 2015"). */
+    fun date(instant: Instant?): String =
+        if (instant == null) {
+            "–"
+        } else {
+            DateTimeFormatter.ofPattern("d MMM yyyy").withZone(ZoneId.systemDefault()).format(instant)
+        }
+
+    /** "6.5", and "6" rather than "6.0" for a whole-point komi. */
+    fun komi(value: Double): String =
+        if (value ==
+            value.toLong().toDouble()
+        ) {
+            value.toLong().toString()
+        } else {
+            value.toString()
+        }
+
     fun boardSize(
         size: Int,
         handicap: Int,

@@ -95,6 +95,16 @@ class GamesStore(
     }
 
     /**
+     * The game is over — the user resigned it. It leaves both lists and the record cache,
+     * so the queue steps past it and the list does not show it until the next refresh.
+     */
+    fun onGameEnded(id: GameId) {
+        details.remove(id)
+        _yourTurn.update { list -> list?.filterNot { it.id == id } }
+        _allRunning.update { list -> list?.filterNot { it.id == id } }
+    }
+
+    /**
      * The known summary for [id], if it is in either list. Lets the board screen draw the
      * header and an empty grid in their final position while the full record loads.
      */

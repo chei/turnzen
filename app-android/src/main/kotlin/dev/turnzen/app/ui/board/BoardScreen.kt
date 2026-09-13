@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,8 +46,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -77,6 +82,9 @@ fun BoardScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val summary = state.headerSummary
+    val uriHandler = LocalUriHandler.current
+    // Saved, not merely remembered: a rotation with the sheet open should not close it.
+    var showingInfo by rememberSaveable { mutableStateOf(false) }
     // Draw the real position once loaded; while it loads, an empty grid at the known board
     // size, so the board keeps its final position instead of flashing a blank rectangle.
     val position = state.position ?: state.boardSize?.let { Position.empty(it) }
@@ -98,6 +106,9 @@ fun BoardScreen(
                     "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
                         "move $moveNumber",
                 remaining = summary.remainingTime,
+                // The header names the game, so it is also the way into everything else about
+                // it. Only once the record is here: the sheet's actions need its move token.
+                onOpenInfo = if (state.detail != null) ({ showingInfo = true }) else null,
             )
         } else {
             Spacer(Modifier.height(60.dp))
@@ -198,31 +209,65 @@ fun BoardScreen(
                 modifier = Modifier.weight(1f),
             )
             if (state.isMyTurn) {
-                PillButton(
-                    text =
-                        when {
-                            state.sending -> {
-                                "Sending…"
-                            }
+                // The right slot always holds the move you would send. Normally that is Send
+                // — armed with a trial stone, disabled without one. When the opponent has
+                // passed and no stone is armed, the move on offer is a pass, so Pass takes
+                // the slot: outlined, not filled, because giving up the move is not the
+                // recommended answer, only an available one.
+                if (state.passPromoted) {
+                    PillButton(
+                        text = stringResource(R.string.board_pass),
+                        onClick = viewModel::askPass,
+                        enabled = !state.sending,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    PillButton(
+                        text =
+                            when {
+                                state.sending -> {
+                                    "Sending…"
+                                }
 
-                            state.canSend && state.sendLabel != null -> {
-                                "${stringResource(R.string.board_send)} ${state.sendLabel}"
-                            }
+                                state.canSend && state.sendLabel != null -> {
+                                    "${stringResource(R.string.board_send)} ${state.sendLabel}"
+                                }
 
-                            else -> {
-                                stringResource(R.string.board_send)
-                            }
-                        },
-                    onClick = viewModel::askSend,
-                    primary = true,
-                    enabled = state.canSend,
-                    modifier = Modifier.weight(1f),
-                )
+                                else -> {
+                                    stringResource(R.string.board_send)
+                                }
+                            },
+                        onClick = viewModel::askSend,
+                        primary = true,
+                        enabled = state.canSend,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             } else {
                 Spacer(Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (showingInfo) {
+        GameInfoSheet(
+            state = state,
+            serverName = viewModel.serverName,
+            gameUrl = viewModel.gameUrl,
+            // The sheet closes first: both actions ask for confirmation, and a dialog behind
+            // a sheet is unreachable.
+            onPass = {
+                showingInfo = false
+                viewModel.askPass()
+            },
+            onResign = {
+                showingInfo = false
+                viewModel.askResign()
+            },
+            onOpenWeb = { uriHandler.openUri(it) },
+            onDismiss = { showingInfo = false },
+        )
     }
 
     when (state.confirmation) {
@@ -231,6 +276,34 @@ fun BoardScreen(
                 title = "${stringResource(R.string.board_send)} ${state.sendLabel}?",
                 text = stringResource(R.string.board_send_explain),
                 confirmLabel = "${stringResource(R.string.board_send)} ${state.sendLabel}",
+                onConfirm = viewModel::confirm,
+                onDismiss = viewModel::cancelConfirmation,
+            )
+        }
+
+        PendingConfirmation.PASS -> {
+            Confirmation(
+                title = stringResource(R.string.board_pass_question),
+                // Passing after the opponent has passed ends the game and starts scoring,
+                // which this app cannot do yet — say so before the move, not after it.
+                text =
+                    if (state.opponentPassed) {
+                        stringResource(R.string.board_pass_explain_after_pass, viewModel.serverName)
+                    } else {
+                        stringResource(R.string.board_pass_explain)
+                    },
+                confirmLabel = stringResource(R.string.board_pass),
+                onConfirm = viewModel::confirm,
+                onDismiss = viewModel::cancelConfirmation,
+            )
+        }
+
+        PendingConfirmation.RESIGN -> {
+            Confirmation(
+                title = stringResource(R.string.board_resign_question),
+                text = stringResource(R.string.board_resign_explain),
+                confirmLabel = stringResource(R.string.board_resign),
+                confirmColor = colors.urgent,
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
             )
@@ -509,18 +582,38 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
     return (REPEAT_FIRST_MS + (REPEAT_FASTEST_MS - REPEAT_FIRST_MS) * progress).toLong()
 }
 
+/**
+ * The game's name plate, and — once the record is loaded — the way into the game-info sheet.
+ * The disclosure chevron is the only affordance: it is navigation, not one of the named text
+ * actions the board screen otherwise insists on, and it costs the board no vertical space.
+ */
 @Composable
 private fun Header(
     opponent: String,
     subtitle: String,
     remaining: RemainingTime?,
+    onOpenInfo: (() -> Unit)? = null,
 ) {
+    val openInfo = stringResource(R.string.info_open)
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp),
+        Modifier
+            .fillMaxWidth()
+            .then(
+                if (onOpenInfo != null) {
+                    Modifier
+                        .clickable(role = Role.Button, onClick = onOpenInfo)
+                        .semantics { contentDescription = openInfo }
+                } else {
+                    Modifier
+                },
+            ).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(opponent, style = MaterialTheme.typography.titleMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(opponent, style = MaterialTheme.typography.titleMedium)
+                if (onOpenInfo != null) Chevron(Modifier.padding(start = 6.dp))
+            }
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -534,6 +627,25 @@ private fun Header(
     }
 }
 
+/** A small disclosure chevron: "there is more behind this". */
+@Composable
+private fun Chevron(modifier: Modifier = Modifier) {
+    val tint = colors.ink2
+    Canvas(modifier.size(14.dp)) {
+        val w = size.width
+        val h = size.height
+        drawPath(
+            Path().apply {
+                moveTo(w * 0.38f, h * 0.28f)
+                lineTo(w * 0.64f, h * 0.5f)
+                lineTo(w * 0.38f, h * 0.72f)
+            },
+            tint,
+            style = Stroke(width = 1.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+    }
+}
+
 @Composable
 private fun Confirmation(
     title: String,
@@ -541,6 +653,7 @@ private fun Confirmation(
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    confirmColor: Color = colors.accent,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -549,7 +662,7 @@ private fun Confirmation(
         textContentColor = colors.ink2,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
         text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
-        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = colors.accent) } },
+        confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = confirmColor) } },
         dismissButton = {
             TextButton(
                 onClick = onDismiss,

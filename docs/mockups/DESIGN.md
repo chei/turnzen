@@ -143,10 +143,16 @@ Use tabular figures for time and move counts so columns don't jitter.
   reading a what-if branched off the past, even where the number happens to equal the move
   count) it is an ordinary outlined button that returns to the live position.
 - **Action row**: two equal 48dp pill buttons. Skip (outlined) keeps a fixed half-width
-  slot on the left in every game, so it never moves; Send (filled accent) fills the right
-  slot only on the user's turn, an empty spacer holding it otherwise. Send is disabled
-  (`line` fill, `ink2` text) while there is no sendable trial stone, and reads
-  "Send <coordinate>" as soon as there is one.
+  slot on the left in every game, so it never moves; the right slot is *the move that would
+  go to the server*, and is filled only on the user's turn (an empty spacer holds it
+  otherwise). Normally that is Send (filled accent), disabled (`line` fill, `ink2` text)
+  while there is no sendable trial stone and reading "Send <coordinate>" as soon as there is
+  one. **Pass takes that slot** once the opponent has passed and Send has nothing armed: a
+  pass is then the move on offer, and that is the moment the player looks for the button. It
+  is outlined, not filled — passing is an available answer, not the recommended one — and an
+  armed Send outranks it, so trying a stone puts "Send D10" back and stepping off it brings
+  Pass back. Everywhere else passing lives in the game-info sheet, costing the board
+  nothing. Both go through the same confirmation any move does.
 - **Tapping**: the newest stone on the board is a back button — tapping it steps behind
   that move, whether it is the newest trial stone or the last played one. Tapping the point
   the game played next is its mirror and steps forward through the record, so a rewound move
@@ -177,6 +183,22 @@ Use tabular figures for time and move counts so columns don't jitter.
   screen the same problem is one quiet line above it instead, and pull-to-refresh is the
   retry. On the board, a load that produced no position gets that line plus a "Try again";
   a send that failed does not, because Send itself is the retry and the variation is intact.
+- **Game info sheet**: everything the server already told us that the board has no room for
+  — both players with their rank, captures and *both* clocks (the header can only show the
+  one that is running), then board size, handicap, komi, rules, rated, time system, weekend
+  clock, start date and the tournament id where there is one. Rows in the Settings screen's
+  vocabulary: label left, value right in `ink2`, hairline between. A modal sheet rather than
+  a screen, because it is reading material *about* the board behind it and dismissing it is
+  a swipe. It opens from the header, which is the game's name plate; a small `ink2` chevron
+  after the opponent's name is the only affordance — a disclosure marker is navigation, not
+  one of the named text actions the board screen insists on, and it costs no vertical space.
+  At the bottom sit the rare actions: Pass (accent) when it is the user's turn, "Open on
+  <server>" (accent), and Resign last, the only `urgent` thing in the sheet, confirmed with
+  an `urgent` confirm button because it cannot be undone. Nothing in the sheet is needed to
+  play a move.
+- **Say what the app cannot do, before the move rather than after it.** Passing when the
+  opponent has already passed ends the game and starts scoring, which Turnzen has no screen
+  for; the confirmation says so and names the server where it can be finished.
 - **A game is not a document.** Which game is open survives a configuration change and
   nothing more: after Android kills the app, the next launch starts on the games list, since
   the list and the record cache died with the process and a restored board would have

@@ -140,6 +140,9 @@ private fun SignedInShell(container: AppContainer) {
                                 // The queue's next game, warmed while this one is on screen.
                                 nextGame = { container.games.nextAfter(game, all = gamesTab == GamesTab.ALL) },
                                 onMoveSent = { sent -> advanceFrom(sent) },
+                                // A resigned game is over: back to the list, not on to the
+                                // next game in the queue.
+                                onGameEnded = { openGameId = null },
                             )
                         }
                     // Reload whenever the game is (re)opened: the cached ViewModel may hold

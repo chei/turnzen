@@ -45,6 +45,21 @@ interface TurnBasedGoServerClient {
         move: Move,
     )
 
+    /**
+     * Gives the game up. Irreversible on every server, so the caller is expected to have
+     * confirmed it with the user. [token] is the same move context [sendMove] takes.
+     */
+    suspend fun resign(
+        id: GameId,
+        token: MoveToken,
+    )
+
+    /**
+     * The game's page on the server's website, for an "open on the web" link — the escape
+     * hatch for everything this client cannot do yet. Null when the server has no such page.
+     */
+    fun gameUrl(id: GameId): String?
+
     /** Opaque session state to persist, or null when signed out. */
     fun exportSession(): String?
 

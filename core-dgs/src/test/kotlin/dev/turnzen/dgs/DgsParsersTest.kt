@@ -175,6 +175,38 @@ class DgsParsersTest {
     }
 
     @Test
+    fun `game info carries the settings and both players' standing`() {
+        val info = GameInfoParser.parse(QuickSuite.parse(Fixtures.text("game_info.json")))
+        assertEquals(0.5, info.komi)
+        assertEquals(5, info.handicap)
+        // DGS shouts "JAPANESE"; the app is sentence case throughout.
+        assertEquals("Japanese", info.ruleset)
+        assertEquals(true, info.rated)
+        assertEquals("F: 30d (+ 1d)", info.timeLimit)
+        assertEquals(true, info.weekendClock)
+        assertEquals(Instant.parse("2015-06-24T10:00:00Z"), info.startedAt)
+        // 0 in the payload means "not a tournament game".
+        assertNull(info.tournamentId)
+
+        assertEquals("fakeuser", info.black.handle)
+        assertEquals("14k", info.black.rank)
+        assertEquals("15k", info.black.rankAtStart)
+        assertEquals(12, info.black.prisoners)
+        // Both clocks, where the summary only carries the user's own.
+        assertEquals(Duration.ofDays(8), info.black.remainingTime?.main)
+        assertEquals("whitefake", info.white.handle)
+        assertEquals(9, info.white.prisoners)
+        assertEquals(Duration.ofDays(21).plusHours(5), info.white.remainingTime?.main)
+        assertEquals("se", info.white.country)
+    }
+
+    @Test
+    fun `a tournament game reports its tournament`() {
+        val payload = Fixtures.text("game_info.json").replace("\"tournament_id\":0", "\"tournament_id\":1042")
+        assertEquals("1042", GameInfoParser.parse(QuickSuite.parse(payload)).tournamentId)
+    }
+
+    @Test
     fun `real DGS SGF export parses`() {
         val game = SgfGameRecords.read(Fixtures.text("game_1000000.sgf"))
         val record = game.record

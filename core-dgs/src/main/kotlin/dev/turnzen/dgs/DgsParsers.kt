@@ -6,11 +6,13 @@ import dev.turnzen.dgs.QuickSuite.obj
 import dev.turnzen.dgs.QuickSuite.string
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.SignedInUser
 import kotlinx.serialization.json.JsonObject
@@ -133,6 +135,54 @@ internal object UserInfoParser {
             displayName = obj.string("name")?.ifBlank { null },
             rank = DgsRatings.rank(obj.string("rating")),
         )
+}
+
+/**
+ * The read-only context of a game — its settings and both players' standing — from the same
+ * object [GameObjectParser] reads the summary out of. Nothing here is needed to play a move,
+ * so every field is optional and a missing one simply goes unshown.
+ */
+internal object GameInfoParser {
+    fun parse(game: JsonObject): GameInfo =
+        GameInfo(
+            black = player(game, "black"),
+            white = player(game, "white"),
+            komi = game.string("komi")?.trim()?.toDoubleOrNull(),
+            handicap = game.int("handicap") ?: 0,
+            ruleset = sentenceCase(game.string("ruleset")),
+            rated = game.int("rated")?.let { it != 0 },
+            timeLimit = game.string("time_limit")?.ifBlank { null },
+            weekendClock = game.int("time_weekend_clock")?.let { it != 0 },
+            startedAt = DgsDates.parse(game.string("time_started")),
+            // DGS writes 0 for "not a tournament game".
+            tournamentId = game.string("tournament_id")?.takeUnless { it.isBlank() || it == "0" },
+        )
+
+    private fun player(
+        game: JsonObject,
+        color: String,
+    ): PlayerDetail {
+        val user = game.obj("${color}_user")
+        val standing = game.obj("${color}_gameinfo")
+        return PlayerDetail(
+            handle = user?.string("handle") ?: "?",
+            displayName = user?.string("name")?.ifBlank { null },
+            rank = DgsRatings.rank(user?.string("rating")),
+            country = user?.string("country")?.ifBlank { null },
+            rankAtStart = DgsRatings.rank(standing?.string("rating_start")),
+            prisoners = standing?.int("prisoners"),
+            // Both clocks, unlike the summary's, which only carries the user's own.
+            remainingTime = DgsTimeRemaining.parse(standing?.string("remtime")),
+        )
+    }
+
+    /** DGS shouts its enum values ("JAPANESE"); Turnzen is sentence case throughout. */
+    private fun sentenceCase(value: String?): String? =
+        value
+            ?.trim()
+            ?.ifEmpty { null }
+            ?.lowercase()
+            ?.replaceFirstChar { it.uppercase() }
 }
 
 /** Turns one game object (from `cmd=info` or a `cmd=list` entry) into a [GameSummary]. */

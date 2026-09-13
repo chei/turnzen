@@ -1,6 +1,7 @@
 package dev.turnzen.app.data
 
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
@@ -50,6 +51,9 @@ class SessionManager(
 
     val registrationUrl: String
         get() = client.registrationUrl
+
+    /** The current server's web page for a game, for the "open on the web" escape hatch. */
+    fun gameUrl(id: GameId): String? = client.gameUrl(id)
 
     val signedInUser: SignedInUser?
         get() = (_state.value as? AuthState.SignedIn)?.user

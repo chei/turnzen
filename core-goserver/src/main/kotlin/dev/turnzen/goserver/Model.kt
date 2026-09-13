@@ -78,7 +78,51 @@ data class GameSummary(
     val moveToken: MoveToken,
 )
 
+/**
+ * One player as the server describes them *inside a game*: who they are, how they stood when
+ * the game began and how they stand now, and their own clock — which, unlike
+ * [GameSummary.remainingTime], is reported for both sides whether or not it is running.
+ *
+ * Every field but [handle] is optional: a server need not report it, and a screen has to
+ * degrade to showing less rather than inventing a value.
+ */
+data class PlayerDetail(
+    val handle: String,
+    val displayName: String? = null,
+    val rank: String? = null,
+    /** Country code the server reports for the player, if any. */
+    val country: String? = null,
+    /** The rank this player held when the game started, where the server keeps it. */
+    val rankAtStart: String? = null,
+    /** Stones this player has captured so far. */
+    val prisoners: Int? = null,
+    val remainingTime: RemainingTime? = null,
+)
+
+/**
+ * What a game was set up as, and where both players stand in it — everything the list row
+ * has no room for. Read-only context: nothing here is needed to play a move.
+ */
+data class GameInfo(
+    val black: PlayerDetail,
+    val white: PlayerDetail,
+    val komi: Double? = null,
+    val handicap: Int = 0,
+    /** The server's own name for the rules ("Japanese"), ready to display. */
+    val ruleset: String? = null,
+    val rated: Boolean? = null,
+    /** The time system, formatted by the server (and so in the account's language). */
+    val timeLimit: String? = null,
+    /** True when the clock is paused at weekends. */
+    val weekendClock: Boolean? = null,
+    val startedAt: Instant? = null,
+    /** The server's id for the tournament this game belongs to, or null for a casual game. */
+    val tournamentId: String? = null,
+)
+
 data class GameDetail(
     val summary: GameSummary,
     val record: GameRecord,
+    /** Null when the server told us nothing beyond the summary. */
+    val info: GameInfo? = null,
 )
