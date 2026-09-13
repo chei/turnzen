@@ -22,8 +22,12 @@
     <string name="board_to_move">to move</string>
     <string name="board_skip">Skip</string>
     <string name="board_send">Send</string>
+    <string name="board_first_move">First move</string>
     <string name="board_previous_move">Previous move</string>
     <string name="board_next_move">Next move</string>
+    <string name="board_last_move">Last move</string>
+    <string name="board_back_to_current">Back to the current position</string>
+    <string name="board_at_current_move">Move %1$d, the current position</string>
     <string name="board_sent">Sent</string>
     <string name="board_cancel">Cancel</string>
     <string name="board_send_explain">Only this move is sent. The other trial stones stay on your device.</string>

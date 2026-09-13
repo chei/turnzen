@@ -158,10 +158,50 @@ def header_game(opp, rank, you, mv, time_left, urgent=False):
     return s
 
 
-def move_nav(y, mv):
-    s = text(20, y, "‹", 22, 400, INK2)
-    s += text(46, y - 1, f"{mv}", 15, 500, INK)
-    s += text(76, y, "›", 22, 400, INK2)
+def nav_triangle(cx, cy, forward, bar, tint):
+    """A media-transport glyph: a triangle, optionally with an end bar."""
+    w, h = 9, 11
+    if forward:
+        tri = f"{cx-w/2},{cy-h/2} {cx+w/2},{cy} {cx-w/2},{cy+h/2}"
+    else:
+        tri = f"{cx+w/2},{cy-h/2} {cx-w/2},{cy} {cx+w/2},{cy+h/2}"
+    s = f'<polygon points="{tri}" fill="{tint}"/>'
+    if bar:
+        bx = cx + w / 2 + 2 if forward else cx - w / 2 - 4
+        s += f'<rect x="{bx}" y="{cy-h/2}" width="2.5" height="{h}" rx="1.2" fill="{tint}"/>'
+    return s
+
+
+def move_nav(y, mv, live=True, back_enabled=True, forward_enabled=False):
+    """Five outlined pills: start, back, the cursor's move number, forward, end.
+
+    The counter pill is highlighted (accent on accent_soft) when the board shows exactly
+    the server position, which is the state the screen is about — see DESIGN.md.
+    """
+    h, gap = 44, 8
+    w = (W - 40 - 4 * gap) / 5
+    s = ""
+    cells = [
+        ("skip_back", back_enabled),
+        ("step_back", back_enabled),
+        ("counter", True),
+        ("step_fwd", forward_enabled),
+        ("skip_fwd", forward_enabled),
+    ]
+    for i, (kind, enabled) in enumerate(cells):
+        x = 20 + i * (w + gap)
+        cx, cy = x + w / 2, y + h / 2
+        highlighted = kind == "counter" and live
+        stroke = ACCENT if highlighted else LINE
+        fill = ACCENT_SOFT if highlighted else "none"
+        s += (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{h/2}" '
+              f'fill="{fill}" stroke="{stroke}" stroke-width="1"/>')
+        tint = INK if enabled else LINE
+        if kind == "counter":
+            s += text(cx, cy + 6, f"{mv}", 18, 600 if highlighted else 500,
+                      ACCENT if highlighted else INK, "middle")
+        else:
+            s += nav_triangle(cx, cy, "fwd" in kind, "skip" in kind, tint)
     return s
 
 
@@ -218,19 +258,17 @@ def screen_board(n, stones, last, trial=(), trial_mode=False):
     s += header_game("mkvtl", "7k", "black", 87 if n == 19 else 12, "3 d 4 h" if n == 19 else "22 h")
     b, yend = board(n, 104, stones, last, trial, trial_mode)
     s += b
-    # below the board
-    y = yend + 40
-    if trial_mode:
-        s += f'<circle cx="26" cy="{y-5}" r="5" fill="{ACCENT}"/>'
-        s += text(38, y, f"Trial, {len(trial)} moves", 15, 500, ACCENT)
-        s += text(W - 130, y, "Undo", 15, 500, INK, "end")
-        s += text(W - 20, y, "Reset", 15, 500, INK, "end")
-    else:
-        s += move_nav(y, 87 if n == 19 else 12)
-        s += text(W - 20, y, "Tap the board to try moves", 13, 400, INK2, "end")
-    y += 32
+    # below the board: move navigation, then the action row. No trial caption or hint
+    # line — the numbered stones and the counter already say where the board stands.
+    y = yend + 20
+    played = 87 if n == 19 else 12
+    # On a trial the cursor has walked past the server position, so the counter is a
+    # plain pill; on the server position itself it is the highlighted one.
+    s += move_nav(y, played + len(trial) if trial_mode else played,
+                  live=not trial_mode, forward_enabled=trial_mode)
+    y += 60
     bw = (W - 40 - 12) / 2
-    s += button(20, y, bw, 48, "Pass")
+    s += button(20, y, bw, 48, "Skip")
     if trial_mode:
         s += button(20 + bw + 12, y, bw, 48, f"Send {trial[0][0]}", primary=True)
     else:

@@ -2,10 +2,13 @@ package dev.turnzen.app.ui.board
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -29,9 +33,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -40,6 +48,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -115,23 +126,40 @@ fun BoardScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // Move navigation: start, back, current server state (shown as the live move
-        // number), forward, end of trial. The trial's depth needs no separate label:
+        // Move navigation: start, back, the cursor's move number, forward, end of trial.
+        // Five outlined pills, borrowing the action row's button shape so they read as
+        // controls rather than as status glyphs. The trial's depth needs no separate label:
         // it is the numbered stones on the board and this counter.
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavButton(enabled = state.canGoBack, onClick = viewModel::toStart) { NavIcon(NavShape.SKIP_BACK, it) }
-            RepeatNavButton(enabled = state.canGoBack, onStep = viewModel::stepBack) { NavIcon(NavShape.STEP_BACK, it) }
-            NavButton(enabled = true, onClick = viewModel::toCurrent) { tint ->
-                Text(state.cursor.toString(), fontSize = 18.sp, fontWeight = FontWeight.Medium, color = tint)
-            }
+            NavButton(
+                enabled = state.canGoBack,
+                description = stringResource(R.string.board_first_move),
+                onClick = viewModel::toStart,
+            ) { NavIcon(NavShape.SKIP_BACK, it) }
+            RepeatNavButton(
+                enabled = state.canGoBack,
+                description = stringResource(R.string.board_previous_move),
+                onStep = viewModel::stepBack,
+            ) { NavIcon(NavShape.STEP_BACK, it) }
+            CurrentMoveButton(
+                cursor = state.cursor,
+                atCurrent = state.atCurrent,
+                onClick = viewModel::toCurrent,
+            )
             RepeatNavButton(
                 enabled = state.canGoForward,
+                description = stringResource(R.string.board_next_move),
                 onStep = viewModel::stepForward,
             ) { NavIcon(NavShape.STEP_FWD, it) }
-            NavButton(enabled = state.canGoForward, onClick = viewModel::toEnd) { NavIcon(NavShape.SKIP_FWD, it) }
+            NavButton(
+                enabled = state.canGoForward,
+                description = stringResource(R.string.board_last_move),
+                onClick = viewModel::toEnd,
+            ) { NavIcon(NavShape.SKIP_FWD, it) }
         }
 
         state.problem?.let {
@@ -268,21 +296,136 @@ private fun NavIcon(
     }
 }
 
+/** Height of a move-navigation pill: below the 48dp action row, which outranks it. */
+private val NAV_PILL_HEIGHT = 44.dp
+
+/**
+ * The frame every move-navigation control shares: an outlined pill in the action row's
+ * shape, so the row reads as five buttons.
+ *
+ * [highlighted] is the counter's live state — the board showing exactly the server position.
+ * It is not an action and cannot be pressed, but it is the *good* state, so it is filled
+ * rather than dimmed: accent on [colors.accentSoft], the strongest thing in the row.
+ * Disabled controls keep the pill and fade the border instead of disappearing, so the row
+ * never changes shape as the cursor moves.
+ *
+ * Feedback on press is the fill, not a ripple: flat, and identical for the plain buttons and
+ * the hold-to-repeat ones, which cannot use [clickable].
+ */
+@Composable
+private fun RowScope.NavPill(
+    enabled: Boolean,
+    pressed: Boolean,
+    description: String,
+    modifier: Modifier = Modifier,
+    highlighted: Boolean = false,
+    content: @Composable (tint: Color) -> Unit,
+) {
+    val border =
+        when {
+            highlighted -> colors.accent
+            enabled -> colors.line
+            else -> colors.line.copy(alpha = 0.5f)
+        }
+    val fill =
+        when {
+            highlighted -> colors.accentSoft
+            pressed -> colors.line
+            else -> Color.Transparent
+        }
+    val tint =
+        when {
+            highlighted -> colors.accent
+            enabled -> colors.ink
+            else -> colors.line
+        }
+    Box(
+        modifier
+            .weight(1f)
+            .height(NAV_PILL_HEIGHT)
+            .clip(CircleShape)
+            .background(fill, CircleShape)
+            .border(1.dp, border, CircleShape)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        content(tint)
+    }
+}
+
 /** A single move-navigation button: jumps once per tap. */
 @Composable
 private fun RowScope.NavButton(
     enabled: Boolean,
+    description: String,
     onClick: () -> Unit,
     content: @Composable (tint: Color) -> Unit,
 ) {
-    Box(
-        Modifier
-            .weight(1f)
-            .height(44.dp)
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier),
-        contentAlignment = Alignment.Center,
-    ) {
-        content(if (enabled) colors.ink else colors.line)
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    NavPill(
+        enabled = enabled,
+        pressed = pressed,
+        description = description,
+        modifier =
+            if (enabled) {
+                Modifier.clickable(
+                    interactionSource = interactions,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+            } else {
+                Modifier
+            },
+        content = content,
+    )
+}
+
+/**
+ * The cursor's move number, and the way back to the live position.
+ *
+ * [atCurrent] means the board is showing exactly what the server has: the counter equals the
+ * played move count *and* no variation branches out of the past. There is then nothing for a
+ * tap to do — but that is the state the whole screen is about, so it is highlighted rather
+ * than disabled. Anywhere else the same control is an ordinary button that returns there.
+ */
+@Composable
+private fun RowScope.CurrentMoveButton(
+    cursor: Int,
+    atCurrent: Boolean,
+    onClick: () -> Unit,
+) {
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    NavPill(
+        enabled = true,
+        pressed = pressed && !atCurrent,
+        highlighted = atCurrent,
+        description =
+            if (atCurrent) {
+                stringResource(R.string.board_at_current_move, cursor)
+            } else {
+                stringResource(R.string.board_back_to_current)
+            },
+        modifier =
+            if (atCurrent) {
+                Modifier
+            } else {
+                Modifier.clickable(
+                    interactionSource = interactions,
+                    indication = null,
+                    role = Role.Button,
+                    onClick = onClick,
+                )
+            },
+    ) { tint ->
+        Text(
+            cursor.toString(),
+            fontSize = 18.sp,
+            fontWeight = if (atCurrent) FontWeight.SemiBold else FontWeight.Medium,
+            color = tint,
+        )
     }
 }
 
@@ -321,42 +464,43 @@ private const val REPEAT_RAMP_STEPS = 12
 @Composable
 private fun RowScope.RepeatNavButton(
     enabled: Boolean,
+    description: String,
     onStep: () -> Unit,
     content: @Composable (tint: Color) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    Box(
-        Modifier
-            .weight(1f)
-            .height(44.dp)
-            .then(
-                if (!enabled) {
-                    Modifier
-                } else {
-                    Modifier.pointerInput(Unit) {
-                        awaitEachGesture {
-                            awaitFirstDown(requireUnconsumed = false)
-                            onStep()
-                            val repeat =
-                                scope.launch {
-                                    delay(REPEAT_HOLD_MS)
-                                    var stepsSoFar = 0
-                                    while (true) {
-                                        onStep()
-                                        delay(repeatDelayMs(stepsSoFar))
-                                        stepsSoFar++
-                                    }
+    var pressed by remember { mutableStateOf(false) }
+    NavPill(
+        enabled = enabled,
+        pressed = pressed,
+        description = description,
+        modifier =
+            if (!enabled) {
+                Modifier
+            } else {
+                Modifier.pointerInput(Unit) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false)
+                        pressed = true
+                        onStep()
+                        val repeat =
+                            scope.launch {
+                                delay(REPEAT_HOLD_MS)
+                                var stepsSoFar = 0
+                                while (true) {
+                                    onStep()
+                                    delay(repeatDelayMs(stepsSoFar))
+                                    stepsSoFar++
                                 }
-                            waitForUpOrCancellation()
-                            repeat.cancel()
-                        }
+                            }
+                        waitForUpOrCancellation()
+                        pressed = false
+                        repeat.cancel()
                     }
-                },
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        content(if (enabled) colors.ink else colors.line)
-    }
+                }
+            },
+        content = content,
+    )
 }
 
 /** Linear ramp from [REPEAT_FIRST_MS] down to [REPEAT_FASTEST_MS]; flat after the ramp. */

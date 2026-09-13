@@ -126,13 +126,27 @@ Use tabular figures for time and move counts so columns don't jitter.
   info row → action row → flexible space → bottom nav. The space below the action row
   absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
-  move number (tapping it returns to the current position), step forward, end; back and
-  forward repeat while held. There is no separate info row, trial counter or hint line: the
-  numbered stones and this counter already say where the board stands.
-- **Action row**: two equal pill buttons, shown only on the user's turn. Pass (outlined)
-  and Send (filled accent). Send is disabled (`line` fill, `ink2` text) while there is no
-  trial stone, and reads "Send <coordinate>" as soon as there is one. On the opponent's
-  turn the row is hidden (the board is for exploring their move; nothing can be sent).
+  move number, step forward, end; back and forward repeat while held. There is no separate
+  info row, trial counter or hint line: the numbered stones and this counter already say
+  where the board stands.
+  Each control is an outlined pill, 44dp tall, in the action row's shape (one button
+  vocabulary, and shorter than the 48dp action row, which outranks it). A control with
+  nowhere to go keeps its pill and fades the border to half `line`, so the row never changes
+  shape as the cursor moves. Press feedback is a `line` fill, not a ripple: flat, and the
+  same for the tap controls and the hold-to-repeat ones.
+- **The move counter is the exception**, because it is a readout that is only sometimes an
+  action. When the board shows exactly the server position — the counter equals the played
+  move count *and* no variation branches out of the past — a tap has nothing to do. That is
+  not a disabled state but the opposite: it is the state the whole screen is about, so the
+  pill is filled `accentSoft`, bordered and lettered in `accent`, and set in 600 — the
+  strongest thing in the row, reading "the board is the game". Anywhere else (rewound, or
+  reading a what-if branched off the past, even where the number happens to equal the move
+  count) it is an ordinary outlined button that returns to the live position.
+- **Action row**: two equal 48dp pill buttons. Skip (outlined) keeps a fixed half-width
+  slot on the left in every game, so it never moves; Send (filled accent) fills the right
+  slot only on the user's turn, an empty spacer holding it otherwise. Send is disabled
+  (`line` fill, `ink2` text) while there is no sendable trial stone, and reads
+  "Send <coordinate>" as soon as there is one.
 - **Tapping**: the newest stone on the board is a back button — tapping it steps behind
   that move, whether it is the newest trial stone or the last played one. Tapping anywhere
   else starts or extends a variation from wherever the cursor is, so a rewound board branches
