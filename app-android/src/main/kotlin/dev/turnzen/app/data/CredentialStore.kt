@@ -22,18 +22,10 @@ interface CredentialStore {
  * [CredentialStore] encrypted at rest with a key in the Android Keystore. Nothing here
  * ever leaves the device.
  */
-class EncryptedCredentialStore(
-    context: Context,
+class EncryptedCredentialStore internal constructor(
+    private val prefs: SharedPreferences,
 ) : CredentialStore {
-    @Suppress("DEPRECATION")
-    private val prefs: SharedPreferences =
-        EncryptedSharedPreferences.create(
-            context,
-            "turnzen_secrets",
-            MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-        )
+    constructor(context: Context) : this(encryptedPrefs(context))
 
     override var credentials: Credentials?
         get() {
@@ -94,3 +86,14 @@ class EncryptedCredentialStore(
         const val KEY_USER_RANK = "user_rank"
     }
 }
+
+/** The encrypted file [EncryptedCredentialStore] normally sits on. */
+@Suppress("DEPRECATION")
+private fun encryptedPrefs(context: Context): SharedPreferences =
+    EncryptedSharedPreferences.create(
+        context,
+        "turnzen_secrets",
+        MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
+        EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+        EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
+    )

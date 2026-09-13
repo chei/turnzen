@@ -30,10 +30,10 @@ interface ServerSelection {
 }
 
 /** Non-secret preferences, exposed as a StateFlow so screens recompose on change. */
-class SettingsStore(
-    context: Context,
+class SettingsStore internal constructor(
+    private val prefs: SharedPreferences,
 ) : ServerSelection {
-    private val prefs: SharedPreferences = context.getSharedPreferences("turnzen_settings", Context.MODE_PRIVATE)
+    constructor(context: Context) : this(context.getSharedPreferences("turnzen_settings", Context.MODE_PRIVATE))
 
     private val _settings = MutableStateFlow(read())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
