@@ -338,7 +338,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             // Not a rejection the user can act on: the game moved on, so it is reloaded and
             // the games list is re-read rather than an error being shown.
             assertNotNull(s.notice)
-            assertNull(s.error)
+            assertNull(s.problem)
             assertTrue(h.sent.isEmpty())
             assertEquals(loadsAfterStart + 1, listLoads)
         }
@@ -363,7 +363,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
 
             val s = h.vm.state.value
-            assertNotNull(s.error)
+            assertNotNull(s.problem)
             assertNull(s.notice)
             assertTrue(s.hasTrial)
         }
@@ -388,7 +388,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
 
             val s = h.vm.state.value
-            assertNotNull(s.error)
+            assertNotNull(s.problem)
             assertEquals(1, s.trialMoves.size)
             assertTrue(s.canSend)
             assertTrue(h.sent.isEmpty())

@@ -33,9 +33,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
-import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.common.ProblemMessage
+import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
@@ -97,13 +98,37 @@ fun GamesScreen(
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                state.error?.let { error ->
-                    item { ErrorMessage(error, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
-                }
+                val problem = state.problem
                 when {
-                    games == null -> item { LoadingRow(state.error == null) }
-                    games.isEmpty() -> item { EmptyState(tab) }
-                    else -> items(games, key = { it.id.value }) { game -> GameRow(game) { onOpenGame(game.id) } }
+                    // Nothing has ever loaded, so the problem is the whole screen: give it
+                    // the empty state's shape and an explicit Try again, rather than a line
+                    // of red text over an otherwise blank list.
+                    games == null && problem != null -> {
+                        item { ProblemState(problem, onRetry = viewModel::refresh) }
+                    }
+
+                    else -> {
+                        // A list is on screen, so the problem is only why it has not changed;
+                        // one line above it, and pull-to-refresh is the retry.
+                        problem?.let {
+                            item { ProblemMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+                        }
+                        when {
+                            games == null -> {
+                                item { LoadingRow() }
+                            }
+
+                            games.isEmpty() -> {
+                                item { EmptyState(tab) }
+                            }
+
+                            else -> {
+                                items(games, key = { it.id.value }) { game ->
+                                    GameRow(game) { onOpenGame(game.id) }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -140,15 +165,13 @@ private fun RowScope.GamesTab(
 }
 
 @Composable
-private fun LoadingRow(loading: Boolean) {
-    if (loading) {
-        Text(
-            "Checking your games…",
-            Modifier.fillMaxWidth().padding(20.dp),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.ink2,
-        )
-    }
+private fun LoadingRow() {
+    Text(
+        "Checking your games…",
+        Modifier.fillMaxWidth().padding(20.dp),
+        style = MaterialTheme.typography.bodyMedium,
+        color = colors.ink2,
+    )
 }
 
 @Composable

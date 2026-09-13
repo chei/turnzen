@@ -18,6 +18,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `01-signin.svg` | Sign-in (first launch, or after a failed silent re-login) |
 | `02-games-your-move.svg` | Games list, default "Your move" view |
 | `02b-games-empty.svg` | Games list, empty state |
+| `02c-games-offline.svg` | Games list, server unreachable before anything loaded |
 | `03-board-server-position-19.svg` | Board, 19×19, showing the server position |
 | `03b-board-trial-19.svg` | Board, 19×19, trial variation in progress (4 trial stones) |
 | `03c-board-server-position-9.svg` | Board, 9×9 — shows how the layout adapts below a small board |
@@ -146,10 +147,30 @@ Use tabular figures for time and move counts so columns don't jitter.
   have a DGS account" link is the only accent text on the screen.
 - **Empty state**: one white stone, "No games waiting for you", "Pull down to check
   again." — this is a good state, not an error.
+- **Server problems** come in two tones. The ones the user waits out — the server cannot be
+  reached, or it asked us to slow down — are a *state*, not an error: `ink2`, never
+  `urgent`, always with a way to retry. A correspondence app that could not reach the server
+  for an hour has nothing wrong with it. The rest (signed out, a rejected move, an
+  unparseable answer) keep `urgent`, because they need the user to do something.
+  Connectivity is never probed: telling "your phone is offline" from "the server is down"
+  would cost the ACCESS_NETWORK_STATE permission, so the copy says only what we know.
+- **Server problem with nothing else on screen** (the games list before its first successful
+  load): built like the empty state — centered title ("Can't reach Dragon Go Server"), one
+  explanatory line, and a "Try again" pill. No icon: the offline pictograms (a crossed-out
+  cloud, a struck-through signal) belong to a different vocabulary than the stones and rings
+  used everywhere else, and the sentence is more precise anyway. With a list already on
+  screen the same problem is one quiet line above it instead, and pull-to-refresh is the
+  retry. On the board, a load that produced no position gets that line plus a "Try again";
+  a send that failed does not, because Send itself is the retry and the variation is intact.
+- **A game is not a document.** Which game is open survives a configuration change and
+  nothing more: after Android kills the app, the next launch starts on the games list, since
+  the list and the record cache died with the process and a restored board would have
+  nothing to draw.
 
 ## Copy
 
 Plain verbs, sentence case, actions keep the same name through a flow: the button says
-"Send O15", the confirmation says "Send O15?", the result says "Sent". Errors say what
-happened and what to do ("Couldn't reach Dragon Go Server. Check your connection and pull
-down to retry."), never apologize, never stay vague.
+"Send O15", the confirmation says "Send O15?", the result says "Sent". Failures say what
+happened and what to do ("Can't reach Dragon Go Server" / "Check your connection and try
+again."), never apologize, never stay vague, and never blame the user for a connection —
+the title names what we observed, the line below it says what to try.

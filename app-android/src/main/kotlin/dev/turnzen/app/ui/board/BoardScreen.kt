@@ -47,9 +47,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.data.BoardSettings
-import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
+import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.Position
@@ -134,8 +134,14 @@ fun BoardScreen(
             NavButton(enabled = state.canGoForward, onClick = viewModel::toEnd) { NavIcon(NavShape.SKIP_FWD, it) }
         }
 
-        state.error?.let {
-            ErrorMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
+        state.problem?.let {
+            ProblemMessage(
+                it,
+                Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                // Retry offered only for a load that never produced a board: a failed send is
+                // retried with Send itself, which still sits below with the variation intact.
+                onRetry = if (state.replay == null) ({ viewModel.load(force = true) }) else null,
+            )
         }
 
         // The only feedback worth a line: a send that was rejected because the game moved

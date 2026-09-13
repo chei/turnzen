@@ -7,11 +7,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -26,10 +28,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.turnzen.app.R
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.RemainingTime
@@ -118,6 +123,69 @@ fun ErrorMessage(
     modifier: Modifier = Modifier,
 ) {
     Text(text, modifier, style = MaterialTheme.typography.bodyMedium, color = colors.urgent)
+}
+
+/**
+ * A server problem on a screen that still has content of its own: one line of copy, quiet
+ * ([colors.ink2]) for something to wait out and urgent for a real error, plus the retry the
+ * copy promises when the screen can offer one. Pass [onRetry] as null where the screen
+ * already has a retry gesture — pull-to-refresh on the games list, Send on the board.
+ */
+@Composable
+fun ProblemMessage(
+    problem: ServerProblem,
+    modifier: Modifier = Modifier,
+    onRetry: (() -> Unit)? = null,
+) {
+    Column(modifier) {
+        Text(
+            if (problem.transient) "${problem.title}. ${problem.message}" else problem.message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (problem.transient) colors.ink2 else colors.urgent,
+        )
+        if (onRetry != null) {
+            TextAction(stringResource(R.string.action_retry), onRetry, color = colors.accent)
+        }
+    }
+}
+
+/**
+ * A server problem filling a screen that has nothing else to show — the games list before it
+ * has ever loaded. Built like the empty state next to it rather than like an error: title,
+ * explanation, and the action that resolves it. No icon; the offline pictograms (a crossed
+ * cloud, a struck-through signal) belong to a different vocabulary than the stones and rings
+ * used everywhere else here, and the sentence says it more precisely anyway.
+ */
+@Composable
+fun ProblemState(
+    problem: ServerProblem,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier.fillMaxWidth().padding(top = 160.dp, start = 20.dp, end = 20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            problem.title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            problem.message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.ink2,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(28.dp))
+        PillButton(
+            text = stringResource(R.string.action_retry),
+            onClick = onRetry,
+            modifier = Modifier.width(180.dp),
+        )
+    }
 }
 
 /**

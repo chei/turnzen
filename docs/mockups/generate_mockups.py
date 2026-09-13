@@ -181,13 +181,20 @@ def screen_signin():
     return s + "</svg>"
 
 
-def screen_games(empty=False):
+def screen_games(empty=False, offline=False):
     s = frame_open() + status_bar()
     s += text(20, 88, "Your move", 26, 600)
     if empty:
         s += stone_icon(W / 2, 370, 22, WHITE)
         s += text(W / 2, 430, "No games waiting for you", 17, 500, INK, "middle")
         s += text(W / 2, 454, "Pull down to check again.", 14, 400, INK2, "middle")
+        return s + bottom_nav("Games") + "</svg>"
+    if offline:
+        # Built like the empty state, not like an error: nothing is red, and the action
+        # that resolves it is on screen. No icon — see DESIGN.md.
+        s += text(W / 2, 400, "Can't reach Dragon Go Server", 17, 500, INK, "middle")
+        s += text(W / 2, 424, "Check your connection and try again.", 14, 400, INK2, "middle")
+        s += button(W / 2 - 90, 460, 180, 48, "Try again")
         return s + bottom_nav("Games") + "</svg>"
     s += text(W - 20, 88, "3", 16, 500, INK2, "end")
     rows = [
@@ -258,6 +265,7 @@ screens = {
     "01-signin": screen_signin(),
     "02-games-your-move": screen_games(),
     "02b-games-empty": screen_games(empty=True),
+    "02c-games-offline": screen_games(offline=True),
     "03-board-server-position-19": screen_board(19, STONES_19, LAST_19),
     "03b-board-trial-19": screen_board(19, STONES_19, LAST_19, TRIAL_19, trial_mode=True),
     "03c-board-server-position-9": screen_board(9, STONES_9, LAST_9),

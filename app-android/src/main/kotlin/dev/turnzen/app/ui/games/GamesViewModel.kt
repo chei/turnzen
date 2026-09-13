@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.SessionManager
+import dev.turnzen.app.ui.common.ServerProblem
+import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,7 +29,8 @@ data class GamesUiState(
     /** Every running game. null while the first load is in flight. */
     val allRunning: List<GameSummary>? = null,
     val refreshing: Boolean = false,
-    val error: String? = null,
+    /** The last refresh's failure, if it failed. Null while the list is trusted. */
+    val problem: ServerProblem? = null,
 ) {
     fun listFor(tab: GamesTab): List<GameSummary>? = if (tab == GamesTab.YOUR_TURN) yourTurn else allRunning
 }
@@ -69,16 +72,16 @@ class GamesViewModel(
     private fun start(silent: Boolean) {
         if (inFlight) return
         inFlight = true
-        if (!silent) transient.update { it.copy(refreshing = true, error = null) }
+        if (!silent) transient.update { it.copy(refreshing = true, problem = null) }
         viewModelScope.launch {
             try {
                 store.refresh()
                 lastRefreshAt = System.nanoTime()
-                transient.update { it.copy(refreshing = false, error = null) }
+                transient.update { it.copy(refreshing = false, problem = null) }
                 warmFirstGame()
             } catch (e: GoServerException) {
                 // Shown for a silent refresh too: it explains why the list looks unchanged.
-                transient.update { it.copy(refreshing = false, error = messageFor(e)) }
+                transient.update { it.copy(refreshing = false, problem = problemFor(e, session.serverName)) }
             } finally {
                 inFlight = false
             }
@@ -96,16 +99,5 @@ class GamesViewModel(
                 ?.firstOrNull()
                 ?.id ?: return
         viewModelScope.launch { store.prefetch(first) }
-    }
-
-    private fun messageFor(e: GoServerException): String {
-        val server = session.serverName
-        return when (e) {
-            is GoServerException.Unreachable -> "Couldn't reach $server. Check your connection and pull down to retry."
-            is GoServerException.RateLimited -> "$server asked us to slow down. Try again in a few minutes."
-            is GoServerException.SessionExpired -> "Signed out by $server. Sign in again."
-            is GoServerException.InvalidCredentials -> "Signed out by $server. Sign in again."
-            else -> "Couldn't load games: ${e.message}"
-        }
     }
 }

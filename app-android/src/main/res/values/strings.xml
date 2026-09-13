@@ -2,6 +2,8 @@
 <resources>
     <string name="app_name">Turnzen</string>
 
+    <string name="action_retry">Try again</string>
+
     <string name="nav_games">Games</string>
     <string name="nav_settings">Settings</string>
 

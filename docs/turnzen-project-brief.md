@@ -386,7 +386,8 @@ Recommended order, cheapest/lowest-risk first:
   move count, optionally a small board thumbnail. Remaining time is the only true urgency
   signal — give it visual weight.
 - States: loading, empty ("No games waiting for you" — this is good news, not an error),
-  network error with retry.
+  and unreachable-server with a "Try again" (a full-screen state before the first load, one
+  quiet line above the list afterwards).
 
 **3. Board / game screen — the core of the MVP**
 - Layout: a thin header (opponent, colors, remaining time), the board at full width, a
@@ -512,7 +513,15 @@ Decisions taken while building the MVP that refine or amend the sections above.
   start; a `not_logged_in` answer triggers one silent re-login with the stored
   credentials. If that fails with a credential error, the sign-in screen explains why.
 - **Navigation is hand-rolled** (two tabs plus an open game) instead of navigation-compose;
-  three destinations do not justify the dependency yet.
+  three destinations do not justify the dependency yet. The open game is saved with the id
+  of the process that opened it, so a configuration change keeps it and a relaunch after
+  Android killed the app does not: the games list and the record cache are in memory only,
+  so a board restored into a fresh process has no header, no grid and no list behind it —
+  which is exactly the screen an offline cold start used to land on.
+- **Failures are shown in two tones** (`ServerProblem`): unreachable and rate-limited are
+  states to wait out, shown quietly with a retry; signed-out, rejected moves and protocol
+  errors are errors and keep the urgent colour. Connectivity is not probed — that would
+  need ACCESS_NETWORK_STATE, and the app ships with INTERNET only.
 - **Package and ids**: Kotlin packages `dev.turnzen.*` (code identity, one per module:
   `.game`, `.dgs`, `.goserver`, `.app`); application id `io.github.chei.turnzen` (the
   distribution identity, reverse-DNS of the `chei.github.io` Pages subdomain the source

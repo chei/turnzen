@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.SessionManager
+import dev.turnzen.app.ui.common.ServerProblem
+import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
 import dev.turnzen.game.Move
@@ -48,7 +50,8 @@ private const val CODE_NOT_YOUR_TURN = "not_your_turn"
  */
 data class BoardUiState(
     val loading: Boolean = true,
-    val error: String? = null,
+    /** Why the last call failed, if it did: a load that found no network, a rejected move. */
+    val problem: ServerProblem? = null,
     val detail: GameDetail? = null,
     val replay: Replay? = null,
     val trial: TrialVariation? = null,
@@ -193,7 +196,7 @@ class BoardViewModel(
             _state.update {
                 it.copy(
                     loading = false,
-                    error = null,
+                    problem = null,
                     preview = preview ?: it.preview,
                     detail = known,
                     replay = replay,
@@ -208,7 +211,7 @@ class BoardViewModel(
         _state.update {
             it.copy(
                 loading = true,
-                error = null,
+                problem = null,
                 preview = preview ?: it.preview,
                 detail = null,
                 replay = null,
@@ -235,7 +238,7 @@ class BoardViewModel(
                 }
                 warmNext()
             } catch (e: GoServerException) {
-                _state.update { it.copy(loading = false, error = messageFor(e)) }
+                _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
             }
         }
     }
@@ -361,16 +364,14 @@ class BoardViewModel(
                 if (e.code == CODE_NOT_YOUR_TURN) {
                     onGameMovedOn()
                 } else {
-                    _state.update { it.copy(sending = false, error = messageFor(e)) }
+                    _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
                 }
             } catch (e: GoServerException) {
                 // The trial variation is kept so nothing is lost.
-                _state.update { it.copy(sending = false, error = messageFor(e)) }
+                _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
             }
         }
     }
-
-    fun dismissError() = _state.update { it.copy(error = null) }
 
     /**
      * The game moved on without us. Reload it so the board shows the real position, and
@@ -386,18 +387,6 @@ class BoardViewModel(
             } catch (e: GoServerException) {
                 // Best effort: the list keeps what it has and refreshes again when shown.
             }
-        }
-    }
-
-    private fun messageFor(e: GoServerException): String {
-        val server = session.serverName
-        return when (e) {
-            is GoServerException.Unreachable -> "Couldn't reach $server. Check your connection and try again."
-            is GoServerException.MoveRejected -> "$server rejected the move (${e.code})."
-            is GoServerException.RateLimited -> "$server asked us to slow down. Try again in a few minutes."
-            is GoServerException.SessionExpired -> "Signed out by $server. Sign in again."
-            is GoServerException.InvalidCredentials -> "Signed out by $server. Sign in again."
-            else -> "Something went wrong: ${e.message}"
         }
     }
 }
