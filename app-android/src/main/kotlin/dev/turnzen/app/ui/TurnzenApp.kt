@@ -10,9 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -79,6 +81,30 @@ fun TurnzenApp(container: AppContainer) {
     }
 }
 
+/**
+ * Identifies this process. A new value every time the app's process starts, because a fresh
+ * process re-runs this initialiser.
+ */
+private val processId = System.nanoTime()
+
+/**
+ * Saves the open game together with [processId], and restores it only within the same
+ * process.
+ *
+ * Saved instance state outlives the process: Android hands it back both after a
+ * configuration change (same process, the activity recreated under it) and after it has
+ * killed a backgrounded app entirely. Those want opposite answers here. Rotating should keep
+ * the game open; launching again tomorrow should not, because everything the board needs —
+ * the games list and the record cache — lives in memory and died with the process, so the
+ * restored board would come up with no header, no grid and a failed fetch, on a screen that
+ * has no way back to the list. A cold start belongs on the games list.
+ */
+private val openGameSaver =
+    listSaver<MutableState<String?>, Any>(
+        save = { state -> state.value?.let { listOf(processId, it) }.orEmpty() },
+        restore = { saved -> mutableStateOf(saved.takeIf { it.firstOrNull() == processId }?.get(1) as String?) },
+    )
+
 @Composable
 private fun SignedInShell(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(MainTab.GAMES) }
@@ -86,10 +112,11 @@ private fun SignedInShell(container: AppContainer) {
     // and closing a game, and so Skip and auto-advance know which list to move through.
     var gamesTab by rememberSaveable { mutableStateOf(GamesTab.YOUR_TURN) }
     // Saved rather than merely remembered: any configuration change (rotation, theme, font
-    // size, a multi-window resize) or process death recreates the activity, and a plain
-    // remember would drop the open game and bounce the user back to the list. Held as the
-    // raw id because that is what a Bundle can carry.
-    var openGameId by rememberSaveable { mutableStateOf<String?>(null) }
+    // size, a multi-window resize) recreates the activity, and a plain remember would drop
+    // the open game and bounce the user back to the list. Held as the raw id because that is
+    // what a Bundle can carry — and tagged with the process that opened it, see
+    // [openGameSaver].
+    var openGameId by rememberSaveable(saver = openGameSaver) { mutableStateOf<String?>(null) }
     val openGame = openGameId?.let(::GameId)
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
