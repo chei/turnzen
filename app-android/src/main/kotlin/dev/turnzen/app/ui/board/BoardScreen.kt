@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -703,6 +704,13 @@ private fun RowScope.RepeatNavButton(
 ) {
     val scope = rememberCoroutineScope()
     var pressed by remember { mutableStateOf(false) }
+    // Compose hands the gesture block to the pointer-input node once and leaves it there: the
+    // node is rebuilt only when pointerInput's keys change, and `Unit` never does. So the block
+    // must not close over [onStep] itself. Skipping to the next game swaps the view model under
+    // a node that survives the swap, and the captured lambda would go on stepping the game the
+    // user just left — invisibly, which reads on screen as a button that has stopped working.
+    // Through rememberUpdatedState it always steps the game currently shown.
+    val step by rememberUpdatedState(onStep)
     NavPill(
         enabled = enabled,
         pressed = pressed,
@@ -715,20 +723,29 @@ private fun RowScope.RepeatNavButton(
                     awaitEachGesture {
                         awaitFirstDown(requireUnconsumed = false)
                         pressed = true
-                        onStep()
+                        step()
                         val repeat =
                             scope.launch {
                                 delay(REPEAT_HOLD_MS)
                                 var stepsSoFar = 0
                                 while (true) {
-                                    onStep()
+                                    step()
                                     delay(repeatDelayMs(stepsSoFar))
                                     stepsSoFar++
                                 }
                             }
-                        waitForUpOrCancellation()
-                        pressed = false
-                        repeat.cancel()
+                        // The repeat runs in the composition's scope, not the gesture's, so it
+                        // outlives a gesture that is cancelled rather than ended — and that is
+                        // the ordinary case here, because the last step to move 0 or to the end
+                        // of the line disables this button and detaches the node under the
+                        // finger. Left running it would step for the life of the screen, pinning
+                        // the cursor at that end and leaving the opposite button unusable.
+                        try {
+                            waitForUpOrCancellation()
+                        } finally {
+                            pressed = false
+                            repeat.cancel()
+                        }
                     }
                 }
             },

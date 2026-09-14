@@ -5,6 +5,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -59,6 +61,12 @@ fun GoBoard(
     onTap: (Point) -> Unit = {},
 ) {
     val n = position.size
+    // Read through a holder for the same reason the move-navigation buttons do: the tap block
+    // below is captured by the pointer-input node and refreshed only when the keys change. Two
+    // games of the same size running one after the other keep the same keys, so a board that
+    // closed over [onTap] would go on placing trial stones in the game the user skipped away
+    // from; the same applies when a game enters the counting phase and [onTap] changes meaning.
+    val tap by rememberUpdatedState(onTap)
     val textMeasurer = rememberTextMeasurer()
     val palette = colors
     val trialPoints = trialMoves.mapIndexedNotNull { i, m -> m.point?.let { it to i + 1 } }.toMap()
@@ -74,7 +82,7 @@ fun GoBoard(
                     val cell = size.width.toFloat() / n
                     val col = (offset.x / cell).toInt().coerceIn(0, n - 1)
                     val row = (offset.y / cell).toInt().coerceIn(0, n - 1)
-                    onTap(Point(col, row))
+                    tap(Point(col, row))
                 }
             },
     ) {
