@@ -6,6 +6,7 @@ import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.StoneColor
@@ -324,6 +325,45 @@ class BoardViewModelTest : MainDispatcherTest() {
             // Nothing is marked yet, so the stranded white stone keeps black's area neutral.
             assertTrue(scoring.dead.isEmpty())
             assertTrue(scoring.blackTerritory.isEmpty())
+            // Server and device count the same position the same way: nothing to reconcile.
+            assertNull(scoring.localAside)
+        }
+
+    @Test
+    fun `a server count the device cannot reproduce is owned up to`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val generous =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun scoreState(
+                        id: GameId,
+                        token: MoveToken,
+                        toggle: Set<Point>,
+                    ): ScoreState {
+                        // A count nobody's arithmetic reaches, standing in for the real
+                        // reasons two counts part company: seki, or unfilled dame.
+                        val real = fake.scoreState(id, token, toggle)
+                        return real.copy(result = GameResult(StoneColor.BLACK, 10.0))
+                    }
+                }
+            val h = Harness(generous)
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            // The headline stays the server's — that is what an agreement agrees to — and the
+            // device's own figure, which the breakdown adds up to, is offered beside it.
+            assertEquals(10.0, scoring.result?.margin)
+            assertEquals(scoring.count?.result, scoring.localAside)
+
+            // Once the user marks something the device's count is the only one on show, so
+            // there are no longer two answers to reconcile.
+            h.vm.toggleDead(strandedStone)
+            advanceUntilIdle()
+            assertNull(
+                h.vm.state.value.scoring
+                    ?.localAside,
+            )
         }
 
     @Test

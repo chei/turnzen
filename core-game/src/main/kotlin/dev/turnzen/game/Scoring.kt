@@ -22,6 +22,19 @@ data class GameResult(
     val margin: Double? = null,
     val by: ResultReason = ResultReason.POINTS,
 ) {
+    /**
+     * The margin as a signed number, positive when black is ahead. Two results can be
+     * compared this way without unpacking the winner, which is how the board screen notices
+     * that the server's count and its own have parted company.
+     */
+    val signedMargin: Double
+        get() =
+            when (winner) {
+                StoneColor.BLACK -> margin ?: 0.0
+                StoneColor.WHITE -> -(margin ?: 0.0)
+                null -> 0.0
+            }
+
     companion object {
         /** The result of a count: black's points against white's. */
         fun fromPoints(
@@ -48,12 +61,44 @@ data class ScoreCount(
     val dame: Set<Point>,
     /** Stones each side has taken: captures during play plus the opponent's dead stones. */
     val captures: Map<StoneColor, Int>,
+    /** Stones each side still has standing once the dead ones are lifted off. */
+    val stones: Map<StoneColor, Int>,
+    /** The rules the totals were reached under, so a breakdown can name the right addends. */
+    val rules: ScoringRules,
+    /** White's compensation for moving second. Part of [whitePoints]. */
+    val komi: Double,
+    /**
+     * White's compensation for black's handicap stones. Part of [whitePoints], and zero
+     * under territory scoring, where free stones are not points to begin with.
+     */
+    val handicapCompensation: Double,
     val blackPoints: Double,
     val whitePoints: Double,
 ) {
     fun territoryOf(color: StoneColor): Set<Point> = territory[color].orEmpty()
 
     fun capturesOf(color: StoneColor): Int = captures[color] ?: 0
+
+    fun stonesOf(color: StoneColor): Int = stones[color] ?: 0
+
+    fun pointsOf(color: StoneColor): Double = if (color == StoneColor.BLACK) blackPoints else whitePoints
+
+    /**
+     * What [color]'s total is made of, in the order it is added up: the points each addend
+     * is worth, without the labels — the screen that shows them knows [rules] and can say
+     * "territory" or "stones" itself. Zero addends are left out, except territory, which is
+     * always the first figure even when it is nothing.
+     */
+    fun addendsOf(color: StoneColor): List<Double> =
+        buildList {
+            add(territoryOf(color).size.toDouble())
+            val second = if (rules == ScoringRules.AREA) stonesOf(color) else capturesOf(color)
+            if (second > 0) add(second.toDouble())
+            if (color == StoneColor.WHITE) {
+                if (komi != 0.0) add(komi)
+                if (handicapCompensation != 0.0) add(handicapCompensation)
+            }
+        }
 
     val result: GameResult
         get() = GameResult.fromPoints(blackPoints, whitePoints)
@@ -74,12 +119,19 @@ object Scoring {
      * Dead stones are lifted off the board first, so the points they stood on count as their
      * captor's territory — which is how both rulesets treat them, and why the marking step
      * exists at all.
+     *
+     * [handicap] matters only under area scoring, where black's free stones sit on the board
+     * and count themselves: white is compensated one point per handicap stone, which is what
+     * every server that offers Chinese counting does and what makes the two rulesets agree on
+     * the same finished position. Under territory scoring the free stones were never points,
+     * so the figure is ignored.
      */
     fun count(
         position: Position,
         dead: Set<Point> = emptySet(),
         komi: Double = 0.0,
         rules: ScoringRules = ScoringRules.TERRITORY,
+        handicap: Int = 0,
     ): ScoreCount {
         val board = position.board
         val alive = board.without(dead)
@@ -102,8 +154,10 @@ object Scoring {
                 position.prisonersOf(color) + (deadByColor[color.opposite] ?: 0)
             }
 
+        val stones = StoneColor.entries.associateWith { alive.count(it) }
         val blackArea = territory[StoneColor.BLACK]?.size ?: 0
         val whiteArea = territory[StoneColor.WHITE]?.size ?: 0
+        val compensation = if (rules == ScoringRules.AREA) handicap.coerceAtLeast(0).toDouble() else 0.0
         val black: Double
         val white: Double
         when (rules) {
@@ -114,14 +168,18 @@ object Scoring {
 
             ScoringRules.AREA -> {
                 // Stones still standing count themselves; captures do not enter the sum.
-                black = (blackArea + alive.count(StoneColor.BLACK)).toDouble()
-                white = (whiteArea + alive.count(StoneColor.WHITE)).toDouble() + komi
+                black = (blackArea + stones.getValue(StoneColor.BLACK)).toDouble()
+                white = (whiteArea + stones.getValue(StoneColor.WHITE)).toDouble() + komi + compensation
             }
         }
         return ScoreCount(
             territory = territory.mapValues { (_, points) -> points.toSet() },
             dame = dame,
             captures = captures,
+            stones = stones,
+            rules = rules,
+            komi = komi,
+            handicapCompensation = compensation,
             blackPoints = black,
             whitePoints = white,
         )

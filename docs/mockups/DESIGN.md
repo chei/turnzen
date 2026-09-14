@@ -190,9 +190,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   for one. Tapping a group marks it dead or brings it back, and **marking is local**, like
   every other board gesture: nothing reaches the server until the user sends it.
   The move-navigation row is replaced by the count, because the board is the final position
-  and there is nothing left to walk through: who leads and by how much (title weight), the
-  two totals below it, and one quiet line of guidance — "Tap a group to mark it dead", "Your
-  marks are on this device until you send them", or "Waiting for your opponent to agree".
+  and there is nothing left to walk through: the headline in title weight, the two sides'
+  sums below it, the key that names their addends, and one quiet line of guidance — "Tap a
+  group to mark it dead", "Your marks are on this device until you send them", or "Waiting
+  for your opponent to agree".
   A "Reset marks" text action appears beside the count once there is something to undo.
   The action row keeps Skip, and the right slot settles the score: **Send marks** while the
   user has marked something (it is a move — the opponent reviews it and the turn passes),
@@ -200,6 +201,31 @@ Use tabular figures for time and move counts so columns don't jitter.
   The figure shown is the server's own count while the marks are untouched — it is the count
   an agreement agrees to — and the device's own count as soon as the user marks something,
   because the server's answer is then about a different set of stones.
+- **The count is written from the reader's seat.** Every game in the app is one of theirs, so
+  the headline says "You're winning by 7.5" or "You're losing by 7.5", never "Black leads by
+  7.5" — naming a colour makes the reader translate. Present tense and "winning" rather than
+  "leads": the game is not over until both players have agreed, and "leads" belongs to a game
+  still being played. A jigo is "A draw"; a void game, "No result".
+- **The sums are shown as sums**, one line per side, the reader's own first:
+
+  ```
+  You (black)              42 + 3 = 45
+  kirisame (white)   30 + 2 + 6.5 = 38.5
+  Territory + prisoners + komi
+  ```
+
+  The key underneath names the addends in the order they are added, and names only the ones
+  actually on screen — a game with no prisoners and no komi does not promise figures that are
+  not there. Under area scoring the second addend is standing stones rather than prisoners,
+  and a handicap game adds white's compensation, one point per handicap stone. Dame are not
+  shown: they are worth nothing to anyone and a permanently zero row is noise. The opponent
+  is named by handle, with the colour in parentheses — the board's territory marks are in
+  stone colours, so the breakdown is where that thread is tied.
+- **The breakdown is always the device's own arithmetic**, even when the headline is the
+  server's: the server sends a result and its territory but no per-side totals, so there is
+  nothing of its own to take apart. When the two answers differ by more than rounding — seki,
+  or dame left unfilled under area scoring — a line under the count says so and names both
+  figures, rather than leaving two numbers on screen that refuse to add up.
 - **A game being counted says so in the list**: the row reads "9x9, counting, 40 min ago"
   rather than naming a move number that nobody is waiting for.
 - **Game info sheet**: everything the server already told us that the board has no room for

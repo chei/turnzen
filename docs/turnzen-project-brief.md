@@ -578,8 +578,20 @@ Decisions taken while building the MVP that refine or amend the sections above.
   never reaches the server, so `:core-game` also counts: territory by flood-fill, plus
   prisoners and komi under Japanese rules or stones under Chinese (`ScoringRules`). While the
   user has unsent marks the app shows *that* count, because the server's answer is about a
-  different set of stones. The two agree on any position whose dead stones are agreed, which
-  is the position a player is looking at when they accept.
+  different set of stones. The two normally agree on any position whose dead stones are
+  agreed, which is the position a player is looking at when they accept — but not always
+  (seki, dame left unfilled under area scoring), so when the margins differ by more than
+  rounding the screen says so and names both figures. The server's is still the one that
+  settles the game.
+- **The count is shown as a sum, and that forced a rules fix.** The panel breaks each side's
+  total into its addends (September 2026), which means any error in the arithmetic is now on
+  screen for the reader to check. One was: under area scoring black's handicap stones sit on
+  the board and count themselves, so `Scoring.count` overstated black by the handicap. White
+  is now compensated one point per handicap stone — what every server offering Chinese
+  counting does, and what makes the two rulesets land on the same result for the same
+  finished position. Territory scoring ignores the figure; the free stones were never points.
+  DGS reports `komi` unadjusted for handicap games (0.5 in the fixture with five stones), so
+  the compensation is the app's own addition, not something already in the komi.
 - **Dead stones are sent as groups, not stones.** The server takes one coordinate per group
   and flips it (`toggle=uniq`), so the app tracks the lowest point of each flipped group; a
   group flipped twice cancels and is never mentioned. This keeps the request tiny and makes

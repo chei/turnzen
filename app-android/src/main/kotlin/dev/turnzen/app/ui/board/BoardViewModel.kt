@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 
 enum class PendingConfirmation { SEND, PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
 
@@ -68,6 +69,24 @@ data class ScoringUiState(
 
     val whiteTerritory: Set<Point>
         get() = if (changed) count?.territoryOf(StoneColor.WHITE).orEmpty() else server.whiteTerritory
+
+    /**
+     * The device's own count, but only when the server's is the one on show and the two have
+     * parted company by more than rounding; null the rest of the time.
+     *
+     * The panel shows the server's figure while the marks are untouched and breaks down the
+     * device's count underneath it, because the server sends a result and territory but no
+     * per-side totals. Usually both answers agree and nobody notices the seam. When they do
+     * not — a seki, dame left unfilled under area scoring — the screen has to say so rather
+     * than print two numbers that refuse to add up.
+     */
+    val localAside: GameResult?
+        get() {
+            if (changed) return null
+            val settled = server.result ?: return null
+            val local = count?.result ?: return null
+            return local.takeIf { abs(it.signedMargin - settled.signedMargin) > 0.01 }
+        }
 }
 
 /** DGS's code for a move sent when it is the opponent's turn. */
@@ -375,11 +394,13 @@ class BoardViewModel(
         val position = state.replay?.finalPosition ?: return null
         val komi = state.detail?.info?.komi ?: state.detail?.record?.komi ?: 0.0
         val rules = server.rules ?: state.detail?.info?.scoring ?: ScoringRules.TERRITORY
+        // Only area scoring cares; Scoring.count ignores it under territory rules.
+        val handicap = state.detail?.summary?.handicap ?: 0
         return ScoringUiState(
             server = server,
             dead = dead,
             toggled = toggled,
-            count = Scoring.count(position, dead, komi, rules),
+            count = Scoring.count(position, dead, komi, rules, handicap),
         )
     }
 

@@ -42,7 +42,6 @@
     <string name="board_resign_explain">You give the game up. This can\'t be undone.</string>
     <string name="board_sending">Sending…</string>
 
-    <string name="score_totals">Black %1$s, white %2$s</string>
     <string name="score_hint_mark">Tap a group to mark it dead.</string>
     <string name="score_hint_changed">Your marks are on this device until you send them.</string>
     <string name="score_hint_waiting">Waiting for your opponent to agree.</string>
@@ -53,11 +52,24 @@
     <string name="score_accept">Accept score</string>
     <string name="score_accept_question">Accept the score?</string>
     <string name="score_accept_explain">The game ends at this count once your opponent has agreed too.</string>
-    <string name="score_lead">%1$s leads by %2$s</string>
-    <string name="score_even">Even</string>
+    <string name="score_winning">You\'re winning by %1$s</string>
+    <string name="score_losing">You\'re losing by %1$s</string>
+    <string name="score_draw">A draw</string>
     <string name="score_no_result">No result</string>
-    <string name="score_black">Black</string>
-    <string name="score_white">White</string>
+    <string name="score_side_you">You (%1$s)</string>
+    <string name="score_side_them">%1$s (%2$s)</string>
+    <string name="score_black">black</string>
+    <string name="score_white">white</string>
+    <string name="score_sum">= %1$s</string>
+    <string name="score_key_territory">Territory</string>
+    <string name="score_key_prisoners">prisoners</string>
+    <string name="score_key_stones">stones</string>
+    <string name="score_key_komi">komi</string>
+    <string name="score_key_handicap">handicap</string>
+    <string name="score_server_differs">These totals are this device\'s count (%1$s); the server\'s figure above is the one that settles the game.</string>
+    <string name="score_aside_you">you by %1$s</string>
+    <string name="score_aside_them">%1$s by %2$s</string>
+    <string name="score_aside_draw">a draw</string>
 
     <string name="info_title">Game info</string>
     <string name="info_open">Show game info</string>

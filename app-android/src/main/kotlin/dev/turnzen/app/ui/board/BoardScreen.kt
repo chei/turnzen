@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -73,6 +74,8 @@ import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Position
 import dev.turnzen.game.ResultReason
+import dev.turnzen.game.ScoreCount
+import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.RemainingTime
 import kotlinx.coroutines.delay
@@ -152,11 +155,16 @@ fun BoardScreen(
         Spacer(Modifier.height(20.dp))
 
         val scoring = state.scoring
-        if (scoring != null) {
+        val summary = state.headerSummary
+        if (scoring != null && summary != null) {
             // The counting phase replaces the move navigation: the board is the final
             // position, there is nothing left to walk through, and the count needs the room.
+            // The summary comes with the record the count is made from, so it is always here;
+            // without it there would be no way to say which side is the reader's.
             ScorePanel(
                 scoring = scoring,
+                you = summary.myColor,
+                opponent = summary.opponent.handle,
                 canMark = state.canMark,
                 waitingForOpponent = !state.isMyTurn,
                 onReset = viewModel::resetMarks,
@@ -390,9 +398,19 @@ private fun MoveNavigationRow(
     }
 }
 
-/** "Black leads by 7.5", "Even", "No result" — the count as a sentence, never a formula. */
+/**
+ * "You're winning by 7.5", "A draw", "No result" — the count as a sentence, from the seat of
+ * the person holding the phone. Every game in the app is one of theirs, so there is always a
+ * side to speak from, and naming a colour here would make the reader do the translation.
+ *
+ * Present tense, and "winning" rather than "leads": the game is not over until both players
+ * have agreed, and "leads" belongs to a game still being played.
+ */
 @Composable
-private fun leadLabel(result: GameResult?): String {
+private fun leadLabel(
+    result: GameResult?,
+    you: StoneColor,
+): String {
     val winner = result?.winner
     return when {
         result == null -> {
@@ -404,59 +422,184 @@ private fun leadLabel(result: GameResult?): String {
         }
 
         winner == null -> {
-            stringResource(R.string.score_even)
+            stringResource(R.string.score_draw)
         }
 
         else -> {
             stringResource(
-                R.string.score_lead,
-                stringResource(if (winner == StoneColor.BLACK) R.string.score_black else R.string.score_white),
+                if (winner == you) R.string.score_winning else R.string.score_losing,
                 Formatting.points(result.margin ?: 0.0),
             )
         }
     }
 }
 
+/** "you by 6.5", "kirisame by 6.5", "a draw" — a result inside a sentence, not opening one. */
+@Composable
+private fun asideLabel(
+    result: GameResult,
+    you: StoneColor,
+    opponent: String,
+): String {
+    val margin = Formatting.points(result.margin ?: 0.0)
+    return when (result.winner) {
+        null -> stringResource(R.string.score_aside_draw)
+        you -> stringResource(R.string.score_aside_you, margin)
+        else -> stringResource(R.string.score_aside_them, opponent, margin)
+    }
+}
+
+/** "black" / "white", for the colour that follows a player's name in the breakdown. */
+@Composable
+private fun colorName(color: StoneColor): String =
+    stringResource(if (color == StoneColor.BLACK) R.string.score_black else R.string.score_white)
+
 /**
- * The count, in the space the navigation row usually occupies: who is ahead and by how much,
- * the two totals it comes from, and one line of guidance about what to do next.
+ * What the two sums are made of, named in the order they are added: "Territory + prisoners
+ * + komi". Only the addends that actually appear are named, so a game with no komi and no
+ * prisoners does not promise figures that are not on the screen.
+ */
+@Composable
+private fun countKey(count: ScoreCount): String {
+    val parts =
+        buildList {
+            add(stringResource(R.string.score_key_territory))
+            val secondary =
+                if (count.rules == ScoringRules.AREA) {
+                    count.stonesOf(StoneColor.BLACK) + count.stonesOf(StoneColor.WHITE)
+                } else {
+                    count.capturesOf(StoneColor.BLACK) + count.capturesOf(StoneColor.WHITE)
+                }
+            if (secondary > 0) {
+                add(
+                    stringResource(
+                        if (count.rules ==
+                            ScoringRules.AREA
+                        ) {
+                            R.string.score_key_stones
+                        } else {
+                            R.string.score_key_prisoners
+                        },
+                    ),
+                )
+            }
+            if (count.komi != 0.0) add(stringResource(R.string.score_key_komi))
+            if (count.handicapCompensation != 0.0) add(stringResource(R.string.score_key_handicap))
+        }
+    return parts.joinToString(" + ")
+}
+
+/**
+ * One side of the breakdown: who they are, the addends, and what they come to. A side with
+ * a single addend shows the figure once — "0 = 0" is arithmetic nobody needs checking.
+ */
+@Composable
+private fun ScoreLine(
+    name: String,
+    addends: List<Double>,
+    total: Double,
+) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            name,
+            Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.ink2,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (addends.size > 1) {
+            Text(
+                addends.joinToString(" + ") { Formatting.points(it) },
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+            )
+            Text(
+                stringResource(R.string.score_sum, Formatting.points(total)),
+                Modifier.padding(start = 6.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        } else {
+            Text(
+                Formatting.points(total),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+/**
+ * The count, in the space the navigation row usually occupies: whether the reader is winning
+ * and by how much, what each side's total is made of, and one line of guidance about what to
+ * do next.
  *
- * The figure is the server's own while the marks are untouched — it is the count an agreement
- * agrees to — and the device's own count as soon as the user marks something, because the
- * server's answer is then about a different set of stones.
+ * The headline figure is the server's own while the marks are untouched — it is the count an
+ * agreement agrees to — and the device's own count as soon as the user marks something,
+ * because the server's answer is then about a different set of stones.
+ *
+ * The breakdown underneath is always the device's own arithmetic: the server sends a result
+ * and its territory, but no per-side totals, so there is nothing of its own to take apart.
+ * On the rare position where the two answers differ, a line says so rather than leaving two
+ * numbers on screen that refuse to add up.
  */
 @Composable
 private fun ScorePanel(
     scoring: ScoringUiState,
+    you: StoneColor,
+    opponent: String,
     canMark: Boolean,
     waitingForOpponent: Boolean,
     onReset: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // "Reset marks" shares a line with the headline only. The breakdown keeps the full
+        // width underneath, so its figures stay in the same column whether or not the action
+        // is there — the totals must not jump sideways the moment the user marks a group.
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    leadLabel(scoring.result),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                val count = scoring.count
-                if (count != null) {
-                    Text(
-                        stringResource(
-                            R.string.score_totals,
-                            Formatting.points(count.blackPoints),
-                            Formatting.points(count.whitePoints),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.ink2,
-                    )
-                }
-            }
+            Text(
+                leadLabel(scoring.result, you),
+                Modifier.weight(1f),
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
             // Only offered once there is something to undo; tapping a group again also works.
             if (scoring.changed) {
                 TextAction(stringResource(R.string.score_reset), onReset, color = colors.accent)
             }
+        }
+        val count = scoring.count
+        if (count != null) {
+            // The reader's own side first: the screen is about their game.
+            for (color in listOf(you, you.opposite)) {
+                ScoreLine(
+                    name =
+                        if (color == you) {
+                            stringResource(R.string.score_side_you, colorName(color))
+                        } else {
+                            stringResource(R.string.score_side_them, opponent, colorName(color))
+                        },
+                    addends = count.addendsOf(color),
+                    total = count.pointsOf(color),
+                )
+            }
+            Text(
+                countKey(count),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.ink2,
+            )
+        }
+        scoring.localAside?.let {
+            Text(
+                stringResource(R.string.score_server_differs, asideLabel(it, you, opponent)),
+                Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+            )
         }
         val hint =
             when {
