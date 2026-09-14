@@ -592,6 +592,17 @@ Decisions taken while building the MVP that refine or amend the sections above.
   finished position. Territory scoring ignores the figure; the free stones were never points.
   DGS reports `komi` unadjusted for handicap games (0.5 in the fixture with five stones), so
   the compensation is the app's own addition, not something already in the komi.
+- **Board gestures are separated by distance, never by time.** A horizontal drag walks the
+  move timeline (one move per 12dp, relative to where the drag started); touch slop tells it
+  apart from a tap, so placing a stone is still instant. A double tap was considered for
+  "back to the live position" and rejected on the evidence: Compose's `detectTapGestures`
+  wraps the wait for a second finger in `withTimeoutOrNull(doubleTapTimeoutMillis)` and fires
+  `onTap` only after it expires, so adding one would delay *every* stone by ~300ms — and
+  `awaitSecondDown` compares timestamps only, never positions, so two quick taps on different
+  points would register as a double tap and eat the second stone. That is the app's core
+  interaction (tap-tap-tap builds a variation), so no time-separated gesture belongs on the
+  board. The rate is relative rather than an absolute map of width onto game length: a
+  250-move game would otherwise run at under a point per move.
 - **Dead stones are sent as groups, not stones.** The server takes one coordinate per group
   and flips it (`toggle=uniq`), so the app tracks the lowest point of each flipped group; a
   group flipped twice cancels and is never mentioned. This keeps the request tiny and makes

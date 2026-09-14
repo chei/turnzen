@@ -686,6 +686,43 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `a drag walks the timeline by whole moves and stops at its ends`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            val vm = h.vm
+            val moves = vm.state.value.moveCount
+            assertTrue(moves > 3)
+
+            // Backwards is negative, and the cursor lands exactly where it was sent.
+            vm.scrubBy(-3)
+            assertEquals(moves - 3, vm.state.value.cursor)
+            vm.scrubBy(2)
+            assertEquals(moves - 1, vm.state.value.cursor)
+
+            // A fling past either end stops there rather than running off the timeline.
+            vm.scrubBy(-500)
+            assertTrue(vm.state.value.atStart)
+            assertEquals(0, vm.state.value.cursor)
+            vm.scrubBy(500)
+            assertTrue(vm.state.value.atEnd)
+            assertEquals(vm.state.value.total, vm.state.value.cursor)
+
+            // A trial extends the timeline, and the drag walks into it like the buttons do —
+            // without disturbing the variation itself.
+            vm.toCurrent()
+            vm.onTap(Point(0, 0))
+            vm.onTap(Point(1, 0))
+            assertEquals(2, vm.state.value.trialMoves.size)
+            vm.scrubBy(-1)
+            assertEquals(1, vm.state.value.trialMoves.size)
+            assertEquals(2, vm.state.value.trialCount)
+            vm.scrubBy(1)
+            assertEquals(2, vm.state.value.trialMoves.size)
+        }
+
+    @Test
     fun `move navigation scrubs the whole timeline`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))

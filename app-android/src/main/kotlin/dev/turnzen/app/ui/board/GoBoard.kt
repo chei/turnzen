@@ -1,6 +1,7 @@
 package dev.turnzen.app.ui.board
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,6 +33,16 @@ import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
 
 /**
+ * How far the finger travels for one move of the timeline.
+ *
+ * A fixed rate rather than a mapping from the board's width, so the gesture feels the same in
+ * a 40-move 9x9 and a 250-move 19x19; the ends of the timeline are the skip buttons' job.
+ * Small enough that flicking back a move or two is a short movement, large enough that a stone
+ * placed with a slightly unsteady finger is still a stone.
+ */
+private val SCRUB_PER_MOVE = 12.dp
+
+/**
  * What a board being counted shows on top of the stones: the ones both players are treating
  * as dead, and the empty points each side has ended up surrounding.
  */
@@ -48,6 +59,13 @@ data class ScoringOverlay(
  * [position] is what is drawn; [trialMoves] are the stones within it that belong to the
  * trial variation (numbered, or the most recent one dotted when numbering is off). Tapping
  * calls [onTap] with the intersection and nothing else: this composable never talks to a server.
+ *
+ * A horizontal drag walks the game's timeline through [onScrub] — right towards the live
+ * position, left towards the opening, matching the way the navigation buttons are laid out.
+ * It is safe to have both gestures on one surface because they are told apart by *distance*:
+ * a touch that never travels [SCRUB_PER_MOVE]'s worth of slop stays a tap and places its stone
+ * with no delay. (A double tap could not be added on the same terms — it is told apart by
+ * *time*, which would hold every single tap for the double-tap timeout.)
  */
 @Composable
 fun GoBoard(
@@ -59,6 +77,8 @@ fun GoBoard(
     /** Non-null while the game is being counted; see [ScoringOverlay]. */
     scoring: ScoringOverlay? = null,
     onTap: (Point) -> Unit = {},
+    /** Whole moves crossed since the last call; positive walks towards the live position. */
+    onScrub: ((Int) -> Unit)? = null,
 ) {
     val n = position.size
     // Read through a holder for the same reason the move-navigation buttons do: the tap block
@@ -67,6 +87,7 @@ fun GoBoard(
     // closed over [onTap] would go on placing trial stones in the game the user skipped away
     // from; the same applies when a game enters the counting phase and [onTap] changes meaning.
     val tap by rememberUpdatedState(onTap)
+    val scrub by rememberUpdatedState(onScrub)
     val textMeasurer = rememberTextMeasurer()
     val palette = colors
     val trialPoints = trialMoves.mapIndexedNotNull { i, m -> m.point?.let { it to i + 1 } }.toMap()
@@ -83,6 +104,30 @@ fun GoBoard(
                     val col = (offset.x / cell).toInt().coerceIn(0, n - 1)
                     val row = (offset.y / cell).toInt().coerceIn(0, n - 1)
                     tap(Point(col, row))
+                }
+            }
+            // After the tap detector in the chain, so this one sees the main pass first and
+            // can claim the gesture once it is a drag; that claim is what cancels the pending
+            // tap, so a scrub never leaves a stone behind it.
+            .pointerInput(enabled, onScrub != null) {
+                if (!enabled || scrub == null) return@pointerInput
+                val perMove = SCRUB_PER_MOVE.toPx()
+                // Distance the finger has travelled but not yet spent on a move, so a slow
+                // drag crosses moves at the same rate as a fast one instead of rounding each
+                // event's few pixels away to nothing.
+                var carried = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { carried = 0f },
+                    onDragEnd = { carried = 0f },
+                    onDragCancel = { carried = 0f },
+                ) { change, dragAmount ->
+                    change.consume()
+                    carried += dragAmount
+                    val steps = (carried / perMove).toInt()
+                    if (steps != 0) {
+                        carried -= steps * perMove
+                        scrub?.invoke(steps)
+                    }
                 }
             },
     ) {

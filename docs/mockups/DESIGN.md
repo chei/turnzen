@@ -134,6 +134,19 @@ Use tabular figures for time and move counts so columns don't jitter.
   nowhere to go keeps its pill and fades the border to half `line`, so the row never changes
   shape as the cursor moves. Press feedback is a `line` fill, not a ripple: flat, and the
   same for the tap controls and the hold-to-repeat ones.
+- **A horizontal drag on the board walks the same timeline**, right towards the live
+  position and left towards the opening, matching the way the navigation row is laid out. It
+  is a fixed rate — one move per 12dp of travel — not a mapping of the board's width onto the
+  game's length: an absolute mapping would put a 250-move game at under a point per move and
+  make "back two" unhittable, while a fixed rate feels the same on a 9×9 and a 19×19. The
+  ends of the timeline stay the skip buttons' job. The drag is off while the game is being
+  counted, where the count has taken the navigation row's place.
+- **Board gestures must be separable by distance, not by time.** A drag is told apart from a
+  tap by touch slop, so a touch that does not travel stays a tap and places its stone with no
+  delay. A double tap is told apart only by a timeout, which would hold *every* tap for it —
+  on a surface whose single tap is the primary action, and which players use in quick
+  succession to build a variation, that is disqualifying. It is also why no gesture may reach
+  the server: the one on the board that does is the Send button, and it is a button.
 - **The move counter is the exception**, because it is a readout that is only sometimes an
   action. When the board shows exactly the server position — the counter equals the played
   move count *and* no variation branches out of the past — a tap has nothing to do. That is

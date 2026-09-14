@@ -591,6 +591,15 @@ class BoardViewModel(
 
     fun stepForward() = _state.update { it.copy(cursor = (it.cursor + 1).coerceAtMost(it.total)) }
 
+    /**
+     * Moves the cursor [steps] along the timeline, clamped to its ends. This is what a drag
+     * across the board does: the gesture reports the whole moves it has crossed since it last
+     * reported, so one drag arrives as a stream of small deltas rather than as a position.
+     * Relative on purpose — an absolute mapping from finger position to move number would put
+     * a 250-move game at under a point per move, and stepping back two would be unhittable.
+     */
+    fun scrubBy(steps: Int) = _state.update { it.copy(cursor = (it.cursor + steps).coerceIn(0, it.total)) }
+
     fun toEnd() = _state.update { it.copy(cursor = it.total) }
 
     fun askSend() {

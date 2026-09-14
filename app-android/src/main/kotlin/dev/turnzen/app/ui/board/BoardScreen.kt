@@ -146,6 +146,9 @@ fun BoardScreen(
                     // While the game is being counted a tap marks a group dead instead of
                     // trying a move: there are no moves left to try.
                     onTap = if (state.isScoring) viewModel::toggleDead else viewModel::onTap,
+                    // ...and for the same reason there is nothing to scrub through: the count
+                    // has taken the navigation row's place, so the drag loses its twin.
+                    onScrub = if (state.isScoring) null else viewModel::scrubBy,
                 )
             } else {
                 Box(boardWidth.fillMaxWidth().aspectRatio(1f).background(colors.board))
