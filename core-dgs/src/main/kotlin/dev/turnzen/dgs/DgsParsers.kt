@@ -4,7 +4,12 @@ import dev.turnzen.dgs.QuickSuite.array
 import dev.turnzen.dgs.QuickSuite.int
 import dev.turnzen.dgs.QuickSuite.obj
 import dev.turnzen.dgs.QuickSuite.string
+import dev.turnzen.game.GameResult
+import dev.turnzen.game.Point
+import dev.turnzen.game.ResultReason
+import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
+import dev.turnzen.game.sgf.SgfCoordinates
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
@@ -14,6 +19,7 @@ import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
+import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
 import kotlinx.serialization.json.JsonObject
 import java.time.Duration
@@ -137,6 +143,74 @@ internal object UserInfoParser {
         )
 }
 
+/** DGS ruleset names, as the counting rule they imply. */
+internal object DgsRulesets {
+    /** DGS ships Japanese and Chinese rules; anything unexpected is counted as territory. */
+    fun scoring(value: String?): ScoringRules? =
+        when (value?.trim()?.uppercase()) {
+            null, "" -> null
+            "CHINESE" -> ScoringRules.AREA
+            else -> ScoringRules.TERRITORY
+        }
+}
+
+/**
+ * A finished game's score line: "0" for a draw, "VOID" for no result, otherwise the winner
+ * and either a margin in points or the letter for how they won ("W+7", "B+2.5", "W+R",
+ * "B+T", "W+F").
+ */
+internal object DgsScore {
+    fun parse(value: String?): GameResult? {
+        val text = value?.trim() ?: return null
+        if (text.isEmpty()) return null
+        if (text == "0") return GameResult(null, 0.0, ResultReason.JIGO)
+        if (text.equals("VOID", ignoreCase = true)) return GameResult(null, null, ResultReason.NO_RESULT)
+        val winner =
+            when (text.firstOrNull()?.uppercaseChar()) {
+                'B' -> StoneColor.BLACK
+                'W' -> StoneColor.WHITE
+                else -> return null
+            }
+        val by = text.substringAfter('+', "").trim()
+        return when (by.uppercase()) {
+            "R" -> GameResult(winner, null, ResultReason.RESIGNATION)
+            "T" -> GameResult(winner, null, ResultReason.TIMEOUT)
+            "F" -> GameResult(winner, null, ResultReason.FORFEIT)
+            else -> by.toDoubleOrNull()?.let { GameResult(winner, it, ResultReason.POINTS) }
+        }
+    }
+}
+
+/**
+ * The answer to `status_score` and `score`: the state of every point on a board being
+ * counted. Coordinates come back in SGF letters, comma-separated when the client asks for
+ * `fmt=,` and run together otherwise, so both are accepted.
+ */
+internal object ScoreStateParser {
+    fun parse(envelope: JsonObject): ScoreState =
+        ScoreState(
+            result = DgsScore.parse(envelope.string("score")),
+            rules = DgsRulesets.scoring(envelope.string("ruleset")),
+            deadStones = points(envelope.string("black_dead")) + points(envelope.string("white_dead")),
+            blackTerritory = points(envelope.string("black_territory")),
+            whiteTerritory = points(envelope.string("white_territory")),
+            // "neutral" points are switchable dame; both are nobody's for counting purposes.
+            dame = points(envelope.string("dame")) + points(envelope.string("neutral")),
+        )
+
+    /** "bc,ef,nj" or "bcefnj" — a run of two-letter SGF points either way. */
+    fun points(value: String?): Set<Point> {
+        val letters = value?.filter { it in 'a'..'z' } ?: return emptySet()
+        if (letters.length % 2 != 0) {
+            throw GoServerException.Protocol("Odd coordinate list from DGS: ${value.take(40)}")
+        }
+        return letters.chunked(2).map { SgfCoordinates.decodePoint(it) }.toSet()
+    }
+
+    /** The same encoding, for the points a client asks the server to toggle. */
+    fun encode(points: Collection<Point>): String = points.joinToString(",") { SgfCoordinates.encode(it) }
+}
+
 /**
  * The read-only context of a game — its settings and both players' standing — from the same
  * object [GameObjectParser] reads the summary out of. Nothing here is needed to play a move,
@@ -150,6 +224,7 @@ internal object GameInfoParser {
             komi = game.string("komi")?.trim()?.toDoubleOrNull(),
             handicap = game.int("handicap") ?: 0,
             ruleset = sentenceCase(game.string("ruleset")),
+            scoring = DgsRulesets.scoring(game.string("ruleset")),
             rated = game.int("rated")?.let { it != 0 },
             timeLimit = game.string("time_limit")?.ifBlank { null },
             weekendClock = game.int("time_weekend_clock")?.let { it != 0 },

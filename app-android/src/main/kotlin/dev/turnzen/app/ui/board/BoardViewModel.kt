@@ -8,16 +8,23 @@ import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.Position
 import dev.turnzen.game.Replay
+import dev.turnzen.game.ScoreCount
+import dev.turnzen.game.Scoring
+import dev.turnzen.game.ScoringRules
+import dev.turnzen.game.StoneColor
 import dev.turnzen.game.TrialOutcome
 import dev.turnzen.game.TrialVariation
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.ScoreState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +32,43 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class PendingConfirmation { SEND, PASS, RESIGN }
+enum class PendingConfirmation { SEND, PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
+
+/**
+ * The scoring phase: both players mark the stones they consider dead, and agree on what that
+ * leaves. [server] is the state DGS last told us — its marks, its territory and its count,
+ * which is the count that settles the game. [dead] is what the board shows now, including
+ * marks the user has made since; [toggled] carries one point per group they flipped, which is
+ * exactly what the server wants to hear about.
+ *
+ * Marking is local, like every other board gesture: nothing reaches the server until the user
+ * sends the marks or accepts the score.
+ */
+data class ScoringUiState(
+    val server: ScoreState,
+    val dead: Set<Point>,
+    val toggled: Set<Point> = emptySet(),
+    /** The count for [dead], worked out on the device while the user is still marking. */
+    val count: ScoreCount? = null,
+) {
+    /** True while the board shows marks the server has not seen. */
+    val changed: Boolean
+        get() = toggled.isNotEmpty()
+
+    /**
+     * The result to show. Until the user touches anything that is the server's own count —
+     * the authority, and what an agreement agrees to. Once they mark something it is the
+     * local count, because the server's answer is about a different set of stones.
+     */
+    val result: GameResult?
+        get() = if (changed) count?.result else server.result ?: count?.result
+
+    val blackTerritory: Set<Point>
+        get() = if (changed) count?.territoryOf(StoneColor.BLACK).orEmpty() else server.blackTerritory
+
+    val whiteTerritory: Set<Point>
+        get() = if (changed) count?.territoryOf(StoneColor.WHITE).orEmpty() else server.whiteTerritory
+}
 
 /** DGS's code for a move sent when it is the opponent's turn. */
 private const val CODE_NOT_YOUR_TURN = "not_your_turn"
@@ -64,7 +107,13 @@ data class BoardUiState(
     val notice: String? = null,
     /** The summary known from the games list, shown while the full record loads. */
     val preview: GameSummary? = null,
+    /** Non-null once the game has reached its scoring phase. */
+    val scoring: ScoringUiState? = null,
 ) {
+    /** The game is being counted, so the board marks dead stones instead of trying moves. */
+    val isScoring: Boolean
+        get() = scoring != null
+
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
         get() = detail?.summary ?: preview
@@ -155,7 +204,15 @@ data class BoardUiState(
 
     /** The board is live once a record is loaded: taps explore from wherever the cursor is. */
     val canPlace: Boolean
-        get() = !sending && !loading && replay != null
+        get() = !sending && !loading && replay != null && !isScoring
+
+    /** Marking is the user's own business; only sending the marks needs their turn. */
+    val canMark: Boolean
+        get() = isScoring && !sending && !loading
+
+    /** Sending marks and agreeing are moves in the scoring phase, so they need the turn. */
+    val canSettleScore: Boolean
+        get() = isScoring && isMyTurn && !sending && !loading
 
     /**
      * Passing is a move like any other, so it needs the same thing Send needs: the user's
@@ -242,8 +299,10 @@ class BoardViewModel(
                     trial = TrialVariation.start(replay.finalPosition),
                     trialStart = replay.moveCount,
                     cursor = replay.moveCount,
+                    scoring = null,
                 )
             }
+            loadScoreIfCounting()
             warmNext()
             return
         }
@@ -273,11 +332,135 @@ class BoardViewModel(
                         trial = TrialVariation.start(replay.finalPosition),
                         trialStart = replay.moveCount,
                         cursor = replay.moveCount,
+                        scoring = null,
                     )
                 }
+                loadScoreIfCounting()
                 warmNext()
             } catch (e: GoServerException) {
                 _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
+            }
+        }
+    }
+
+    /**
+     * Fetches the scoring state when the game has reached the counting phase.
+     *
+     * Read-only, and done whoever's turn it is: seeing which stones the opponent has marked
+     * is the whole point of the phase, and the board would otherwise show a finished game
+     * with no explanation of why it cannot be played.
+     */
+    private fun loadScoreIfCounting() {
+        val s = _state.value
+        val summary = s.detail?.summary ?: return
+        if (summary.pendingAction != PendingAction.SCORE) return
+        viewModelScope.launch {
+            try {
+                val state = session.call { it.scoreState(gameId, summary.moveToken) }
+                _state.update { current -> current.copy(scoring = scoringFrom(current, state, state.deadStones)) }
+            } catch (e: GoServerException) {
+                // The board is still worth showing; the problem line explains the rest.
+                _state.update { it.copy(problem = problemFor(e, session.serverName)) }
+            }
+        }
+    }
+
+    /** Rebuilds the scoring state around a set of dead stones, counting them locally. */
+    private fun scoringFrom(
+        state: BoardUiState,
+        server: ScoreState,
+        dead: Set<Point>,
+        toggled: Set<Point> = emptySet(),
+    ): ScoringUiState? {
+        val position = state.replay?.finalPosition ?: return null
+        val komi = state.detail?.info?.komi ?: state.detail?.record?.komi ?: 0.0
+        val rules = server.rules ?: state.detail?.info?.scoring ?: ScoringRules.TERRITORY
+        return ScoringUiState(
+            server = server,
+            dead = dead,
+            toggled = toggled,
+            count = Scoring.count(position, dead, komi, rules),
+        )
+    }
+
+    /**
+     * Marks the group under the finger dead, or brings it back to life. Local, like every
+     * board gesture: the marks travel only when the user sends them.
+     *
+     * The server is told in groups, not stones — one point per group flipped — so a group
+     * flipped twice cancels out and is not mentioned at all. The lowest point of the group
+     * stands for it, so the same group always cancels itself whichever stone was tapped.
+     */
+    fun toggleDead(point: Point) {
+        val s = _state.value
+        val scoring = s.scoring ?: return
+        if (!s.canMark) return
+        val board = s.replay?.finalPosition?.board ?: return
+        val group = Scoring.groupAt(board, point)
+        if (group.isEmpty()) return
+        val representative = group.minWith(compareBy({ it.row }, { it.col }))
+        val dead = if (group.all { it in scoring.dead }) scoring.dead - group else scoring.dead + group
+        val toggled =
+            if (representative in scoring.toggled) {
+                scoring.toggled - representative
+            } else {
+                scoring.toggled + representative
+            }
+        _state.update { current ->
+            current.copy(scoring = scoringFrom(current, scoring.server, dead, toggled), notice = null)
+        }
+    }
+
+    /** Drops the user's own marks and goes back to the ones the server holds. */
+    fun resetMarks() {
+        val s = _state.value
+        val scoring = s.scoring ?: return
+        _state.update { current ->
+            current.copy(scoring = scoringFrom(current, scoring.server, scoring.server.deadStones))
+        }
+    }
+
+    fun askSendMarks() {
+        val s = _state.value
+        if (s.canSettleScore && s.scoring?.changed == true) {
+            _state.update { it.copy(confirmation = PendingConfirmation.SEND_MARKS) }
+        }
+    }
+
+    fun askAcceptScore() {
+        val s = _state.value
+        if (s.canSettleScore && s.scoring?.changed == false) {
+            _state.update { it.copy(confirmation = PendingConfirmation.ACCEPT_SCORE) }
+        }
+    }
+
+    /**
+     * Sends the marks the user made as a disagreement with the current ones, or agrees with
+     * the score as it stands. Both are moves in the scoring phase — the turn passes — so both
+     * step the queue on exactly as sending a stone does.
+     */
+    private fun settleScore(accept: Boolean) {
+        val s = _state.value
+        val detail = s.detail ?: return
+        val toggled = s.scoring?.toggled.orEmpty()
+        _state.update { it.copy(confirmation = null, sending = true, notice = null) }
+        viewModelScope.launch {
+            try {
+                session.call {
+                    if (accept) {
+                        it.acceptScore(gameId, detail.summary.moveToken)
+                    } else {
+                        it.disputeScore(gameId, detail.summary.moveToken, toggled)
+                    }
+                }
+                _state.update { it.copy(sending = false) }
+                delay(600)
+                onMoveSent(gameId)
+                games.onMovePlayed(gameId)
+            } catch (e: GoServerException.StaleGame) {
+                onGameMovedOn()
+            } catch (e: GoServerException) {
+                _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
             }
         }
     }
@@ -412,6 +595,8 @@ class BoardViewModel(
             PendingConfirmation.SEND -> s.moveToSend?.move?.let { send(it) }
             PendingConfirmation.PASS -> send(Move.Pass)
             PendingConfirmation.RESIGN -> resign()
+            PendingConfirmation.SEND_MARKS -> settleScore(accept = false)
+            PendingConfirmation.ACCEPT_SCORE -> settleScore(accept = true)
             null -> Unit
         }
     }

@@ -67,8 +67,11 @@ import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Position
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.RemainingTime
 import kotlinx.coroutines.delay
@@ -128,7 +131,17 @@ fun BoardScreen(
                     settings = boardSettings,
                     // No interaction with the placeholder grid until the real position loads.
                     enabled = !state.sending && !state.loading,
-                    onTap = viewModel::onTap,
+                    scoring =
+                        state.scoring?.let {
+                            ScoringOverlay(
+                                dead = it.dead,
+                                blackTerritory = it.blackTerritory,
+                                whiteTerritory = it.whiteTerritory,
+                            )
+                        },
+                    // While the game is being counted a tap marks a group dead instead of
+                    // trying a move: there are no moves left to try.
+                    onTap = if (state.isScoring) viewModel::toggleDead else viewModel::onTap,
                 )
             } else {
                 Box(boardWidth.fillMaxWidth().aspectRatio(1f).background(colors.board))
@@ -137,40 +150,18 @@ fun BoardScreen(
 
         Spacer(Modifier.height(20.dp))
 
-        // Move navigation: start, back, the cursor's move number, forward, end of trial.
-        // Five outlined pills, borrowing the action row's button shape so they read as
-        // controls rather than as status glyphs. The trial's depth needs no separate label:
-        // it is the numbered stones on the board and this counter.
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NavButton(
-                enabled = state.canGoBack,
-                description = stringResource(R.string.board_first_move),
-                onClick = viewModel::toStart,
-            ) { NavIcon(NavShape.SKIP_BACK, it) }
-            RepeatNavButton(
-                enabled = state.canGoBack,
-                description = stringResource(R.string.board_previous_move),
-                onStep = viewModel::stepBack,
-            ) { NavIcon(NavShape.STEP_BACK, it) }
-            CurrentMoveButton(
-                cursor = state.cursor,
-                atCurrent = state.atCurrent,
-                onClick = viewModel::toCurrent,
+        val scoring = state.scoring
+        if (scoring != null) {
+            // The counting phase replaces the move navigation: the board is the final
+            // position, there is nothing left to walk through, and the count needs the room.
+            ScorePanel(
+                scoring = scoring,
+                canMark = state.canMark,
+                waitingForOpponent = !state.isMyTurn,
+                onReset = viewModel::resetMarks,
             )
-            RepeatNavButton(
-                enabled = state.canGoForward,
-                description = stringResource(R.string.board_next_move),
-                onStep = viewModel::stepForward,
-            ) { NavIcon(NavShape.STEP_FWD, it) }
-            NavButton(
-                enabled = state.canGoForward,
-                description = stringResource(R.string.board_last_move),
-                onClick = viewModel::toEnd,
-            ) { NavIcon(NavShape.SKIP_FWD, it) }
+        } else {
+            MoveNavigationRow(state, viewModel)
         }
 
         state.problem?.let {
@@ -208,7 +199,26 @@ fun BoardScreen(
                 enabled = !state.sending,
                 modifier = Modifier.weight(1f),
             )
-            if (state.isMyTurn) {
+            if (scoring != null) {
+                // In the counting phase the right slot settles the score: the marks, when the
+                // user has made any, and otherwise agreement with the count as it stands.
+                if (state.isMyTurn) {
+                    PillButton(
+                        text =
+                            when {
+                                state.sending -> stringResource(R.string.board_sending)
+                                scoring.changed -> stringResource(R.string.score_send_marks)
+                                else -> stringResource(R.string.score_accept)
+                            },
+                        onClick = if (scoring.changed) viewModel::askSendMarks else viewModel::askAcceptScore,
+                        primary = true,
+                        enabled = state.canSettleScore,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+            } else if (state.isMyTurn) {
                 // The right slot always holds the move you would send. Normally that is Send
                 // — armed with a trial stone, disabled without one. When the opponent has
                 // passed and no stone is armed, the move on offer is a pass, so Pass takes
@@ -226,7 +236,7 @@ fun BoardScreen(
                         text =
                             when {
                                 state.sending -> {
-                                    "Sending…"
+                                    stringResource(R.string.board_sending)
                                 }
 
                                 state.canSend && state.sendLabel != null -> {
@@ -309,8 +319,158 @@ fun BoardScreen(
             )
         }
 
+        PendingConfirmation.SEND_MARKS -> {
+            Confirmation(
+                title = stringResource(R.string.score_send_marks_question),
+                text = stringResource(R.string.score_send_marks_explain),
+                confirmLabel = stringResource(R.string.score_send_marks),
+                onConfirm = viewModel::confirm,
+                onDismiss = viewModel::cancelConfirmation,
+            )
+        }
+
+        PendingConfirmation.ACCEPT_SCORE -> {
+            Confirmation(
+                title = stringResource(R.string.score_accept_question),
+                text = stringResource(R.string.score_accept_explain),
+                confirmLabel = stringResource(R.string.score_accept),
+                onConfirm = viewModel::confirm,
+                onDismiss = viewModel::cancelConfirmation,
+            )
+        }
+
         null -> {
             // No dialog on screen.
+        }
+    }
+}
+
+/**
+ * Move navigation: start, back, the cursor's move number, forward, end of trial. Five
+ * outlined pills, borrowing the action row's button shape so they read as controls rather
+ * than as status glyphs. The trial's depth needs no separate label: it is the numbered stones
+ * on the board and this counter.
+ */
+@Composable
+private fun MoveNavigationRow(
+    state: BoardUiState,
+    viewModel: BoardViewModel,
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        NavButton(
+            enabled = state.canGoBack,
+            description = stringResource(R.string.board_first_move),
+            onClick = viewModel::toStart,
+        ) { NavIcon(NavShape.SKIP_BACK, it) }
+        RepeatNavButton(
+            enabled = state.canGoBack,
+            description = stringResource(R.string.board_previous_move),
+            onStep = viewModel::stepBack,
+        ) { NavIcon(NavShape.STEP_BACK, it) }
+        CurrentMoveButton(
+            cursor = state.cursor,
+            atCurrent = state.atCurrent,
+            onClick = viewModel::toCurrent,
+        )
+        RepeatNavButton(
+            enabled = state.canGoForward,
+            description = stringResource(R.string.board_next_move),
+            onStep = viewModel::stepForward,
+        ) { NavIcon(NavShape.STEP_FWD, it) }
+        NavButton(
+            enabled = state.canGoForward,
+            description = stringResource(R.string.board_last_move),
+            onClick = viewModel::toEnd,
+        ) { NavIcon(NavShape.SKIP_FWD, it) }
+    }
+}
+
+/** "Black leads by 7.5", "Even", "No result" — the count as a sentence, never a formula. */
+@Composable
+private fun leadLabel(result: GameResult?): String {
+    val winner = result?.winner
+    return when {
+        result == null -> {
+            stringResource(R.string.score_no_result)
+        }
+
+        result.by == ResultReason.NO_RESULT -> {
+            stringResource(R.string.score_no_result)
+        }
+
+        winner == null -> {
+            stringResource(R.string.score_even)
+        }
+
+        else -> {
+            stringResource(
+                R.string.score_lead,
+                stringResource(if (winner == StoneColor.BLACK) R.string.score_black else R.string.score_white),
+                Formatting.points(result.margin ?: 0.0),
+            )
+        }
+    }
+}
+
+/**
+ * The count, in the space the navigation row usually occupies: who is ahead and by how much,
+ * the two totals it comes from, and one line of guidance about what to do next.
+ *
+ * The figure is the server's own while the marks are untouched — it is the count an agreement
+ * agrees to — and the device's own count as soon as the user marks something, because the
+ * server's answer is then about a different set of stones.
+ */
+@Composable
+private fun ScorePanel(
+    scoring: ScoringUiState,
+    canMark: Boolean,
+    waitingForOpponent: Boolean,
+    onReset: () -> Unit,
+) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    leadLabel(scoring.result),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                val count = scoring.count
+                if (count != null) {
+                    Text(
+                        stringResource(
+                            R.string.score_totals,
+                            Formatting.points(count.blackPoints),
+                            Formatting.points(count.whitePoints),
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.ink2,
+                    )
+                }
+            }
+            // Only offered once there is something to undo; tapping a group again also works.
+            if (scoring.changed) {
+                TextAction(stringResource(R.string.score_reset), onReset, color = colors.accent)
+            }
+        }
+        val hint =
+            when {
+                scoring.changed -> stringResource(R.string.score_hint_changed)
+                waitingForOpponent -> stringResource(R.string.score_hint_waiting)
+                canMark -> stringResource(R.string.score_hint_mark)
+                else -> null
+            }
+        if (hint != null) {
+            Text(
+                hint,
+                Modifier.padding(top = 4.dp),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+            )
         }
     }
 }

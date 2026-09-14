@@ -152,6 +152,18 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   means the session expired and requires re-login.
 - **SGF export is a separate, non-JSON endpoint**: `sgf.php?gid=<id>&owned_comments=1&quick_mode=1`,
   returning raw SGF text lines (lines starting with `[` are filtered out — likely headers).
+- **The scoring phase** (verified against `specs/quick_suite.txt`, September 2026):
+  `quick_do.php?obj=game&cmd=status_score&gid=&move_id=&move=<coords>&toggle=uniq&fmt=,`
+  is a *read*: it returns `ruleset`, `score` ("B+2.5", "0" for jigo, "VOID", or "W+R"/"B+T"/
+  "W+F"), and the full point state — `dame`, `neutral`, `black_stones`, `white_stones`,
+  `black_dead`, `white_dead`, `black_territory`, `white_territory`. The coordinates it takes
+  are toggles, so the same call previews what marking a group would be worth without
+  committing anything. `cmd=score` commits: with `move=<coords>` it is a *disagreement*
+  (the marks change and the turn passes), with `move=&agree=1` it is agreement, and the
+  spec asks for that agreement to be explicit so a client cannot agree by slip. `toggle=uniq`
+  makes each named group flip exactly once (the default "all" would undo a group named
+  twice). Statuses are `KOMI | SETUP | PLAY | PASS | SCORE | SCORE2 | FINISHED`, with SCORE
+  the first player's scoring step and SCORE2 the other's.
 - **Game creation/invitation is NOT part of QuickSuite.** It goes through plain HTML form
   POSTs against `message.php` / `login.php` using the regular website session, and requires
   populating a large set of form fields (ruleset, board size, komi, handicap, time
@@ -456,9 +468,13 @@ Recommended order, cheapest/lowest-risk first:
    (irreversible; must not be reachable by accident). A resigned game leaves both lists and
    the record cache, and the board closes back to the list rather than stepping the queue on,
    because resigning is a deliberate exit, not a move.
-7. **Scoring at game end** — a distinct mode of the board screen: tap to mark dead
-   stones, show territory, accept / reject. If the opponent disagrees, the game returns to
-   normal play. Built on the QuickSuite `score` / `status_score` commands.
+7. **Scoring at game end** — *done (September 2026)*: a distinct mode of the board screen.
+   Tapping marks a group dead, territory and the count are shown live, and the user either
+   sends their marks (a disagreement, which passes the turn to the opponent) or accepts the
+   score. Built on the QuickSuite `status_score` / `score` commands.
+   Not yet: **resuming play** from a disagreement (DGS allows an ordinary `cmd=move` out of
+   the scoring phase), and the game-over screen — an accepted score leaves the game list and
+   the result is read on the web.
 8. **SGF export** — one overflow-menu item on the board screen; share/save via the
    Android share sheet.
 9. **Games — "Waiting for opponent"** — a second view (tab or filter) in the Games
@@ -556,6 +572,21 @@ Decisions taken while building the MVP that refine or amend the sections above.
   a `PlayerDetail` per side with rank, rank at the start, captures and that side's clock.
   None of it costs a request; the fields were simply being discarded. It is deliberately not
   on `GameSummary`: the list rows never need it.
+- **Counting is done twice, on purpose.** The server counts — its number is what an
+  agreement agrees to, and it is what the app shows while the marks are untouched. But
+  marking has to be instant and offline-tolerant, and the non-negotiable says a board tap
+  never reaches the server, so `:core-game` also counts: territory by flood-fill, plus
+  prisoners and komi under Japanese rules or stones under Chinese (`ScoringRules`). While the
+  user has unsent marks the app shows *that* count, because the server's answer is about a
+  different set of stones. The two agree on any position whose dead stones are agreed, which
+  is the position a player is looking at when they accept.
+- **Dead stones are sent as groups, not stones.** The server takes one coordinate per group
+  and flips it (`toggle=uniq`), so the app tracks the lowest point of each flipped group; a
+  group flipped twice cancels and is never mentioned. This keeps the request tiny and makes
+  "reset marks" a local operation.
+- **The scoring fixture is spec-derived, not recorded.** No game on the test account has
+  reached the scoring phase, so `status_score.json` states the documented format instead of a
+  captured response; the test says so. Replace it with a real capture when a game gets there.
 - **Failures are shown in two tones** (`ServerProblem`): unreachable and rate-limited are
   states to wait out, shown quietly with a retry; signed-out, rejected moves and protocol
   errors are errors and keep the urgent colour. Connectivity is not probed — that would

@@ -1,6 +1,9 @@
 package dev.turnzen.dgs
 
+import dev.turnzen.game.ResultReason
+import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
+import dev.turnzen.game.sgf.SgfCoordinates
 import dev.turnzen.game.sgf.SgfGameRecords
 import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
@@ -13,6 +16,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -204,6 +208,54 @@ class DgsParsersTest {
     fun `a tournament game reports its tournament`() {
         val payload = Fixtures.text("game_info.json").replace("\"tournament_id\":0", "\"tournament_id\":1042")
         assertEquals("1042", GameInfoParser.parse(QuickSuite.parse(payload)).tournamentId)
+    }
+
+    @Test
+    fun `the scoring answer carries the marks, the territory and the score`() {
+        // Shaped after the quick_suite.txt specification of status_score's reply: this
+        // account has no game in the scoring phase to record, so the fixture states the
+        // documented format rather than a captured response.
+        val state = ScoreStateParser.parse(QuickSuite.parse(Fixtures.text("status_score.json")))
+        assertEquals(ScoringRules.TERRITORY, state.rules)
+        assertEquals(StoneColor.BLACK, state.result?.winner)
+        assertEquals(7.5, state.result?.margin)
+        assertEquals(setOf(SgfCoordinates.decodePoint("cd")), state.deadStones)
+        assertEquals(3, state.blackTerritory.size)
+        assertEquals(2, state.whiteTerritory.size)
+        assertEquals(setOf(SgfCoordinates.decodePoint("ee")), state.dame)
+    }
+
+    @Test
+    fun `coordinate lists parse with or without separators`() {
+        val commas = ScoreStateParser.points("bc,ef,nj")
+        assertEquals(commas, ScoreStateParser.points("bcefnj"))
+        assertEquals(3, commas.size)
+        assertTrue(ScoreStateParser.points("").isEmpty())
+        assertTrue(ScoreStateParser.points(null).isEmpty())
+        // A truncated list is a protocol error rather than a silently dropped stone.
+        assertFailsWith<GoServerException.Protocol> { ScoreStateParser.points("bcd") }
+    }
+
+    @Test
+    fun `every score line DGS can send is understood`() {
+        assertEquals(ResultReason.JIGO, DgsScore.parse("0")?.by)
+        assertEquals(ResultReason.NO_RESULT, DgsScore.parse("VOID")?.by)
+        assertEquals(ResultReason.RESIGNATION, DgsScore.parse("W+R")?.by)
+        assertEquals(ResultReason.TIMEOUT, DgsScore.parse("B+T")?.by)
+        assertEquals(ResultReason.FORFEIT, DgsScore.parse("W+F")?.by)
+        val onPoints = DgsScore.parse("W+7")
+        assertEquals(StoneColor.WHITE, onPoints?.winner)
+        assertEquals(7.0, onPoints?.margin)
+        // A running game has no score line at all.
+        assertNull(DgsScore.parse(""))
+        assertNull(DgsScore.parse(null))
+    }
+
+    @Test
+    fun `the ruleset says how the game will be counted`() {
+        assertEquals(ScoringRules.AREA, DgsRulesets.scoring("CHINESE"))
+        assertEquals(ScoringRules.TERRITORY, DgsRulesets.scoring("JAPANESE"))
+        assertNull(DgsRulesets.scoring(""))
     }
 
     @Test

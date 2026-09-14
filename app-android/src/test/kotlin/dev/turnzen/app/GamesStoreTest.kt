@@ -21,7 +21,10 @@ class GamesStoreTest {
             val store = GamesStore(session)
             store.refresh()
 
-            assertEquals(listOf("demo-19", "demo-13", "demo-9"), store.yourTurn.value?.map { it.id.value })
+            assertEquals(
+                listOf("demo-19", "demo-scoring", "demo-13", "demo-9"),
+                store.yourTurn.value?.map { it.id.value },
+            )
             // "All games" also includes the opponent-to-move game.
             assertTrue(store.allRunning.value!!.any { it.id.value == "demo-waiting" })
             assertEquals(store.yourTurn.value!!.size + 1, store.allRunning.value!!.size)
@@ -37,8 +40,9 @@ class GamesStoreTest {
             val store = GamesStore(session)
             store.refresh()
 
-            // your-turn order: demo-19, demo-13, demo-9
-            assertEquals(GameId("demo-13"), store.nextAfter(GameId("demo-19")))
+            // your-turn order: demo-19, demo-scoring, demo-13, demo-9
+            assertEquals(GameId("demo-scoring"), store.nextAfter(GameId("demo-19")))
+            assertEquals(GameId("demo-13"), store.nextAfter(GameId("demo-scoring")))
             assertEquals(GameId("demo-9"), store.nextAfter(GameId("demo-13")))
             // The last game does not wrap around to the first: null means "back to the list".
             assertNull(store.nextAfter(GameId("demo-9")))

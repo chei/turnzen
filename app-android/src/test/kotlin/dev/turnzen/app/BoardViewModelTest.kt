@@ -15,6 +15,7 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -30,6 +31,10 @@ import kotlin.test.assertTrue
 @OptIn(ExperimentalCoroutinesApi::class)
 class BoardViewModelTest : MainDispatcherTest() {
     private val game = GameId("demo-9")
+    private val scoringGame = GameId("demo-scoring")
+
+    /** The white stone stranded in black's area in the demo server's scoring game (D8). */
+    private val strandedStone = checkNotNull(Coordinates.parse("D8", 9))
 
     private class Harness(
         client: TurnBasedGoServerClient,
@@ -300,6 +305,121 @@ class BoardViewModelTest : MainDispatcherTest() {
             offered.vm.stepBack()
             assertFalse(offered.vm.state.value.canSend)
             assertTrue(offered.vm.state.value.passPromoted)
+        }
+
+    @Test
+    fun `a game in the counting phase opens in scoring mode`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            val scoring = assertNotNull(s.scoring)
+            assertTrue(s.isScoring)
+            // No trial play in a game that has no moves left: taps mark instead.
+            assertFalse(s.canPlace)
+            assertTrue(s.canMark)
+            assertFalse(scoring.changed)
+            // Nothing is marked yet, so the stranded white stone keeps black's area neutral.
+            assertTrue(scoring.dead.isEmpty())
+            assertTrue(scoring.blackTerritory.isEmpty())
+        }
+
+    @Test
+    fun `marking a group is local, and the count follows it`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            var reads = 0
+            val counting =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun scoreState(
+                        id: GameId,
+                        token: MoveToken,
+                        toggle: Set<Point>,
+                    ): ScoreState {
+                        reads++
+                        return fake.scoreState(id, token, toggle)
+                    }
+                }
+            val h = Harness(counting)
+            h.start(scoringGame)
+            advanceUntilIdle()
+            assertEquals(1, reads) // the state is read once, when the board opens
+
+            h.vm.toggleDead(strandedStone)
+            advanceUntilIdle()
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            assertTrue(scoring.changed)
+            assertTrue(strandedStone in scoring.dead)
+            // Marking is a board gesture, so it never reaches the server.
+            assertEquals(1, reads)
+            // With the stone lifted, the top of the board is black's: eighteen points and the
+            // prisoner itself.
+            assertEquals(18, scoring.blackTerritory.size)
+            assertEquals(19.0, scoring.count?.blackPoints)
+            // One group flipped, so the server will hear about exactly one point.
+            assertEquals(1, scoring.toggled.size)
+        }
+
+    @Test
+    fun `marking the same group twice leaves nothing to tell the server`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            h.vm.toggleDead(strandedStone)
+            h.vm.toggleDead(strandedStone)
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            assertFalse(scoring.changed)
+            assertTrue(scoring.dead.isEmpty())
+        }
+
+    @Test
+    fun `sending marks tells the server the groups that changed and steps the queue on`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            val token = assertNotNull(h.vm.state.value.detail).summary.moveToken
+            h.vm.toggleDead(strandedStone)
+            h.vm.askSendMarks()
+            assertEquals(PendingConfirmation.SEND_MARKS, h.vm.state.value.confirmation)
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            // The server now holds the mark, and the game moved on like any other move.
+            val onServer = client.scoreState(scoringGame, token)
+            assertTrue(strandedStone in onServer.deadStones)
+            assertEquals(listOf(scoringGame), h.sent)
+        }
+
+    @Test
+    fun `accepting the score is offered only when the marks are untouched, and ends the game`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            // With marks pending, agreeing would contradict them: the server rejects that
+            // combination, so the view model never offers it.
+            h.vm.toggleDead(strandedStone)
+            h.vm.askAcceptScore()
+            assertNull(h.vm.state.value.confirmation)
+
+            h.vm.resetMarks()
+            h.vm.askAcceptScore()
+            assertEquals(PendingConfirmation.ACCEPT_SCORE, h.vm.state.value.confirmation)
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertFailsWith<GoServerException.ServerError> { client.game(scoringGame) }
         }
 
     @Test

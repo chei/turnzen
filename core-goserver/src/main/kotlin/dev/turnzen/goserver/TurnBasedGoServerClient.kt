@@ -1,6 +1,7 @@
 package dev.turnzen.goserver
 
 import dev.turnzen.game.Move
+import dev.turnzen.game.Point
 
 /**
  * A correspondence (turn-based) Go server. Pull-based: the app fetches state when the
@@ -50,6 +51,39 @@ interface TurnBasedGoServerClient {
      * confirmed it with the user. [token] is the same move context [sendMove] takes.
      */
     suspend fun resign(
+        id: GameId,
+        token: MoveToken,
+    )
+
+    /**
+     * The scoring phase's current state: the dead stones both players are working from, the
+     * territory they leave, and the server's own count.
+     *
+     * [toggle] previews a change without committing it — one point per group whose life the
+     * user wants to flip — so a client can show what marking a group would be worth before
+     * proposing it. Committing is [disputeScore] or [acceptScore].
+     */
+    suspend fun scoreState(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point> = emptySet(),
+    ): ScoreState
+
+    /**
+     * Proposes different dead stones: [toggle] carries one point per group to flip. This is
+     * a move in the scoring phase — the turn passes to the opponent, who reviews the marks.
+     */
+    suspend fun disputeScore(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    )
+
+    /**
+     * Agrees with the marks as they stand. When both players have agreed the game is over,
+     * so this is as final as a resignation and should be confirmed with the user.
+     */
+    suspend fun acceptScore(
         id: GameId,
         token: MoveToken,
     )

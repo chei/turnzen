@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -29,6 +30,16 @@ import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
 
 /**
+ * What a board being counted shows on top of the stones: the ones both players are treating
+ * as dead, and the empty points each side has ended up surrounding.
+ */
+data class ScoringOverlay(
+    val dead: Set<Point> = emptySet(),
+    val blackTerritory: Set<Point> = emptySet(),
+    val whiteTerritory: Set<Point> = emptySet(),
+)
+
+/**
  * The board, drawn on a Canvas. Square, full width; grid spacing is width / size with the
  * first line half a cell from the edge (DESIGN.md).
  *
@@ -43,6 +54,8 @@ fun GoBoard(
     trialMoves: List<ColoredMove> = emptyList(),
     settings: BoardSettings = BoardSettings(),
     enabled: Boolean = true,
+    /** Non-null while the game is being counted; see [ScoringOverlay]. */
+    scoring: ScoringOverlay? = null,
     onTap: (Point) -> Unit = {},
 ) {
     val n = position.size
@@ -107,7 +120,10 @@ fun GoBoard(
         for ((point, color) in position.board.stones()) {
             val trialNumber = trialPoints[point]
             val c = center(point)
-            drawStone(c, radius, color, palette)
+            // A stone marked dead is drawn as a ghost of itself: it is still on the board, and
+            // the mark has to be as easy to take back as it was to make.
+            val dead = scoring != null && point in scoring.dead
+            drawStone(c, radius, color, palette, alpha = if (dead) DEAD_STONE_ALPHA else 1f)
             if (trialNumber != null) {
                 if (settings.numberTrialStones) {
                     val style =
@@ -126,7 +142,15 @@ fun GoBoard(
             }
         }
 
-        if (settings.markLastMove && !trialMode) {
+        if (scoring != null) {
+            // Territory as a small square in the owner's colour: the same vocabulary as the
+            // stones, at a size that cannot be mistaken for one.
+            val side = radius * 0.62f
+            for (point in scoring.blackTerritory) drawTerritory(center(point), side, StoneColor.BLACK, palette)
+            for (point in scoring.whiteTerritory) drawTerritory(center(point), side, StoneColor.WHITE, palette)
+        }
+
+        if (settings.markLastMove && !trialMode && scoring == null) {
             val last = position.lastMove
             val lastPoint = last?.point
             if (last != null && lastPoint != null && position.board[lastPoint] == last.color) {
@@ -137,15 +161,33 @@ fun GoBoard(
     }
 }
 
+/** How much of a stone is left showing once it has been marked dead. */
+private const val DEAD_STONE_ALPHA = 0.32f
+
 private fun DrawScope.drawStone(
     center: Offset,
     radius: Float,
     color: StoneColor,
     palette: TurnzenColors,
+    alpha: Float = 1f,
 ) {
     val fill: Color = if (color == StoneColor.BLACK) palette.stoneBlack else palette.stoneWhite
-    drawCircle(fill, radius, center)
+    drawCircle(fill, radius, center, alpha = alpha)
     if (color == StoneColor.WHITE) {
-        drawCircle(palette.stoneBlack, radius, center, style = Stroke(0.6.dp.toPx()))
+        drawCircle(palette.stoneBlack, radius, center, alpha = alpha, style = Stroke(0.6.dp.toPx()))
+    }
+}
+
+private fun DrawScope.drawTerritory(
+    center: Offset,
+    side: Float,
+    color: StoneColor,
+    palette: TurnzenColors,
+) {
+    val fill = if (color == StoneColor.BLACK) palette.stoneBlack else palette.stoneWhite
+    val topLeft = Offset(center.x - side / 2f, center.y - side / 2f)
+    drawRect(fill, topLeft, Size(side, side))
+    if (color == StoneColor.WHITE) {
+        drawRect(palette.stoneBlack, topLeft, Size(side, side), style = Stroke(0.6.dp.toPx()))
     }
 }

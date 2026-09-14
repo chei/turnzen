@@ -5,7 +5,10 @@ import dev.turnzen.game.Coordinates
 import dev.turnzen.game.GameRecord
 import dev.turnzen.game.Move
 import dev.turnzen.game.PlayerInfo
+import dev.turnzen.game.Point
 import dev.turnzen.game.Replay
+import dev.turnzen.game.Scoring
+import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameDetail
@@ -18,6 +21,7 @@ import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
+import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.delay
@@ -46,9 +50,14 @@ class FakeTurnBasedGoServerClient(
         var lastMoveAt: Instant,
         val remaining: RemainingTime,
         var awaitingMe: Boolean = true,
+        /** True once the game has reached the counting phase. */
+        val scoring: Boolean = false,
+        /** The dead stones both players are working from, as the server holds them. */
+        val dead: MutableSet<Point> = LinkedHashSet(),
     )
 
-    private val games: MutableList<FakeGame> = mutableListOf(demo19(), demo13(), demo9(), demoWaiting())
+    private val games: MutableList<FakeGame> =
+        mutableListOf(demo19(), demo13(), demo9(), demoWaiting(), demoScoring())
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
         delay(latencyMillis)
@@ -115,6 +124,84 @@ class FakeTurnBasedGoServerClient(
         games.remove(g)
     }
 
+    /**
+     * Counting works here the way it works on a real server: the marks live on the server,
+     * a client may preview toggles without committing them, and the count comes back with
+     * the territory it is based on. The arithmetic is [Scoring]'s, the same code the app
+     * shows live while marking.
+     */
+    override suspend fun scoreState(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ): ScoreState {
+        delay(latencyMillis)
+        requireSession()
+        val g = requireScoring(id)
+        return g.stateFor(g.toggled(toggle))
+    }
+
+    override suspend fun disputeScore(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ) {
+        delay(latencyMillis)
+        requireSession()
+        val g = requireScoring(id)
+        if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
+        val marked = g.toggled(toggle)
+        g.dead.clear()
+        g.dead += marked
+        g.moveId += 1
+        g.lastMoveAt = Instant.now()
+        // The opponent now reviews the marks, so the turn passes exactly as after a move.
+        g.awaitingMe = false
+    }
+
+    override suspend fun acceptScore(
+        id: GameId,
+        token: MoveToken,
+    ) {
+        delay(latencyMillis)
+        requireSession()
+        val g = requireScoring(id)
+        if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
+        // The demo opponent always agrees, so accepting finishes the game.
+        games.remove(g)
+    }
+
+    private fun requireScoring(id: GameId): FakeGame {
+        val g = find(id)
+        if (!g.scoring) throw GoServerException.MoveRejected("invalid_action", "Game is not being scored")
+        return g
+    }
+
+    /** The marks after flipping the group behind each toggled point. */
+    private fun FakeGame.toggled(toggle: Set<Point>): Set<Point> {
+        val board = Replay(record).finalPosition.board
+        val marked = LinkedHashSet(dead)
+        for (point in toggle) {
+            val group = Scoring.groupAt(board, point)
+            if (group.isEmpty()) continue
+            if (group.all { it in marked }) marked -= group else marked += group
+        }
+        return marked
+    }
+
+    private fun FakeGame.stateFor(marked: Set<Point>): ScoreState {
+        val position = Replay(record).finalPosition
+        val count = Scoring.count(position, marked, record.komi ?: 0.0, ScoringRules.TERRITORY)
+        return ScoreState(
+            result = count.result,
+            rules = ScoringRules.TERRITORY,
+            deadStones = marked,
+            blackTerritory = count.territoryOf(StoneColor.BLACK),
+            whiteTerritory = count.territoryOf(StoneColor.WHITE),
+            dame = count.dame,
+        )
+    }
+
     override fun gameUrl(id: GameId): String = "https://www.dragongoserver.net/game.php?gid=${id.value}"
 
     override fun exportSession(): String? = if (signedIn) "demo" else null
@@ -140,7 +227,7 @@ class FakeTurnBasedGoServerClient(
             moveNumber = record.moves.size,
             lastMoveAt = lastMoveAt,
             remainingTime = remaining,
-            pendingAction = PendingAction.PLAY_MOVE,
+            pendingAction = if (scoring) PendingAction.SCORE else PendingAction.PLAY_MOVE,
             isMyTurn = awaitingMe,
             moveToken = MoveToken(moveId.toString()),
         )
@@ -253,6 +340,46 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofDays(1)),
                 remaining = RemainingTime("5d", Duration.ofDays(5), "+ 1d"),
+            )
+        }
+
+        /**
+         * A 9x9 that has run to two passes and is waiting to be counted. One white stone sits
+         * stranded inside black's area: while it counts as alive the whole top of the board is
+         * nobody's, and marking it dead turns that into eighteen points and a prisoner — which
+         * is the point of the marking step, in one tap.
+         */
+        fun demoScoring(): FakeGame {
+            val size = 9
+
+            fun point(label: String) = checkNotNull(Coordinates.parse(label, size)) { "bad label $label" }
+            val moves = ArrayList<ColoredMove>()
+            val columns = listOf("A", "B", "C", "D", "E", "F", "G", "H", "J")
+            for (column in columns) {
+                moves += ColoredMove(StoneColor.BLACK, Move.Play(point("${column}7")))
+                moves += ColoredMove(StoneColor.WHITE, Move.Play(point("${column}5")))
+            }
+            moves += ColoredMove(StoneColor.BLACK, Move.Pass)
+            moves += ColoredMove(StoneColor.WHITE, Move.Play(point("D8")))
+            moves += ColoredMove(StoneColor.BLACK, Move.Pass)
+            moves += ColoredMove(StoneColor.WHITE, Move.Pass)
+            val record =
+                GameRecord(
+                    boardSize = size,
+                    komi = 6.5,
+                    moves = moves,
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("kaya_r", "8k"),
+                )
+            return FakeGame(
+                id = GameId("demo-scoring"),
+                opponent = Opponent("kaya_r", null, "8k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Instant.now().minus(Duration.ofMinutes(40)),
+                remaining = RemainingTime("2d", Duration.ofDays(2), "+ 1d * 10"),
+                scoring = true,
             )
         }
 

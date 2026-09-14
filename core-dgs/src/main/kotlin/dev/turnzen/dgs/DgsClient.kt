@@ -6,6 +6,7 @@ import dev.turnzen.dgs.http.HttpResponse
 import dev.turnzen.dgs.http.HttpTransport
 import dev.turnzen.dgs.http.HttpTransportException
 import dev.turnzen.game.Move
+import dev.turnzen.game.Point
 import dev.turnzen.game.sgf.SgfCoordinates
 import dev.turnzen.game.sgf.SgfGameRecords
 import dev.turnzen.game.sgf.SgfParseException
@@ -15,6 +16,7 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import java.net.URLEncoder
@@ -170,6 +172,65 @@ class DgsClient(
             "move_id" to token.value,
         )
     }
+
+    override suspend fun scoreState(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ): ScoreState =
+        ScoreStateParser.parse(
+            quickDo(
+                "obj" to "game",
+                "cmd" to "status_score",
+                "gid" to id.value,
+                "move_id" to token.value,
+                *scoreMoves(toggle),
+            ),
+        )
+
+    override suspend fun disputeScore(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ) {
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "game",
+            "cmd" to "score",
+            "gid" to id.value,
+            "move_id" to token.value,
+            *scoreMoves(toggle),
+        )
+    }
+
+    override suspend fun acceptScore(
+        id: GameId,
+        token: MoveToken,
+    ) {
+        // An empty move list plus agree=1: the spec asks for the agreement to be explicit
+        // rather than implied by sending nothing, so a client cannot agree by slip.
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "game",
+            "cmd" to "score",
+            "gid" to id.value,
+            "move_id" to token.value,
+            "move" to "",
+            "agree" to "1",
+        )
+    }
+
+    /**
+     * The points whose life is being flipped, in SGF letters. `toggle=uniq` makes each named
+     * group flip exactly once — the client sends one point per group, and the default "all"
+     * mode would undo a group named twice.
+     */
+    private fun scoreMoves(toggle: Set<Point>): Array<Pair<String, String>> =
+        arrayOf(
+            "toggle" to "uniq",
+            "fmt" to ",",
+            "move" to ScoreStateParser.encode(toggle),
+        )
 
     override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)
 

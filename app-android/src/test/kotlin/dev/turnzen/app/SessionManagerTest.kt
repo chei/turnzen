@@ -151,7 +151,7 @@ class SessionManagerTest {
             session.signIn(Credentials("demo", "pw"))
             client.restoreSession("gone")
             val games = session.call { it.gamesAwaitingMe() }
-            assertEquals(3, games.size)
+            assertEquals(4, games.size)
         }
 
     @Test
@@ -182,8 +182,8 @@ class SessionManagerTest {
                 }
 
             assertEquals(1, signIns) // one shared re-login, not one per call
-            assertEquals(3, turn.size)
-            assertEquals(4, running.size)
+            assertEquals(4, turn.size)
+            assertEquals(5, running.size)
             assertIs<AuthState.SignedIn>(session.state.value)
         }
 

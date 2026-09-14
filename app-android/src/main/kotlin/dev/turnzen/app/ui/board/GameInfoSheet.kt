@@ -106,7 +106,7 @@ fun GameInfoSheet(
             val handicap = info?.handicap ?: summary.handicap
             if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
             val komi = info?.komi ?: state.detail?.record?.komi
-            if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.komi(komi))
+            if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.points(komi))
             info?.ruleset?.let { InfoRow(stringResource(R.string.info_rules), it) }
             info?.rated?.let { InfoRow(stringResource(R.string.info_rated), yesNo(it)) }
             // The server's own wording for the time system, as everywhere else.

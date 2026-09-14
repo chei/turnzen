@@ -91,8 +91,8 @@ object Formatting {
             DateTimeFormatter.ofPattern("d MMM yyyy").withZone(ZoneId.systemDefault()).format(instant)
         }
 
-    /** "6.5", and "6" rather than "6.0" for a whole-point komi. */
-    fun komi(value: Double): String =
+    /** "6.5", and "6" rather than "6.0" — for komi, margins and point totals alike. */
+    fun points(value: Double): String =
         if (value ==
             value.toLong().toDouble()
         ) {

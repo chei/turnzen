@@ -183,6 +183,25 @@ Use tabular figures for time and move counts so columns don't jitter.
   screen the same problem is one quiet line above it instead, and pull-to-refresh is the
   retry. On the board, a load that produced no position gets that line plus a "Try again";
   a send that failed does not, because Send itself is the retry and the variation is intact.
+- **Counting a finished game** is a mode of the board screen, entered whenever the server
+  says the game is in its scoring phase. The board keeps its stones; dead ones are drawn as
+  ghosts of themselves (32% opacity) and each side's territory gets a small square in that
+  side's stone colour — the same vocabulary as the stones, at a size that cannot be mistaken
+  for one. Tapping a group marks it dead or brings it back, and **marking is local**, like
+  every other board gesture: nothing reaches the server until the user sends it.
+  The move-navigation row is replaced by the count, because the board is the final position
+  and there is nothing left to walk through: who leads and by how much (title weight), the
+  two totals below it, and one quiet line of guidance — "Tap a group to mark it dead", "Your
+  marks are on this device until you send them", or "Waiting for your opponent to agree".
+  A "Reset marks" text action appears beside the count once there is something to undo.
+  The action row keeps Skip, and the right slot settles the score: **Send marks** while the
+  user has marked something (it is a move — the opponent reviews it and the turn passes),
+  **Accept score** when the marks are untouched. Both are confirmed.
+  The figure shown is the server's own count while the marks are untouched — it is the count
+  an agreement agrees to — and the device's own count as soon as the user marks something,
+  because the server's answer is then about a different set of stones.
+- **A game being counted says so in the list**: the row reads "9x9, counting, 40 min ago"
+  rather than naming a move number that nobody is waiting for.
 - **Game info sheet**: everything the server already told us that the board has no room for
   — both players with their rank, captures and *both* clocks (the header can only show the
   one that is running), then board size, handicap, komi, rules, rated, time system, weekend

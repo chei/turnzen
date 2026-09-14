@@ -43,6 +43,7 @@ import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.PendingAction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -218,7 +219,15 @@ private fun GameRow(
                 )
                 Text(
                     "${Formatting.boardSize(game.boardSize, game.handicap)}, " +
-                        "move ${game.moveNumber}, ${Formatting.relative(game.lastMoveAt)}",
+                        // A game being counted is not waiting for a move, and saying "move 22"
+                        // would send the user looking for one.
+                        (
+                            if (game.pendingAction == PendingAction.SCORE) {
+                                stringResource(R.string.games_counting)
+                            } else {
+                                stringResource(R.string.games_move, game.moveNumber)
+                            }
+                        ) + ", ${Formatting.relative(game.lastMoveAt)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.ink2,
                     maxLines = 1,

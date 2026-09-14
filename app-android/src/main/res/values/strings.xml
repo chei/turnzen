@@ -18,6 +18,8 @@
     <string name="games_empty_title">No games waiting for you</string>
     <string name="games_empty_all_title">No running games</string>
     <string name="games_empty_hint">Pull down to check again.</string>
+    <string name="games_move">move %1$d</string>
+    <string name="games_counting">counting</string>
 
     <string name="board_to_move">to move</string>
     <string name="board_skip">Skip</string>
@@ -38,6 +40,24 @@
     <string name="board_resign">Resign</string>
     <string name="board_resign_question">Resign?</string>
     <string name="board_resign_explain">You give the game up. This can\'t be undone.</string>
+    <string name="board_sending">Sending…</string>
+
+    <string name="score_totals">Black %1$s, white %2$s</string>
+    <string name="score_hint_mark">Tap a group to mark it dead.</string>
+    <string name="score_hint_changed">Your marks are on this device until you send them.</string>
+    <string name="score_hint_waiting">Waiting for your opponent to agree.</string>
+    <string name="score_reset">Reset marks</string>
+    <string name="score_send_marks">Send marks</string>
+    <string name="score_send_marks_question">Send these marks?</string>
+    <string name="score_send_marks_explain">Your opponent sees the stones you marked and can agree or mark differently.</string>
+    <string name="score_accept">Accept score</string>
+    <string name="score_accept_question">Accept the score?</string>
+    <string name="score_accept_explain">The game ends at this count once your opponent has agreed too.</string>
+    <string name="score_lead">%1$s leads by %2$s</string>
+    <string name="score_even">Even</string>
+    <string name="score_no_result">No result</string>
+    <string name="score_black">Black</string>
+    <string name="score_white">White</string>
 
     <string name="info_title">Game info</string>
     <string name="info_open">Show game info</string>

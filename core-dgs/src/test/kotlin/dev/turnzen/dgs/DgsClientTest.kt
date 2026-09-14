@@ -74,6 +74,12 @@ class DgsClientTest {
             it.url.contains("quick_do.php") && it.has("obj=game") && it.has("cmd=info")
         }) { ok(Fixtures.text("game_info.json")) }
         t.on({ it.url.contains("sgf.php") }) { ok(Fixtures.text("game_1000000.sgf")) }
+        t.on({
+            it.url.contains("quick_do.php") && it.has("cmd=status_score")
+        }) { ok(Fixtures.text("status_score.json")) }
+        t.on({ it.url.endsWith("quick_do.php") && it.method == HttpMethod.POST && it.form["cmd"] == "score" }) {
+            ok(Fixtures.text("status_score.json"))
+        }
         t.on({ it.url.endsWith("quick_do.php") && it.method == HttpMethod.POST && it.form["cmd"] == "move" }) {
             if (it.form["move_id"] ==
                 "264"
@@ -163,6 +169,49 @@ class DgsClientTest {
 
             client.sendMove(GameId("1000000"), MoveToken("264"), Move.Pass)
             assertEquals("pass", transport.requests.last().form["move"])
+        }
+
+    @Test
+    fun `scoring reads the state, proposes marks and agrees explicitly`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val game = GameId("1000000")
+            val token = MoveToken("264")
+            val group = Point(2, 3) // "cd"
+
+            val state = client.scoreState(game, token)
+            assertEquals(setOf(group), state.deadStones)
+            val read = transport.requests.last()
+            assertEquals(HttpMethod.GET, read.method)
+            assertTrue(read.url.contains("cmd=status_score"), read.url)
+            // uniq so a group named once flips once; comma-separated SGF so the answer parses.
+            assertTrue(read.url.contains("toggle=uniq"), read.url)
+            assertTrue(read.url.contains("move_id=264"), read.url)
+
+            // A preview of what marking a group would be worth: still a read, never a commit.
+            client.scoreState(game, token, setOf(group))
+            assertTrue(
+                transport.requests
+                    .last()
+                    .url
+                    .contains("move=cd"),
+                transport.requests.last().url,
+            )
+
+            client.disputeScore(game, token, setOf(group))
+            val dispute = transport.requests.last()
+            assertEquals(HttpMethod.POST, dispute.method)
+            assertEquals("score", dispute.form["cmd"])
+            assertEquals("cd", dispute.form["move"])
+            assertNull(dispute.form["agree"])
+
+            client.acceptScore(game, token)
+            val accept = transport.requests.last()
+            assertEquals("score", accept.form["cmd"])
+            assertEquals("", accept.form["move"])
+            assertEquals("1", accept.form["agree"])
         }
 
     @Test

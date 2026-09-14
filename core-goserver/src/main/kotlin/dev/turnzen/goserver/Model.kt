@@ -1,6 +1,9 @@
 package dev.turnzen.goserver
 
 import dev.turnzen.game.GameRecord
+import dev.turnzen.game.GameResult
+import dev.turnzen.game.Point
+import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import java.time.Duration
 import java.time.Instant
@@ -118,6 +121,24 @@ data class GameInfo(
     val startedAt: Instant? = null,
     /** The server's id for the tournament this game belongs to, or null for a casual game. */
     val tournamentId: String? = null,
+    /** How the game will be counted, when the server says which rules it uses. */
+    val scoring: ScoringRules? = null,
+)
+
+/**
+ * The scoring phase as the server sees it: which stones are being treated as dead, the
+ * territory that leaves, and the result it comes to. The server counts; this is its answer,
+ * not ours, and it is what an agreement agrees to.
+ */
+data class ScoreState(
+    /** Null when the server sent a score this client could not read. */
+    val result: GameResult? = null,
+    val rules: ScoringRules? = null,
+    val deadStones: Set<Point> = emptySet(),
+    val blackTerritory: Set<Point> = emptySet(),
+    val whiteTerritory: Set<Point> = emptySet(),
+    /** Empty points that belong to neither side. */
+    val dame: Set<Point> = emptySet(),
 )
 
 data class GameDetail(
