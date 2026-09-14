@@ -2,14 +2,20 @@ package dev.turnzen.app.ui.board
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,77 +67,95 @@ fun GameInfoSheet(
     val info = state.detail?.info
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    // How much of the top of the screen the status bar (and any cutout) takes.
+    val topInset =
+        WindowInsets.safeDrawing
+            .only(WindowInsetsSides.Top)
+            .asPaddingValues()
+            .calculateTopPadding()
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         containerColor = colors.surface,
         contentColor = colors.ink,
+        // Material's default content insets pad the top by the status bar *minus the sheet's
+        // own offset*, which makes the content's height depend on where the sheet sits. The
+        // sheet derives its drag anchors from that height, so a fling up — which overshoots
+        // past the top anchor — moves the anchors, and moving the anchors restarts the
+        // settling animation with the original fling velocity. That never converges: the sheet
+        // oscillates until the next touch cancels it. So take no insets from the sheet, pad
+        // the bottom ourselves, and keep the sheet clear of the status bar by height instead.
+        contentWindowInsets = { WindowInsets(0) },
     ) {
-        Column(
-            Modifier
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp)
-                .navigationBarsPadding(),
-        ) {
-            Text(
-                stringResource(R.string.info_title),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Spacer(Modifier.height(16.dp))
+        BoxWithConstraints {
+            Column(
+                Modifier
+                    .heightIn(max = maxHeight - topInset)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .navigationBarsPadding(),
+            ) {
+                Text(
+                    stringResource(R.string.info_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(16.dp))
 
-            // Both players, each with their own clock — the board header can only show the
-            // clock of whoever is to move, and in correspondence the other one matters too.
-            val toMove = state.detail?.record?.nextToMove
-            PlayerLine(
-                color = StoneColor.BLACK,
-                player = info?.black,
-                fallbackName = nameFor(state, StoneColor.BLACK),
-                isYou = summary.myColor == StoneColor.BLACK,
-                isToMove = toMove == StoneColor.BLACK,
-            )
-            Hairline()
-            PlayerLine(
-                color = StoneColor.WHITE,
-                player = info?.white,
-                fallbackName = nameFor(state, StoneColor.WHITE),
-                isYou = summary.myColor == StoneColor.WHITE,
-                isToMove = toMove == StoneColor.WHITE,
-            )
+                // Both players, each with their own clock — the board header can only show the
+                // clock of whoever is to move, and in correspondence the other one matters too.
+                val toMove = state.detail?.record?.nextToMove
+                PlayerLine(
+                    color = StoneColor.BLACK,
+                    player = info?.black,
+                    fallbackName = nameFor(state, StoneColor.BLACK),
+                    isYou = summary.myColor == StoneColor.BLACK,
+                    isToMove = toMove == StoneColor.BLACK,
+                )
+                Hairline()
+                PlayerLine(
+                    color = StoneColor.WHITE,
+                    player = info?.white,
+                    fallbackName = nameFor(state, StoneColor.WHITE),
+                    isYou = summary.myColor == StoneColor.WHITE,
+                    isToMove = toMove == StoneColor.WHITE,
+                )
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            val size = state.boardSize
-            if (size != null) InfoRow(stringResource(R.string.info_board), "${size}x$size")
-            val handicap = info?.handicap ?: summary.handicap
-            if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
-            val komi = info?.komi ?: state.detail?.record?.komi
-            if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.points(komi))
-            info?.ruleset?.let { InfoRow(stringResource(R.string.info_rules), it) }
-            info?.rated?.let { InfoRow(stringResource(R.string.info_rated), yesNo(it)) }
-            // The server's own wording for the time system, as everywhere else.
-            info?.timeLimit?.let { InfoRow(stringResource(R.string.info_time), it) }
-            info?.weekendClock?.let { InfoRow(stringResource(R.string.info_weekend_clock), yesNo(it)) }
-            info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.date(it)) }
-            // Only the server's id for it: the name and the standings are not in the game
-            // payload, so the web link below is the way to the tournament itself.
-            info?.tournamentId?.let { InfoRow(stringResource(R.string.info_tournament), "#$it") }
+                val size = state.boardSize
+                if (size != null) InfoRow(stringResource(R.string.info_board), "${size}x$size")
+                val handicap = info?.handicap ?: summary.handicap
+                if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
+                val komi = info?.komi ?: state.detail?.record?.komi
+                if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.points(komi))
+                info?.ruleset?.let { InfoRow(stringResource(R.string.info_rules), it) }
+                info?.rated?.let { InfoRow(stringResource(R.string.info_rated), yesNo(it)) }
+                // The server's own wording for the time system, as everywhere else.
+                info?.timeLimit?.let { InfoRow(stringResource(R.string.info_time), it) }
+                info?.weekendClock?.let { InfoRow(stringResource(R.string.info_weekend_clock), yesNo(it)) }
+                info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.date(it)) }
+                // Only the server's id for it: the name and the standings are not in the game
+                // payload, so the web link below is the way to the tournament itself.
+                info?.tournamentId?.let { InfoRow(stringResource(R.string.info_tournament), "#$it") }
 
-            Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(20.dp))
 
-            if (state.canPass) {
-                ActionLine(stringResource(R.string.board_pass), colors.accent, onPass)
+                if (state.canPass) {
+                    ActionLine(stringResource(R.string.board_pass), colors.accent, onPass)
+                }
+                if (gameUrl != null) {
+                    ActionLine(
+                        stringResource(R.string.info_open_web, serverName),
+                        colors.accent,
+                    ) { onOpenWeb(gameUrl) }
+                }
+                // Last, and the only urgent thing in the sheet: giving the game up.
+                ActionLine(stringResource(R.string.board_resign), colors.urgent, onResign)
+
+                Spacer(Modifier.height(24.dp))
             }
-            if (gameUrl != null) {
-                ActionLine(
-                    stringResource(R.string.info_open_web, serverName),
-                    colors.accent,
-                ) { onOpenWeb(gameUrl) }
-            }
-            // Last, and the only urgent thing in the sheet: giving the game up.
-            ActionLine(stringResource(R.string.board_resign), colors.urgent, onResign)
-
-            Spacer(Modifier.height(24.dp))
         }
     }
 }
