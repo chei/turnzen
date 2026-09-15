@@ -153,6 +153,33 @@ class DgsClientTest {
         }
 
     @Test
+    fun `a ladder game takes its name and round from the SGF header`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            // Only the id is in the game object; the event line is in the SGF, which the
+            // client downloads for the moves anyway.
+            val info = Fixtures.text("game_info.json").replace("\"tournament_id\":0", "\"tournament_id\":3")
+            val sgf =
+                Fixtures.text("game_1000000.sgf").replace(
+                    "PB[",
+                    "EV[(Dragon Ladder) Tournament #3: DGS Ladder (19x19)]\nRO[Round 1 of 1]\nPB[",
+                )
+            transport.routes.add(0, { it: HttpRequest -> it.url.contains("sgf.php") } to { _: HttpRequest -> ok(sgf) })
+            transport.routes.add(
+                0,
+                { it: HttpRequest -> it.url.contains("quick_do.php") && it.has("cmd=info") && it.has("obj=game") }
+                    to { _: HttpRequest -> ok(info) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val tournament = client.game(GameId("1000000")).info?.tournament
+            assertEquals("3", tournament?.id)
+            assertEquals("DGS Ladder (19x19)", tournament?.name)
+            assertEquals(true, tournament?.isLadder)
+            assertEquals(1, tournament?.roundCount)
+        }
+
+    @Test
     fun `send move posts SGF coordinates or pass with the move token`() =
         runTest {
             val transport = transportWithHappyPath()

@@ -21,6 +21,7 @@ import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.serialization.json.JsonObject
 import java.time.Duration
 import java.time.Instant
@@ -229,8 +230,13 @@ internal object GameInfoParser {
             timeLimit = game.string("time_limit")?.ifBlank { null },
             weekendClock = game.int("time_weekend_clock")?.let { it != 0 },
             startedAt = DgsDates.parse(game.string("time_started")),
-            // DGS writes 0 for "not a tournament game".
-            tournamentId = game.string("tournament_id")?.takeUnless { it.isBlank() || it == "0" },
+            // DGS writes 0 for "not a tournament game", and the id is all the game object
+            // carries — the name and the kind come from the SGF, see [DgsTournament].
+            tournament =
+                game
+                    .string("tournament_id")
+                    ?.takeUnless { it.isBlank() || it == "0" }
+                    ?.let { TournamentRef(id = it) },
         )
 
     private fun player(
@@ -258,6 +264,62 @@ internal object GameInfoParser {
             ?.ifEmpty { null }
             ?.lowercase()
             ?.replaceFirstChar { it.uppercase() }
+}
+
+/**
+ * The tournament a game belongs to, read out of the SGF rather than the game object.
+ *
+ * The QuickSuite game object only carries `tournament_id`; there is no tournament object in
+ * the QuickSuite at all. But the SGF DGS serves for every game — which this client downloads
+ * anyway, for the moves — carries the event in its standard SGF header:
+ *
+ * ```
+ * EV[(Dragon Ladder) Tournament #3: DGS Ladder (19x19)]
+ * RO[Round 1 of 1]
+ * ```
+ *
+ * The bracketed prefix is the kind (scope plus format: "Dragon Ladder", "Private Round
+ * Robin"), so it is also how a ladder game is told apart from a bracket or league game.
+ * Both properties are absent for a casual game.
+ *
+ * Parsed loosely on purpose: DGS translates some of what it sends into the account's
+ * language, and it is not established that the SGF header is exempt. Anything that cannot be
+ * read is dropped rather than failing the game load — none of it is needed to play a move.
+ */
+internal object DgsTournament {
+    private val EVENT = Regex("""^\s*(?:\(([^)]*)\))?\s*[^#]*#\s*(\d+)\s*:?\s*(.*)$""")
+    private val ROUND = Regex("""(\d+)\D+(\d+)""")
+
+    /** Merges what the SGF header adds onto what the game object already gave us. */
+    fun merge(
+        fromGameObject: TournamentRef?,
+        sgfRoot: Map<String, List<String>>,
+    ): TournamentRef? {
+        val event = parseEvent(sgfRoot["EV"]?.firstOrNull())
+        val id = fromGameObject?.id ?: event?.id ?: return null
+        val round = ROUND.find(sgfRoot["RO"]?.firstOrNull().orEmpty())
+        return TournamentRef(
+            id = id,
+            name = event?.name,
+            kind = event?.kind,
+            isLadder = event?.isLadder ?: false,
+            round = round?.groupValues?.get(1)?.toIntOrNull(),
+            roundCount = round?.groupValues?.get(2)?.toIntOrNull(),
+        )
+    }
+
+    private fun parseEvent(event: String?): TournamentRef? {
+        val match = EVENT.find(event?.trim().orEmpty()) ?: return null
+        val (kind, id, name) = match.destructured
+        return TournamentRef(
+            id = id,
+            name = name.trim().ifEmpty { null },
+            kind = kind.trim().ifEmpty { null },
+            // English is what DGS serves an anonymous client; a translated wording simply
+            // leaves the flag false and the kind is still shown as it came.
+            isLadder = kind.contains("ladder", ignoreCase = true),
+        )
+    }
 }
 
 /** Turns one game object (from `cmd=info` or a `cmd=list` entry) into a [GameSummary]. */

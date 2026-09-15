@@ -8,6 +8,7 @@ import dev.turnzen.game.sgf.SgfGameRecords
 import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.TournamentRef
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
@@ -190,7 +191,7 @@ class DgsParsersTest {
         assertEquals(true, info.weekendClock)
         assertEquals(Instant.parse("2015-06-24T10:00:00Z"), info.startedAt)
         // 0 in the payload means "not a tournament game".
-        assertNull(info.tournamentId)
+        assertNull(info.tournament)
 
         assertEquals("fakeuser", info.black.handle)
         assertEquals("14k", info.black.rank)
@@ -207,7 +208,57 @@ class DgsParsersTest {
     @Test
     fun `a tournament game reports its tournament`() {
         val payload = Fixtures.text("game_info.json").replace("\"tournament_id\":0", "\"tournament_id\":1042")
-        assertEquals("1042", GameInfoParser.parse(QuickSuite.parse(payload)).tournamentId)
+        assertEquals("1042", GameInfoParser.parse(QuickSuite.parse(payload)).tournament?.id)
+    }
+
+    @Test
+    fun `the SGF header names a ladder game's event and round`() {
+        val merged =
+            DgsTournament.merge(
+                TournamentRef(id = "3"),
+                mapOf(
+                    "EV" to listOf("(Dragon Ladder) Tournament #3: DGS Ladder (19x19)"),
+                    "RO" to listOf("Round 1 of 1"),
+                ),
+            )
+        assertEquals("3", merged?.id)
+        assertEquals("DGS Ladder (19x19)", merged?.name)
+        assertEquals("Dragon Ladder", merged?.kind)
+        assertEquals(true, merged?.isLadder)
+        assertEquals(1, merged?.round)
+        assertEquals(1, merged?.roundCount)
+    }
+
+    @Test
+    fun `a non-ladder tournament is told apart by its kind`() {
+        val merged =
+            DgsTournament.merge(
+                TournamentRef(id = "88"),
+                mapOf(
+                    "EV" to listOf("(Private Round Robin) Tournament #88: RazorBrain's private test tournament (5x5)"),
+                    "RO" to listOf("Round 4 of 4"),
+                ),
+            )
+        assertEquals("Private Round Robin", merged?.kind)
+        assertEquals(false, merged?.isLadder)
+        assertEquals("RazorBrain's private test tournament (5x5)", merged?.name)
+        assertEquals(4, merged?.round)
+        assertEquals(4, merged?.roundCount)
+    }
+
+    @Test
+    fun `a casual game has no event in its SGF and no tournament`() {
+        assertNull(DgsTournament.merge(null, mapOf("DT" to listOf("2007-04-21,2007-05-19"))))
+    }
+
+    @Test
+    fun `an event line the client cannot read still keeps the id`() {
+        // DGS translates some of what it sends; a wording we cannot parse must not lose the
+        // fact that the game belongs to a tournament at all.
+        val merged = DgsTournament.merge(TournamentRef(id = "3"), mapOf("EV" to listOf("Ranglétra")))
+        assertEquals("3", merged?.id)
+        assertNull(merged?.name)
+        assertEquals(false, merged?.isLadder)
     }
 
     @Test

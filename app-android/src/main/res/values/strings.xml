@@ -87,6 +87,10 @@
     <string name="info_weekend_clock">Weekend clock</string>
     <string name="info_started">Started</string>
     <string name="info_tournament">Tournament</string>
+    <string name="info_ladder">Ladder</string>
+    <string name="info_event_kind">Format</string>
+    <string name="info_round">Round</string>
+    <string name="info_round_of">%1$d of %2$d</string>
     <string name="info_yes">Yes</string>
     <string name="info_no">No</string>
     <string name="info_open_web">Open on %1$s</string>

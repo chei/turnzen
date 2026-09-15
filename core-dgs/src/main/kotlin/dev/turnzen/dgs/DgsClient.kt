@@ -131,13 +131,18 @@ class DgsClient(
             LoginResponse.failure(body)?.let { throw it }
             throw GoServerException.Protocol("Expected SGF for game ${id.value}, got: ${body.take(80)}")
         }
-        val record =
+        val sgfGame =
             try {
-                SgfGameRecords.read(body).record
+                SgfGameRecords.read(body)
             } catch (e: SgfParseException) {
                 throw GoServerException.Protocol("Could not read SGF for game ${id.value}", e)
             }
-        return GameDetail(summary, record, info)
+        // The tournament is the one thing the game object is nearly silent about — it gives
+        // only the id — while the SGF header names the event and its round. Both describe the
+        // same game, so the info is completed here rather than in either parser alone.
+        val completed =
+            info.copy(tournament = DgsTournament.merge(info.tournament, sgfGame.rootProperties))
+        return GameDetail(summary, sgfGame.record, completed)
     }
 
     override suspend fun sendMove(

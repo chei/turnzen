@@ -136,9 +136,23 @@ fun GameInfoSheet(
                 info?.timeLimit?.let { InfoRow(stringResource(R.string.info_time), it) }
                 info?.weekendClock?.let { InfoRow(stringResource(R.string.info_weekend_clock), yesNo(it)) }
                 info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.date(it)) }
-                // Only the server's id for it: the name and the standings are not in the game
-                // payload, so the web link below is the way to the tournament itself.
-                info?.tournamentId?.let { InfoRow(stringResource(R.string.info_tournament), "#$it") }
+                // The event, as far as the server describes it with the game. Standings — a
+                // ladder's rankings above all — are on the server's own pages, not in anything
+                // it sends us, so the web link below is still the way to those.
+                info?.tournament?.let { tournament ->
+                    val label = if (tournament.isLadder) R.string.info_ladder else R.string.info_tournament
+                    InfoRow(stringResource(label), tournament.name ?: "#${tournament.id}")
+                    tournament.kind?.let { InfoRow(stringResource(R.string.info_event_kind), it) }
+                    val round = tournament.round
+                    val rounds = tournament.roundCount
+                    // "Round 1 of 1" is what every ladder challenge says, and says nothing.
+                    if (round != null && rounds != null && rounds > 1) {
+                        InfoRow(
+                            stringResource(R.string.info_round),
+                            stringResource(R.string.info_round_of, round, rounds),
+                        )
+                    }
+                }
 
                 Spacer(Modifier.height(20.dp))
 

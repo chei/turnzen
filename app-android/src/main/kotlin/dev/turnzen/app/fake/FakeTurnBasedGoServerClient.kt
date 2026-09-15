@@ -23,6 +23,7 @@ import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.delay
 import java.time.Duration
@@ -259,7 +260,19 @@ class FakeTurnBasedGoServerClient(
             timeLimit = "F: 30d (+ 1d)",
             weekendClock = true,
             startedAt = lastMoveAt.minus(Duration.ofDays(40)),
-            tournamentId = if (id.value == "demo-13") "1042" else null,
+            tournament =
+                if (id.value == "demo-13") {
+                    TournamentRef(
+                        id = "1042",
+                        name = "Turnzen Demo Ladder (13x13)",
+                        kind = "Dragon Ladder",
+                        isLadder = true,
+                        round = 1,
+                        roundCount = 1,
+                    )
+                } else {
+                    null
+                },
         )
     }
 

@@ -119,10 +119,39 @@ data class GameInfo(
     /** True when the clock is paused at weekends. */
     val weekendClock: Boolean? = null,
     val startedAt: Instant? = null,
-    /** The server's id for the tournament this game belongs to, or null for a casual game. */
-    val tournamentId: String? = null,
+    /** The tournament this game belongs to, or null for a casual game. */
+    val tournament: TournamentRef? = null,
     /** How the game will be counted, when the server says which rules it uses. */
     val scoring: ScoringRules? = null,
+)
+
+/**
+ * The tournament a game was played for, as much of it as the server volunteers with the game.
+ *
+ * A pointer, not the tournament itself: standings, pairings and a ladder's rankings all live
+ * elsewhere on the server, usually behind a page rather than an API. What is here is enough
+ * to tell the player *which* event this game belongs to and where in it they are.
+ */
+data class TournamentRef(
+    /** The server's id, the one its own web pages use. */
+    val id: String,
+    /** The tournament's title, when the server tells us one. */
+    val name: String? = null,
+    /**
+     * The server's own wording for what kind of tournament it is ("Dragon Ladder",
+     * "Private Round Robin"), shown as it came: it may be in the account's language.
+     */
+    val kind: String? = null,
+    /**
+     * True when this is a ladder — a standings list you climb by challenging players above
+     * you — rather than a bracket or a league. Best effort: it is read out of [kind], which
+     * the server may have translated.
+     */
+    val isLadder: Boolean = false,
+    /** Which round this game was played in, where the tournament has rounds. */
+    val round: Int? = null,
+    /** How many rounds the tournament has in total. */
+    val roundCount: Int? = null,
 )
 
 /**
