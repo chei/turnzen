@@ -87,6 +87,27 @@ GET tournaments/ladder/view.php?tid=<tid>
 Login required. The session cookies `DgsClient` already holds from `login.php` are the same
 ones this page wants; no separate login is needed.
 
+**This page answers in three distinguishable ways, all decided by the redirect alone**, before
+any body is read:
+
+| Case | Response |
+|---|---|
+| A ladder | `200` + the table |
+| Not a ladder | `302` → `error.php?err=bad_tournament&debugmsg=Tournament.ladder_view.TCache:load_cache_tlp(<tid>,1)&eid=…` |
+| Session gone | `302` → `error.php?err=login_if_not_logged_in&debugmsg=Tournament.ladder.view&page=…` |
+
+Verified against tid 3 (ladder) and tid 365 (round robin) in September 2026. `view.php` never
+checks the tournament type explicitly — the type check is implicit two calls earlier, where
+`TournamentCache::load_cache_tournament_ladder_props($tid, check_exist: true)` finds no
+`TournamentLadderProps` row for a non-ladder tournament and raises `bad_tournament`.
+
+**`bad_tournament` is written to DGS's `Errorlog` table.** `ErrorCode::need_db_errorlog()`
+carries a skip-list of codes that are not logged; `login_if_not_logged_in` is on it and
+`bad_tournament` is not. So an expired session costs the server nothing, but **every probe of a
+non-ladder tid leaves an admin-visible error-log row with an `eid`**. That is somebody else's
+error log. It shapes the detection rule in §5 and is the reason this client does not probe
+speculatively.
+
 **Session expiry looks nothing like it does in the QuickSuite.** There is no error object to
 read — the page answers `302` with a `Location` of
 
@@ -105,8 +126,39 @@ It renders the **entire ladder as one HTML table**. The table is built with
 paging, sorting or row-limit parameter**: you get all of it or none of it.
 
 **Measured, September 2026:** the DGS Ladder (tid 3, 327 participants, 18 columns displayed)
-is **582 457 bytes**. That is the real cost of one fetch, so cache it per tid and never fetch
-it on the games list. A trimmed, scrubbed recording of that page is the fixture
+is **582 457 bytes of HTML — but only ~54 KB on the wire.** DGS serves
+`Content-Encoding: gzip` with `Vary: Accept-Encoding`, and this page is hugely repetitive
+markup: gzip -6 takes it to 54 325 bytes, a 10.7x reduction. OkHttp adds `Accept-Encoding:
+gzip` and decompresses transparently as long as the caller does not set that header itself, so
+the saving is free — but do not set `Accept-Encoding` by hand in `HttpRequest`, and measure the
+real `Content-Length` when implementing rather than trusting this estimate.
+
+The 582 KB still has to be decompressed, held and scanned on a phone, so parse it in one pass
+and do not materialise it more than once.
+
+**There is no HTTP caching to lean on**: DGS sends `Cache-Control: no-store, no-cache,
+must-revalidate, max-age=0`, so a conditional GET buys nothing and the only reuse is our own
+per-tid cache — which is worth a lot, since one fetch answers every game on that ladder (four,
+for the recorded account).
+
+### Cheaper sources: there are none
+
+Checked and rejected, so nobody re-checks them:
+
+- **`game.php?gid=`** — shows the tournament via `build_info(4)` (scope, type, id, status,
+  title) and no ranks at all. `TournamentLadder::build_result_info()`, which does carry rank
+  data, is only ever called from the tournament director's `edit_results.php`.
+- **`tournaments/list_participants.php?tid=`** — a properly paged, *filterable* table (there is
+  even a handle filter), which is exactly what we would want. But it has no ladder Rank column:
+  Actions, Name, Userid, Country, Rating, Comment, Reg ID, Status, Flags, Round, Tournament
+  Rating. Useless for standings.
+- **`show_games.php?tid=&uid=`** — small, and its `Col45` even gives the Challenger/Defender
+  role, but it carries no ranks either.
+- **Narrowing the ladder page itself** — `view.php` registers no filters at all, and its table
+  is built `TABLE_NO_PAGE` with `set_rows_per_page(null)`. There is no row-limit, offset, sort
+  or filter parameter to reach for.
+
+So: one gzipped fetch per ladder, cached. That is the floor. Never fetch it on the games list. A trimmed, scrubbed recording of that page is the fixture
 `core-dgs/src/test/resources/dgs/ladder_view_tid3.html`; the account it came from is
 Hungarian, which is deliberate — every header and every piece of cell text in it is localised,
 so a parser that passes against it cannot have keyed on an English word.
@@ -196,16 +248,33 @@ answer every game on that ladder from it.
 
 ## 5. Deciding a game is on a ladder
 
-`TournamentRef.isLadder` is true only when DGS served the kind in English (§1). Do not gate on
-it. Instead:
+The honest position: **we cannot always tell, and we should not find out by asking.**
 
-- `isLadder == true` → fetch the ladder page.
-- `isLadder == false` **but the kind is not a recognised non-ladder wording** (neither "league"
-  nor "round robin" in a language we know) → the tournament group may be translated on this
-  account; try the ladder page once and cache the answer per tid.
-- A tid that is not a ladder does **not** error — `view.php` does not check the tournament type,
-  it just finds no `TournamentLadder` rows and renders an empty table. So "no rows" is the
-  negative answer, and it must be cached per tid so it is paid for at most once.
+A probe is technically clean — `err=bad_tournament` in a `302` is as machine-readable a "no" as
+one could want, and the body is empty — but it writes a row to DGS's error log every time
+(§3). Doing that speculatively, on every tournament game a user happens to open, is not a
+polite thing for a client to do to a server it does not own.
+
+So:
+
+- **`isLadder == true` → fetch.** A ladder tid answers `200`; nothing is logged. This is the
+  common case: the kind arrives in English wherever DGS's tournament translation group is
+  unfilled, which includes Hungarian (§1).
+- **The kind reads as a known non-ladder** ("round robin", "league") → do not fetch.
+- **The kind is unreadable** → show no standings row. Degrading to "no extra information" is
+  correct behaviour, not a bug to engineer around.
+
+If that last case turns out to matter in practice, the escape hatch is to make it
+**user-initiated**: offer the row as something to tap, and probe once when they do, persisting
+the negative so a given tid is never probed twice. One error-log row per ladder per device, in
+exchange for an action the user asked for, is defensible. Probing behind their back is not.
+
+Rejected alternative: `tournaments/view_tournament.php?tid=N` answers `200` for every
+tournament type and logs nothing, so it looks like the polite probe. But it offers no clean
+type marker — its menu has no link to the ladder page, and the only structural difference is
+that a ladder fills the `TournamentStandings` section while a round robin leaves it empty,
+which is too flimsy to rest on and costs a request anyway. Its TOP-N standings table is no help
+either: it has no Challenges-In/Out columns, so it cannot map a game to a pair of ranks.
 
 ## 6. Traps
 
@@ -282,11 +351,9 @@ Still to record when the situation arises, or to hand-write from this document:
 
 - a page with `Col16` hidden (Challenges-In only),
 - an entry wrapped in `<span class="TGDetached">`,
-- a non-ladder tid, which is expected to render an empty table rather than an error — still
-  unverified, since `view.php` never checks the tournament type in the sources.
-
-The session-expired case is recorded above as a redirect, which needs no fixture file: the
-transport sees the `302` and its `Location`, and that is the whole signal.
+Neither the non-ladder case nor the session-expired case needs a fixture file: both are `302`s,
+and the transport sees the status and `Location` header, which is the whole signal. §3 has both
+exact shapes.
 
 ## 10. Licensing
 
