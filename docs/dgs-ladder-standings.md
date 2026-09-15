@@ -248,33 +248,55 @@ answer every game on that ladder from it.
 
 ## 5. Deciding a game is on a ladder
 
-The honest position: **we cannot always tell, and we should not find out by asking.**
+**Trust `isLadder`. The failure case it was hedged against does not exist on DGS today.**
 
-A probe is technically clean — `err=bad_tournament` in a `302` is as machine-readable a "no" as
-one could want, and the body is empty — but it writes a row to DGS's error log every time
-(§3). Doing that speculatively, on every tournament game a user happens to open, is not a
-polite thing for a client to do to a server it does not own.
+Measured against DGS's own published translation dump
+(`snapshot/Translationdata.mysql.gz`, September 2026), for the text `Ladder#T_type`:
 
-So:
+- DGS has **38 languages**;
+- **34** have no translation row for it at all;
+- the remaining **4** (German, Romanian, Portuguese (Brazil) ×2) have a row holding the
+  **empty string**, which is not a translation;
+- so **zero** languages translate it.
 
-- **`isLadder == true` → fetch.** A ladder tid answers `200`; nothing is logged. This is the
-  common case: the kind arrives in English wherever DGS's tournament translation group is
-  unfilled, which includes Hungarian (§1).
-- **The kind reads as a known non-ladder** ("round robin", "league") → do not fetch.
-- **The kind is unreadable** → show no standings row. Degrading to "no extra information" is
-  correct behaviour, not a bug to engineer around.
+An empty row is the same as no row: `T_()` returns the stored text only
+`if ( (string)$s != '' )`, and otherwise falls through to `strip_translation_label()`, which
+drops the `#T_type` suffix and hands back the English source word. `Dragon#T_scope` behaves the
+same way — no language moves it. So `(Dragon Ladder)` is what *every* DGS account receives,
+whatever its interface language, which is why the Hungarian account in §1 sees an English kind
+inside a Hungarian page.
 
-If that last case turns out to matter in practice, the escape hatch is to make it
-**user-initiated**: offer the row as something to tap, and probe once when they do, persisting
-the negative so a given tid is never probed twice. One error-log row per ladder per device, in
-exchange for an action the user asked for, is defensible. Probing behind their back is not.
+That makes the rule simple:
 
-Rejected alternative: `tournaments/view_tournament.php?tid=N` answers `200` for every
-tournament type and logs nothing, so it looks like the polite probe. But it offers no clean
-type marker — its menu has no link to the ladder page, and the only structural difference is
-that a ladder fills the `TournamentStandings` section while a round robin leaves it empty,
-which is too flimsy to rest on and costs a request anyway. Its TOP-N standings table is no help
-either: it has no Challenges-In/Out columns, so it cannot map a game to a pair of ranks.
+- **`isLadder == true` → fetch.** Reliable for every account that exists.
+- **Anything else → no standings row.** Do not probe: a non-ladder tid answers
+  `err=bad_tournament`, and that is written to DGS's error log (§3). Writing to someone else's
+  error log to satisfy a guess is not something a client should do.
+
+The hedging is still worth keeping in the parser, because this is a property of DGS's
+translation *data*, not of its code: a translator could fill that row in tomorrow and the
+heuristic would start missing ladders on that one language. The failure would be silent and
+harmless — a missing row, never a wrong one — and the fix would be the escape hatch below. But
+do not build the escape hatch until someone reports needing it.
+
+<details>
+<summary>Escape hatch, if a language ever does translate it</summary>
+
+Make it **user-initiated**: offer the standings row as something to tap, probe once when they
+tap it, and persist the answer so a given tid is never probed twice. One error-log row in
+exchange for an action the user asked for is defensible; probing behind their back is not.
+
+Rejected alternatives, so nobody re-derives them:
+
+- **A baked-in list of ladder tids.** Ladders on DGS are few and long-lived, so a shipped list
+  would mostly work — but it is server state hardcoded into a client, stale the moment a new
+  ladder is created, and it buys nothing over a heuristic that is already correct everywhere.
+- **`tournaments/view_tournament.php?tid=N`** answers `200` for every type and logs nothing, so
+  it looks like the polite probe. But it has no clean type marker — its menu carries no link to
+  the ladder page, and the only structural difference is that a ladder fills the
+  `TournamentStandings` section while a round robin leaves it empty. Its TOP-N standings table
+  has no Challenges-In/Out columns either, so it cannot map a game to a pair of ranks.
+</details>
 
 ## 6. Traps
 
