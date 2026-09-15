@@ -38,9 +38,9 @@ import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PlayerDetail
-import dev.turnzen.goserver.TournamentRef
 
 /**
  * What the board behind the sheet cannot say for itself: who is playing and how they stand,
@@ -139,7 +139,7 @@ fun GameInfoSheet(
                 info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.since(it)) }
                 // What the game is part of. Only when the server actually described the game:
                 // a reopen with no network knows nothing, and "waiting room" would be a guess.
-                if (info != null) EventRows(info.tournament, state.ladderStanding)
+                if (info != null) EventRows(info, state.ladderStanding)
 
                 Spacer(Modifier.height(20.dp))
 
@@ -222,26 +222,39 @@ private fun PlayerLine(
 /**
  * Where the game came from, in one row: a ladder, another tournament, or neither.
  *
- * A DGS ladder is named by its number — "#3" is the 19x19 one everybody means — so the id
- * belongs in the line and not only in the URL behind it. For a casual game the row names both
- * of the ways one starts, because DGS keeps nothing on the game that tells a waiting-room
- * pairing from an accepted invitation.
+ * A ladder is named by its number and nothing else. Its title carries no information a player
+ * needs — "DGS Ladder (19x19)" is the word Ladder again, the server's own name, and a board
+ * size the row above already gives — so the line is the number, plus whether the ladder is
+ * rated, which is the one thing that actually tells two of them apart. An ordinary tournament
+ * keeps its name: that one someone chose.
  *
- * The event's kind ("Dragon Ladder", "Private Round Robin") is deliberately not shown: for a
- * ladder it repeats the label, and for anything else it repeats the tournament's own name.
+ * For a casual game the row names both of the ways one starts, because DGS keeps nothing on
+ * the game that tells a waiting-room pairing from an accepted invitation.
+ *
+ * The event's kind ("Dragon Ladder", "Private Round Robin") is never shown: for a ladder it
+ * repeats the label, and for anything else it repeats the tournament's own name.
  */
 @Composable
 private fun EventRows(
-    tournament: TournamentRef?,
+    info: GameInfo,
     standing: LadderStanding?,
 ) {
+    val tournament = info.tournament
     if (tournament == null) {
         InfoRow(stringResource(R.string.info_game), stringResource(R.string.info_game_casual))
         return
     }
+    // Rated is shown either way for a ladder: with both states named, the row identifies the
+    // ladder; with only "rated" named, an unrated one would look like a server that went quiet.
+    val detail =
+        if (tournament.isLadder) {
+            info.rated?.let { stringResource(if (it) R.string.info_rated else R.string.info_unrated) }
+        } else {
+            tournament.name
+        }
     InfoRow(
         stringResource(if (tournament.isLadder) R.string.info_ladder else R.string.info_tournament),
-        tournament.name
+        detail
             ?.let { stringResource(R.string.info_event_named, tournament.id, it) }
             ?: stringResource(R.string.info_event_id, tournament.id),
     )

@@ -458,11 +458,14 @@ Recommended order, cheapest/lowest-risk first:
   discards most of it. `Formatting.since` is deliberately separate from `Formatting.relative`,
   which serves the last move and gives up for a calendar date after a fortnight.
 - **What the game is part of is one row**, and the label carries the category so the value
-  stays short: `Ladder  #3 · DGS Ladder (19x19)`, `Tournament  #365 · <name>`, or, for a game
-  belonging to no tournament, `Game  Waiting room or invitation`. The ladder's *number* is in
-  the line because that is how DGS names the handful of them. The kind ("Dragon Ladder",
-  "Private Round Robin") is not shown: for a ladder it repeats the label, otherwise it repeats
-  the name. The waiting-room/invitation wording names both possibilities because DGS keeps
+  stays short: `Ladder  #3 · rated`, `Tournament  #365 · <name>`, or, for a game belonging to
+  no tournament, `Game  Waiting room or invitation`. A ladder is identified by its *number*,
+  and nothing else it is called is worth a character: "DGS Ladder (19x19)" is the word Ladder
+  again, the server's own name, and the board size the row above already gives. Rated is the
+  exception — it is what tells two otherwise identical ladders apart — and it is shown in both
+  states, since "rated" alone would make an unrated ladder look like missing data. An ordinary
+  tournament keeps its name; that one a person chose. The kind ("Dragon Ladder", "Private Round
+  Robin") is never shown: for a ladder it repeats the label, otherwise it repeats the name. The waiting-room/invitation wording names both possibilities because DGS keeps
   nothing on the game that tells them apart — not `game_type` (always `GO` for a normal game),
   not `flags`, not `shape_id`; the origin is simply not recorded on the game row. The row is
   omitted entirely when the server did not describe the game at all (an offline reopen), since

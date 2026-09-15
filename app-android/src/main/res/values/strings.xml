@@ -86,6 +86,9 @@
     <!-- DGS records no difference between the two, so the row names both possibilities. -->
     <string name="info_game_casual">Waiting room or invitation</string>
     <string name="info_event_id">#%1$s</string>
+    <!-- Lower case: these land inside the ladder row, as "#3 · rated". -->
+    <string name="info_rated">rated</string>
+    <string name="info_unrated">unrated</string>
     <string name="info_event_named">#%1$s · %2$s</string>
     <string name="info_ladder">Ladder</string>
     <string name="info_round">Round</string>

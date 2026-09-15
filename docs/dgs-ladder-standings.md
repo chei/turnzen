@@ -387,7 +387,7 @@ One row in the info sheet, directly under the row naming the ladder:
 
 ```
 Started     13 days ago
-Ladder      #3 · DGS Ladder (19x19)
+Ladder      #3 · rated
 Standing    You #4 → #1          (challenging)
 Standing    #7 → you #4          (defending)
 ```
@@ -397,8 +397,10 @@ after the rest of the sheet (it is the one row that costs a request), so it must
 moving anything already on screen — append, never insert above an existing row.
 
 The Format row that once sat between the two is gone (September 2026): for a ladder the kind
-just repeats the word "Ladder". The ladder's *number* moved into the Ladder row instead, which
-is what identifies it — DGS has a handful of ladders and everyone refers to them by tid.
+just repeats the word "Ladder". So is the ladder's title, for the same reason — "DGS Ladder
+(19x19)" is the word again, the server's own name, and a board size already on screen. What
+identifies a ladder is its *tid*, which is how everyone refers to the handful of them, plus
+whether it is rated; that is the whole row.
 
 ## 9. Testing
 
