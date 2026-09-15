@@ -445,8 +445,27 @@ Recommended order, cheapest/lowest-risk first:
 **3b. Game info sheet** (opened from the board's header)
 - Read-only context the board has no room for, all of it already present in the game payload
   the summary is parsed from: both players (rank, rank at the start, captures, and each
-  side's own clock), board size, handicap, komi, ruleset, rated, time system, weekend clock,
-  start date, and the tournament when the game belongs to one.
+  side's own clock), board size, handicap, how long the game has been running, and what it
+  is being played for.
+- **Only what a player would look up, not everything parsed.** Komi, ruleset, rated, the time
+  system and the weekend clock were all shown at first and were all removed (September 2026):
+  every one of them is fixed when the game is created, so the sheet answered a question nobody
+  asks twice. `GameInfo` still carries them — the scoring screen needs `komi`, and they cost
+  nothing to parse — the sheet simply no longer spends a row on them.
+- The start date is shown as elapsed time ("13 days ago"), not as a date: what a player wants
+  from it is how long the game has been running. `Formatting.since` is deliberately separate
+  from `Formatting.relative`, which serves the last move and gives up for a calendar date
+  after a fortnight — correspondence games run for months and this must not.
+- **What the game is part of is one row**, and the label carries the category so the value
+  stays short: `Ladder  #3 · DGS Ladder (19x19)`, `Tournament  #365 · <name>`, or, for a game
+  belonging to no tournament, `Game  Waiting room or invitation`. The ladder's *number* is in
+  the line because that is how DGS names the handful of them. The kind ("Dragon Ladder",
+  "Private Round Robin") is not shown: for a ladder it repeats the label, otherwise it repeats
+  the name. The waiting-room/invitation wording names both possibilities because DGS keeps
+  nothing on the game that tells them apart — not `game_type` (always `GO` for a normal game),
+  not `flags`, not `shape_id`; the origin is simply not recorded on the game row. The row is
+  omitted entirely when the server did not describe the game at all (an offline reopen), since
+  "casual" would then be a guess rather than a fact.
 - The tournament's *name is not in that payload*; only `tournament_id` is. It is in the SGF,
   which the client downloads for the moves anyway: DGS writes the standard SGF header
   properties `EV[(Dragon Ladder) Tournament #3: DGS Ladder (19x19)]` and `RO[Round 1 of 1]`
@@ -459,9 +478,10 @@ Recommended order, cheapest/lowest-risk first:
   specifies commands for game, user, message, folder, contact, wroom, bulletin and tag only,
   and nothing for tournaments is implemented). A ladder position — "you are #4, challenging
   #1" — exists only on the login-gated ladder page, `tournaments/ladder/view.php?tid=N`, and
-  so needs the HTML client. **Researched in full and specified in
-  [`dgs-ladder-standings.md`](dgs-ladder-standings.md); not implemented.** Until it is, the
-  sheet links out to the game's page on the server.
+  so needs the HTML client. **Researched in full and implemented (September 2026); the
+  traps are in [`dgs-ladder-standings.md`](dgs-ladder-standings.md).** The Standing row is
+  appended after the sheet is already on screen, because it is the one row that costs a
+  request; the sheet also still links out to the game's page on the server.
 - Also the home of the rare actions: Pass (when it is the user's turn), "Open on <server>",
   and Resign.
 

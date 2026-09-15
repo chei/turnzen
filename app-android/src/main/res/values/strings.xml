@@ -80,22 +80,19 @@
     <string name="info_was_rank">was %1$s</string>
     <string name="info_board">Board</string>
     <string name="info_handicap">Handicap</string>
-    <string name="info_komi">Komi</string>
-    <string name="info_rules">Rules</string>
-    <string name="info_rated">Rated</string>
-    <string name="info_time">Time</string>
-    <string name="info_weekend_clock">Weekend clock</string>
     <string name="info_started">Started</string>
     <string name="info_tournament">Tournament</string>
+    <string name="info_game">Game</string>
+    <!-- DGS records no difference between the two, so the row names both possibilities. -->
+    <string name="info_game_casual">Waiting room or invitation</string>
+    <string name="info_event_id">#%1$s</string>
+    <string name="info_event_named">#%1$s · %2$s</string>
     <string name="info_ladder">Ladder</string>
-    <string name="info_event_kind">Format</string>
     <string name="info_round">Round</string>
     <string name="info_round_of">%1$d of %2$d</string>
     <string name="info_standing">Standing</string>
     <string name="info_standing_challenging">You #%1$d → #%2$d</string>
     <string name="info_standing_defending">#%2$d → you #%1$d</string>
-    <string name="info_yes">Yes</string>
-    <string name="info_no">No</string>
     <string name="info_open_web">Open on %1$s</string>
 
     <string name="settings_title">Settings</string>

@@ -383,18 +383,22 @@ The module rules in `CLAUDE.md` decided most of this:
 
 ## 8. UI
 
-One row in the info sheet, under the existing Ladder / Format rows:
+One row in the info sheet, directly under the row naming the ladder:
 
 ```
-Ladder      DGS Ladder (19x19)
-Format      Dragon Ladder
+Started     13 days ago
+Ladder      #3 · DGS Ladder (19x19)
 Standing    You #4 → #1          (challenging)
-Standing    #7 → You #4          (defending)
+Standing    #7 → you #4          (defending)
 ```
 
-Wording to settle when it is built; the point is that it reads as a direction, not two numbers.
-It arrives after the rest of the sheet (one extra request), so it must appear without moving
-anything already on screen — append, do not insert above existing rows.
+The point of the wording is that it reads as a direction, not as two numbers. The row arrives
+after the rest of the sheet (it is the one row that costs a request), so it must appear without
+moving anything already on screen — append, never insert above an existing row.
+
+The Format row that once sat between the two is gone (September 2026): for a ladder the kind
+just repeats the word "Ladder". The ladder's *number* moved into the Ladder row instead, which
+is what identifies it — DGS has a handful of ladders and everyone refers to them by tid.
 
 ## 9. Testing
 

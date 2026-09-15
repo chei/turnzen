@@ -57,6 +57,28 @@ class FormattingTest {
     }
 
     @Test
+    fun `a start date is told as how long the game has run`() {
+        val now = Instant.parse("2026-09-15T12:00:00Z")
+
+        fun since(d: Duration) = Formatting.since(now.minus(d), now)
+
+        assertEquals("just now", since(Duration.ofMinutes(20)))
+        assertEquals("3 hours ago", since(Duration.ofHours(3)))
+        // Singulars are not "1 days ago".
+        assertEquals("1 hour ago", since(Duration.ofHours(1)))
+        assertEquals("1 day ago", since(Duration.ofHours(25)))
+        assertEquals("13 days ago", since(Duration.ofDays(13)))
+        assertEquals("59 days ago", since(Duration.ofDays(59)))
+        // Two months in, days stop being informative.
+        assertEquals("2 months ago", since(Duration.ofDays(60)))
+        assertEquals("12 months ago", since(Duration.ofDays(365)))
+        // Only past a year and a half, where "1 year" would round away less than it tells.
+        assertEquals("1 year ago", since(Duration.ofDays(547)))
+        assertEquals("4 years ago", since(Duration.ofDays(1500)))
+        assertEquals("–", Formatting.since(null, now))
+    }
+
+    @Test
     fun `relative times read as a person would say them`() {
         val now = Instant.parse("2026-09-03T20:00:00Z")
         assertEquals("just now", Formatting.relative(now.minusSeconds(20), now))

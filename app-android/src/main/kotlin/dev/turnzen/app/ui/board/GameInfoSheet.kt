@@ -38,11 +38,15 @@ import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PlayerDetail
+import dev.turnzen.goserver.TournamentRef
 
 /**
- * Everything the server already told us about a game that the board has no room for: how it
- * was set up, where both players stand in it, and the rare actions — pass and resign.
+ * What the board behind the sheet cannot say for itself: who is playing and how they stand,
+ * how long the game has been running, what it is being played for, and the rare actions —
+ * pass and resign. Not everything the server sent: settings fixed when the game was created
+ * are answered once and then only take up room.
  *
  * A sheet rather than a screen: it is reading material *about* the board behind it, which
  * stays visible, and dismissing it is a swipe. It also keeps the hand-rolled navigation at
@@ -124,51 +128,18 @@ fun GameInfoSheet(
 
                 Spacer(Modifier.height(20.dp))
 
+                // Only what a player cannot see for themselves on the board behind the sheet.
+                // Komi, rules, rated, the time system and the weekend clock were all here and
+                // are all fixed at game creation: they answer a question nobody asks twice.
                 val size = state.boardSize
                 if (size != null) InfoRow(stringResource(R.string.info_board), "${size}x$size")
                 val handicap = info?.handicap ?: summary.handicap
                 if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
-                val komi = info?.komi ?: state.detail?.record?.komi
-                if (komi != null) InfoRow(stringResource(R.string.info_komi), Formatting.points(komi))
-                info?.ruleset?.let { InfoRow(stringResource(R.string.info_rules), it) }
-                info?.rated?.let { InfoRow(stringResource(R.string.info_rated), yesNo(it)) }
-                // The server's own wording for the time system, as everywhere else.
-                info?.timeLimit?.let { InfoRow(stringResource(R.string.info_time), it) }
-                info?.weekendClock?.let { InfoRow(stringResource(R.string.info_weekend_clock), yesNo(it)) }
-                info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.date(it)) }
-                // The event, as far as the server describes it with the game. Standings — a
-                // ladder's rankings above all — are on the server's own pages, not in anything
-                // it sends us, so the web link below is still the way to those.
-                info?.tournament?.let { tournament ->
-                    val label = if (tournament.isLadder) R.string.info_ladder else R.string.info_tournament
-                    InfoRow(stringResource(label), tournament.name ?: "#${tournament.id}")
-                    tournament.kind?.let { InfoRow(stringResource(R.string.info_event_kind), it) }
-                    val round = tournament.round
-                    val rounds = tournament.roundCount
-                    // "Round 1 of 1" is what every ladder challenge says, and says nothing.
-                    if (round != null && rounds != null && rounds > 1) {
-                        InfoRow(
-                            stringResource(R.string.info_round),
-                            stringResource(R.string.info_round_of, round, rounds),
-                        )
-                    }
-                    // Appears a moment after the rest: it is the one row that costs a request.
-                    // Appended rather than inserted, so nothing above it moves when it lands.
-                    state.ladderStanding?.let { standing ->
-                        InfoRow(
-                            stringResource(R.string.info_standing),
-                            stringResource(
-                                if (standing.youAreChallenger) {
-                                    R.string.info_standing_challenging
-                                } else {
-                                    R.string.info_standing_defending
-                                },
-                                standing.yourRank,
-                                standing.opponentRank,
-                            ),
-                        )
-                    }
-                }
+                // How long it has been running, which is what the start date is really asked for.
+                info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.since(it)) }
+                // What the game is part of. Only when the server actually described the game:
+                // a reopen with no network knows nothing, and "waiting room" would be a guess.
+                if (info != null) EventRows(info.tournament, state.ladderStanding)
 
                 Spacer(Modifier.height(20.dp))
 
@@ -248,6 +219,56 @@ private fun PlayerLine(
     }
 }
 
+/**
+ * Where the game came from, in one row: a ladder, another tournament, or neither.
+ *
+ * A DGS ladder is named by its number — "#3" is the 19x19 one everybody means — so the id
+ * belongs in the line and not only in the URL behind it. For a casual game the row names both
+ * of the ways one starts, because DGS keeps nothing on the game that tells a waiting-room
+ * pairing from an accepted invitation.
+ *
+ * The event's kind ("Dragon Ladder", "Private Round Robin") is deliberately not shown: for a
+ * ladder it repeats the label, and for anything else it repeats the tournament's own name.
+ */
+@Composable
+private fun EventRows(
+    tournament: TournamentRef?,
+    standing: LadderStanding?,
+) {
+    if (tournament == null) {
+        InfoRow(stringResource(R.string.info_game), stringResource(R.string.info_game_casual))
+        return
+    }
+    InfoRow(
+        stringResource(if (tournament.isLadder) R.string.info_ladder else R.string.info_tournament),
+        tournament.name
+            ?.let { stringResource(R.string.info_event_named, tournament.id, it) }
+            ?: stringResource(R.string.info_event_id, tournament.id),
+    )
+    val round = tournament.round
+    val rounds = tournament.roundCount
+    // "Round 1 of 1" is what every ladder challenge says, and says nothing.
+    if (round != null && rounds != null && rounds > 1) {
+        InfoRow(stringResource(R.string.info_round), stringResource(R.string.info_round_of, round, rounds))
+    }
+    // Appears a moment after the rest: it is the one row that costs a request. Appended
+    // rather than inserted, so nothing above it moves when it lands.
+    standing?.let {
+        InfoRow(
+            stringResource(R.string.info_standing),
+            stringResource(
+                if (it.youAreChallenger) {
+                    R.string.info_standing_challenging
+                } else {
+                    R.string.info_standing_defending
+                },
+                it.yourRank,
+                it.opponentRank,
+            ),
+        )
+    }
+}
+
 @Composable
 private fun InfoRow(
     label: String,
@@ -294,6 +315,3 @@ private fun ActionLine(
         Hairline()
     }
 }
-
-@Composable
-private fun yesNo(value: Boolean): String = stringResource(if (value) R.string.info_yes else R.string.info_no)
