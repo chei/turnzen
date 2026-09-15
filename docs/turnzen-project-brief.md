@@ -594,10 +594,12 @@ Decisions taken while building the MVP that refine or amend the sections above.
   it is a ladder, round of how many). None of it costs a request; the fields were simply
   being discarded. It is deliberately not on `GameSummary`: the list rows never need it.
   `isLadder` is read out of the kind wording and is deliberately best effort: the scope and
-  type words in `EV` *are* run through DGS's translation (the literal "Tournament" and
-  "Round x of y" are not), so a non-English account will not match "ladder". An unreadable
-  event line keeps the id and drops the rest. Never gate anything on `isLadder` alone — see
-  [`dgs-ladder-standings.md`](dgs-ladder-standings.md) §5.
+  type words in `EV` go through DGS's translation, whose per-language data is partial, so
+  whether they arrive as "Dragon Ladder" or as something else cannot be assumed either way.
+  (In Hungarian they arrive in English, while the surrounding UI does not — see
+  [`dgs-ladder-standings.md`](dgs-ladder-standings.md) §1.) The id and name are unaffected:
+  the parser keys on `#<id>:`, not on the word "Tournament". An unreadable event line keeps
+  the id and drops the rest. Never gate anything on `isLadder` alone — §5 of the same doc.
 - **Counting is done twice, on purpose.** The server counts — its number is what an
   agreement agrees to, and it is what the app shows while the marks are untouched. But
   marking has to be instant and offline-tolerant, and the non-negotiable says a board tap

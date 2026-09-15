@@ -315,8 +315,9 @@ internal object DgsTournament {
             id = id,
             name = name.trim().ifEmpty { null },
             kind = kind.trim().ifEmpty { null },
-            // English is what DGS serves an anonymous client; a translated wording simply
-            // leaves the flag false and the kind is still shown as it came.
+            // The kind goes through DGS's translation, whose data is partial: it arrives in
+            // English on many accounts whose UI is not. A wording we cannot read simply leaves
+            // the flag false, and the kind is still shown exactly as it came.
             isLadder = kind.contains("ladder", ignoreCase = true),
         )
     }

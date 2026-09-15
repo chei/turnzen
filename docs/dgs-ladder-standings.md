@@ -39,13 +39,27 @@ and `Round <current> of <total>`.
 - **Ladders are tournaments on DGS.** Same id space, same `tournament_id` field on the game. A
   ladder is simply `Type = Ladder`, so "Tournament #88" for a round robin and "#3" for a ladder
   were always the same kind of id.
-- **The scope and type words are translated** — they go through DGS's `T_()` at build time,
-  keyed `Dragon#T_scope`, `Ladder#T_type` and so on. The literal words `Tournament` and
-  `Round … of …` are *not*; they are plain strings in the builder.
+- **The scope and type words go through DGS's `T_()`**, keyed `Dragon#T_scope`,
+  `Ladder#T_type` and so on, so a translation *may* exist. The literal words `Tournament` and
+  `Round … of …` do not; they are plain strings in the SGF builder and are always English
+  there.
+- **But whether a key is actually translated is per-language and partial.** DGS's translation
+  data is volunteer-maintained, and the tournament group is a long way from complete. On the
+  Hungarian account whose ladder page is recorded here, `T_()` returns *English* for the scope
+  and type — the recorded page's own heading reads `(Dragon Ladder) Verseny #3 - DGS Ladder
+  (19x19)`, built by the very same `getScopeText`/`getTypeText` pair the SGF uses: "Tournament"
+  became "Verseny", "Dragon Ladder" did not move. The table header in that same page mixes
+  `Rank`, `Challenges-In` and `Rank Changed` with `Név`, `Ország` and `Esemény`.
 
-That last point is why `TournamentRef.isLadder` is documented as best effort: it is a
-case-insensitive search for "ladder" in the kind, and a Hungarian (or German, or …) account
-will not match. It is a cheap hint, never a gate — see §5.
+  So the practical position is: `EV` reads as English on many accounts, including ones whose
+  UI is not, and reads as something else on any language whose translators have filled the
+  tournament group in. Neither can be assumed.
+
+That is why `TournamentRef.isLadder` is documented as best effort: it is a case-insensitive
+search for "ladder" in the kind, which works wherever the tournament group is untranslated and
+silently fails where it is not. It is a cheap hint, never a gate — see §5. Note the id and name
+are unaffected either way: the `EV` parser keys on `#<id>:`, never on the word "Tournament", so
+a translated heading still yields the right tournament.
 
 ## 2. What DGS does not expose
 
@@ -70,9 +84,21 @@ So the only source is the ladder page, fetched as a logged-in HTML request.
 GET tournaments/ladder/view.php?tid=<tid>
 ```
 
-Login required (an anonymous request 302s to `error.php?err=login_if_not_logged_in`). The
-session cookies `DgsClient` already holds from `login.php` are the same ones this page wants;
-no separate login is needed.
+Login required. The session cookies `DgsClient` already holds from `login.php` are the same
+ones this page wants; no separate login is needed.
+
+**Session expiry looks nothing like it does in the QuickSuite.** There is no error object to
+read — the page answers `302` with a `Location` of
+
+```
+error.php?err=login_if_not_logged_in&debugmsg=Tournament.ladder.view&page=tournaments%2Fladder%2Fview.php%3Ftid%3D3
+```
+
+so the signal is `err=login_if_not_logged_in` in that header, and it must be mapped to the same
+`SessionExpired` the QuickSuite path raises. `OkHttpTransport` is already built with
+`followRedirects(false)`, which is what makes this visible; turning redirects on would swallow
+the 302 and hand the parser a 4.9 KB HTML login page instead. Do not turn them on. (Verified
+anonymously, September 2026 — needs no account.)
 
 It renders the **entire ladder as one HTML table**. The table is built with
 `TABLE_NO_SORT|TABLE_NO_PAGE|TABLE_NO_SIZE` and `set_rows_per_page(null)`, and there is **no
@@ -174,8 +200,9 @@ answer every game on that ladder from it.
 it. Instead:
 
 - `isLadder == true` → fetch the ladder page.
-- `isLadder == false` **but the kind is not a recognised non-ladder wording** → the account may
-  be on a translated locale; try the ladder page once and cache the answer per tid.
+- `isLadder == false` **but the kind is not a recognised non-ladder wording** (neither "league"
+  nor "round robin" in a language we know) → the tournament group may be translated on this
+  account; try the ladder page once and cache the answer per tid.
 - A tid that is not a ladder does **not** error — `view.php` does not check the tournament type,
   it just finds no `TournamentLadder` rows and renders an empty table. So "no rows" is the
   negative answer, and it must be cached per tid so it is paid for at most once.
@@ -255,8 +282,11 @@ Still to record when the situation arises, or to hand-write from this document:
 
 - a page with `Col16` hidden (Challenges-In only),
 - an entry wrapped in `<span class="TGDetached">`,
-- a non-ladder tid, which renders an empty table rather than an error,
-- a session-expired response (an HTML redirect to `error.php`, not a QuickSuite error object).
+- a non-ladder tid, which is expected to render an empty table rather than an error — still
+  unverified, since `view.php` never checks the tournament type in the sources.
+
+The session-expired case is recorded above as a redirect, which needs no fixture file: the
+transport sees the `302` and its `Location`, and that is the whole signal.
 
 ## 10. Licensing
 

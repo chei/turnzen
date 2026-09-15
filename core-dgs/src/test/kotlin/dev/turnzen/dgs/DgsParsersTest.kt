@@ -253,7 +253,7 @@ class DgsParsersTest {
 
     @Test
     fun `an event line the client cannot read still keeps the id`() {
-        // DGS translates some of what it sends; a wording we cannot parse must not lose the
+        // The tournament kind is translatable, so a wording we cannot parse must not lose the
         // fact that the game belongs to a tournament at all.
         val merged = DgsTournament.merge(TournamentRef(id = "3"), mapOf("EV" to listOf("Ranglétra")))
         assertEquals("3", merged?.id)
