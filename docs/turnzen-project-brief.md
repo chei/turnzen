@@ -452,10 +452,11 @@ Recommended order, cheapest/lowest-risk first:
   every one of them is fixed when the game is created, so the sheet answered a question nobody
   asks twice. `GameInfo` still carries them — the scoring screen needs `komi`, and they cost
   nothing to parse — the sheet simply no longer spends a row on them.
-- The start date is shown as elapsed time ("13 days ago"), not as a date: what a player wants
-  from it is how long the game has been running. `Formatting.since` is deliberately separate
-  from `Formatting.relative`, which serves the last move and gives up for a calendar date
-  after a fortnight — correspondence games run for months and this must not.
+- The start date is shown as elapsed time ("13 days ago", "432 days ago"), not as a date: what
+  a player wants from it is how long the game has been running. It counts in days for ever and
+  never rolls over into months or years — the exact day count is the information; "1 year ago"
+  discards most of it. `Formatting.since` is deliberately separate from `Formatting.relative`,
+  which serves the last move and gives up for a calendar date after a fortnight.
 - **What the game is part of is one row**, and the label carries the category so the value
   stays short: `Ladder  #3 · DGS Ladder (19x19)`, `Tournament  #365 · <name>`, or, for a game
   belonging to no tournament, `Game  Waiting room or invitation`. The ladder's *number* is in

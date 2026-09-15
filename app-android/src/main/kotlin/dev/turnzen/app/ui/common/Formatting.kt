@@ -84,12 +84,12 @@ object Formatting {
     }
 
     /**
-     * How long ago something began, in full words: "13 days ago", "4 months ago".
+     * How long ago something began, in full words: "13 days ago", "432 days ago".
      *
-     * Separate from [relative], which serves the last move and falls back to a calendar date
-     * after a fortnight. A start date read on its own says nothing — what a player wants from
-     * it is how long the game has been running — and a correspondence game runs for months,
-     * so this never gives up and switches to a date.
+     * Days all the way up, never rolling over into months or years: "432 days ago" is an exact
+     * count of the days a game has been running, and "1 year ago" throws away most of it to
+     * say less. The same reason keeps this separate from [relative], which serves the last move
+     * and gives up for a calendar date after a fortnight.
      */
     fun since(
         instant: Instant?,
@@ -98,16 +98,10 @@ object Formatting {
         if (instant == null) return "–"
         val elapsed = Duration.between(instant, now)
         val hours = elapsed.toHours()
-        val days = elapsed.toDays()
-        val months = days / 30
-        // Months run to a year and a half rather than a year: "18 months ago" reads better
-        // than "1 year ago", which would round away half of what it is telling you.
         return when {
             hours < 1 -> "just now"
             hours < 24 -> ago(hours, "hour")
-            days < 60 -> ago(days, "day")
-            months < 18 -> ago(months, "month")
-            else -> ago(days / 365, "year")
+            else -> ago(elapsed.toDays(), "day")
         }
     }
 

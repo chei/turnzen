@@ -68,13 +68,9 @@ class FormattingTest {
         assertEquals("1 hour ago", since(Duration.ofHours(1)))
         assertEquals("1 day ago", since(Duration.ofHours(25)))
         assertEquals("13 days ago", since(Duration.ofDays(13)))
-        assertEquals("59 days ago", since(Duration.ofDays(59)))
-        // Two months in, days stop being informative.
-        assertEquals("2 months ago", since(Duration.ofDays(60)))
-        assertEquals("12 months ago", since(Duration.ofDays(365)))
-        // Only past a year and a half, where "1 year" would round away less than it tells.
-        assertEquals("1 year ago", since(Duration.ofDays(547)))
-        assertEquals("4 years ago", since(Duration.ofDays(1500)))
+        // Days never roll over into months or years: the exact count is the useful number.
+        assertEquals("432 days ago", since(Duration.ofDays(432)))
+        assertEquals("1500 days ago", since(Duration.ofDays(1500)))
         assertEquals("–", Formatting.since(null, now))
     }
 
