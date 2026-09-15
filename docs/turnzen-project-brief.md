@@ -498,8 +498,9 @@ Recommended order, cheapest/lowest-risk first:
     ladder challenge. Half done: the sheet already names the ladder, its format and its round,
     read out of the SGF's `EV`/`RO` header (September 2026). The standings half needs the HTML
     client and is specified in detail — the page, the markup anchors, the extraction, the
-    traps — in [`dgs-ladder-standings.md`](dgs-ladder-standings.md). No DGS client shows this
-    today, the web site included.
+    traps — in [`dgs-ladder-standings.md`](dgs-ladder-standings.md), with the ladder page
+    itself recorded as a scrubbed `:core-dgs` fixture and the extraction already validated
+    against it. No DGS client shows this today, the web site included.
 
 ### Explicitly out of scope for the MVP
 

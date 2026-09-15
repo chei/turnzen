@@ -8,8 +8,12 @@ stand — "You are #4, challenging #1" — instead of only naming the ladder. No
 does this, including the web site, which shows it only on the ladder page itself.
 
 Everything below was verified in September 2026 against `specs/quick_suite.txt`, against live
-`sgf.php` responses, and against the DGS server source (`git.code.sf.net/p/dragongoserver/dgs-main`,
-read for protocol understanding only — see "Licensing" at the end).
+`sgf.php` responses, against the DGS server source (`git.code.sf.net/p/dragongoserver/dgs-main`,
+read for protocol understanding only — see "Licensing" at the end), and finally against a real
+ladder page saved from a logged-in browser, which is in the repo as a scrubbed fixture. The
+extraction in §4 was run against that page and produces the right answer for all four of the
+account's running challenges; the page also disproved one conclusion drawn from the sources
+alone, which is called out in §4.
 
 ---
 
@@ -71,10 +75,15 @@ session cookies `DgsClient` already holds from `login.php` are the same ones thi
 no separate login is needed.
 
 It renders the **entire ladder as one HTML table**. The table is built with
-`TABLE_NO_SORT|TABLE_NO_PAGE|TABLE_NO_SIZE` and `set_rows_per_page(null)`, and the source
-carries the comment that the HTML "can be quite large" — the DGS Ladder had 327 participants in
-the sample game used for this research. There is **no paging, sorting or row-limit parameter**.
-You get all of it or none of it.
+`TABLE_NO_SORT|TABLE_NO_PAGE|TABLE_NO_SIZE` and `set_rows_per_page(null)`, and there is **no
+paging, sorting or row-limit parameter**: you get all of it or none of it.
+
+**Measured, September 2026:** the DGS Ladder (tid 3, 327 participants, 18 columns displayed)
+is **582 457 bytes**. That is the real cost of one fetch, so cache it per tid and never fetch
+it on the games list. A trimmed, scrubbed recording of that page is the fixture
+`core-dgs/src/test/resources/dgs/ladder_view_tid3.html`; the account it came from is
+Hungarian, which is deliberate — every header and every piece of cell text in it is localised,
+so a parser that passes against it cannot have keyed on an English word.
 
 ### Columns
 
@@ -92,10 +101,24 @@ true, so these are guaranteed present:
 
 Column 16 (Challenges-Out) is the mirror image but is hideable, so nothing may depend on it.
 
-### The two markers that make this parseable
+### The three markers that make this parseable
+
+0. **The header row carries the column numbers.** `<tr id="TableHead">` holds one
+   `<th id="Col<N>">` per *displayed* column, in the order the cells will appear:
+
+   ```html
+   <tr id="TableHead" class=Head>
+     <th id="Col2" …><th id="Col1" …><th id="Col19" …> … <th id="Col8" …><th id="Col16" …> …
+   ```
+
+   This is the calibration that makes the rest positional and safe. Read the header once to
+   learn the displayed column numbers in order, then the *i*-th `<td>` of every data row is
+   the *i*-th of those columns. `Col8` is Challenges-In, `Col16` is Challenges-Out. Nothing
+   here is a translated word.
 
 1. **The logged-in user's own row** gets `extra_class = 'TourneyUser'`, rendered as
-   `<tr class="Row0 TourneyUser">` (or `Row1`). Language-independent.
+   `<tr class="Row1 TourneyUser">`. Note the row classes cycle `Row1`…`Row4`, not `Row0`/
+   `Row1` — do not key on the number, only on the presence of `TourneyUser`.
 2. **Each running challenge appears as a link to its own game**, built by
    `TournamentLadder::build_linked_incoming_games()`:
 
@@ -103,31 +126,47 @@ Column 16 (Challenges-Out) is the mirror image but is hideable, so nothing may d
    [<a href="game.php?gid=1234567">#7</a>]
    ```
 
-   In a row belonging to player P, the Challenges-In cell holds one of these per challenge
-   *against* P; the link text is the **challenger's** rank and the row's own rank anchor is the
-   **defender's** rank. If the challenger is the logged-in user the whole thing is additionally
-   wrapped in `<span class="TourneyOpp">`; an annulled (detached) game is wrapped in
-   `<span class="TGDetached">`.
+   In a row belonging to player P, the **Challenges-In** cell (`Col8`) holds one of these per
+   challenge *against* P: the link text is the **challenger's** rank and the row's own rank
+   anchor is the **defender's** rank. The **Challenges-Out** cell (`Col16`) is the mirror: the
+   link text is the **defender's** rank and the row is the challenger. If the logged-in user is
+   the other party the entry is additionally wrapped in `<span class="TourneyOpp">`; an annulled
+   (detached) game is wrapped in `<span class="TGDetached">`.
 
-That is the whole extraction surface. It is numbers and CSS classes, never translated words.
+That is the whole extraction surface: header ids, a row class, an anchor name, and a link. It is
+numbers and CSS classes, never translated words.
+
+Two incidentals worth knowing. Tag case is inconsistent — user links come out as `<A href=…>`
+and game links as `<a href=…>` — so match case-insensitively. And all hrefs are relative to the
+page (`../../game.php?gid=…`), so match on the `game.php?gid=` substring, never on a full URL.
 
 ## 4. Extraction
 
 Given a game id `gid` and the ladder page for its `tid`:
 
-1. Find `<a href="…game.php?gid=<gid>">#<R></a>`. If it is absent, the game is not a running
-   challenge on this ladder (finished, annulled, or the wrong tid) — give up quietly.
-2. Walk out to the enclosing `<tr>`. Its `<a name="rank<M>">` gives that row's rank.
-3. The pair is then `{M, R}`. **Challenges on a DGS ladder only ever go upward** —
-   `TournamentLadderProps::fill_ladder_challenge_range()` only marks rows with
-   `Rank < user_rank` as challengeable — so the **larger number is the challenger and the
-   smaller is the defender**. No need to work out which occurrence was found.
-4. Which of the two is the user: the `TourneyUser` class on their row, or simply match against
-   the uid we already know from the game summary.
+1. **Calibrate.** From `<tr id="TableHead">`, read the ordered list of `<th id="Col<N>">`.
+   Record the position of `Col8` (Challenges-In) and, if present, `Col16` (Challenges-Out).
+2. For each data row: its `<a name="rank<M>">` is that player's rank, and `TourneyUser` in the
+   `<tr class>` marks the logged-in user's row.
+3. In the row's Challenges-In cell (the `<td>` at the `Col8` position), each
+   `<a href="…game.php?gid=<g>">#<C></a>` means **challenger `#C` is challenging defender `#M`
+   in game `g`**. In the Challenges-Out cell, each such link means **challenger `#M` is
+   challenging defender `#C`**.
+4. Look up our `gid`. Absent → the game is not a running challenge on this ladder (finished,
+   annulled, or the wrong tid); give up quietly.
 
-If Challenges-Out happens to be displayed the same gid appears twice, in the challenger's row
-too, with the roles swapped. Step 3 yields the same answer from either occurrence, so the
-parser can take the first match and stop.
+With Challenges-Out displayed each game appears twice, once from each side, and the two
+readings agree — so a parser may stop at the first, or build the whole index in one pass and
+answer every game on that ladder from it.
+
+> **Do not try to infer the direction from the two ranks.** The obvious rule — challenges only
+> go upward, so the larger number is the challenger — is true *at the moment a challenge is
+> made* (`TournamentLadderProps::fill_ladder_challenge_range()` only offers rows with
+> `Rank < user_rank`) and false by the time you read it. Ranks move whenever *other* games
+> finish, and a correspondence challenge runs for weeks. The recorded page shows exactly this:
+> in game 1501653 the challenger sits at rank 149 and the defender at 153, because the
+> challenger climbed past their opponent while the game was still running. Direction comes from
+> which cell the link is in, and from nothing else.
 
 ## 5. Deciding a game is on a ladder
 
@@ -143,11 +182,15 @@ it. Instead:
 
 ## 6. Traps
 
-- **Never send `tournament_ladderadd=` / `tournament_ladderdel=`.** These look like a tempting
-  way to ask for fewer columns, but `Table::add_or_del_column()` **writes the change to the
-  `ConfigPages` table** — it would permanently alter what the user sees on the web site from
-  their own browser. A client must not silently reconfigure the user's account. The page is
-  big; cache it instead.
+- **Never send `add=` / `del=`.** Every hideable column's header carries a link like
+  `view.php?tid=3&del=8`, which looks like a tempting way to ask for a smaller page. It is not
+  a view option: `Table::add_or_del_column()` **writes the change to the `ConfigPages` table**,
+  permanently altering what the user sees on the web site from their own browser. A client must
+  not silently reconfigure the user's account. The page is big; cache it instead.
+- **Do not assume a column is displayed.** Only `Col1` (Rank), `Col4` (Userid), `Col7`
+  (Actions) and `Col8` (Challenges-In) are non-hideable — in the recorded page they are exactly
+  the headers with no hide link. Everything else, `Col16` (Challenges-Out) included, may be
+  missing, which is why step 1 exists.
 - **Cache per tid, not per game.** Every running challenge on one ladder is answered by one
   fetch. A TTL of minutes is plenty; ranks only move when a game ends.
 - **Fetch lazily**, when the info sheet opens on a ladder game — never on the games list, and
@@ -199,16 +242,21 @@ anything already on screen — append, do not insert above existing rows.
 
 ## 9. Testing
 
-`CLAUDE.md`: no network in unit tests. Record the ladder page **once** from a real account into
-`:core-dgs` test fixtures, with handles, uids and session ids scrubbed, trimmed to a few dozen
-rows around the interesting ones, and keep at least:
+`CLAUDE.md`: no network in unit tests. The page has been recorded — **once**, in September
+2026 — as `core-dgs/src/test/resources/dgs/ladder_view_tid3.html`: the real DGS Ladder, trimmed
+from 327 rows to 20 around the interesting ranks, with every handle, display name and user id
+replaced by fakes. There are no session secrets in the markup; the session lives in the cookie.
 
-- a ladder page where the user is the challenger,
-- one where the user is the defender,
-- one with Challenges-Out displayed (the doubled-occurrence case),
-- one with a `TGDetached` entry,
-- a non-ladder tid (empty table),
-- a session-expired response.
+What that one fixture already covers: the user as challenger (game 1503981, #153 → #108), the
+user as defender (three games, including the inverted-rank case 1501653), Challenges-Out
+displayed so every game appears twice, and a fully localised page.
+
+Still to record when the situation arises, or to hand-write from this document:
+
+- a page with `Col16` hidden (Challenges-In only),
+- an entry wrapped in `<span class="TGDetached">`,
+- a non-ladder tid, which renders an empty table rather than an error,
+- a session-expired response (an HTML redirect to `error.php`, not a QuickSuite error object).
 
 ## 10. Licensing
 
@@ -220,11 +268,16 @@ for DragonGoApp and Sente: read to understand, never to transcribe.
 
 ## 11. Open questions
 
-- **Page size.** Never measured. Fetch the real DGS Ladder page once and record the byte count
-  before committing to fetching it on a phone connection; if it is genuinely large, consider
-  showing the standings only on explicit tap rather than on sheet open.
-- **Whether the ranks are worth showing for a defended challenge** or only for one the user
-  started. Probably both, but the user has only asked about challenging.
-- **Best rank and challenge budget.** The page also states "Your best rank is N" and "You have
-  started X of max. Y outgoing challenges", but only as translated prose with no machine-
-  readable anchor, so both are out of reach with the parsing approach above.
+- **Whether 582 KB on a phone connection is acceptable on sheet open**, or whether the
+  standings row should load only when tapped. One fetch serves every game on that ladder, and
+  in the recorded page that is four games, so the amortised cost is better than it looks.
+- **Whether to show the standings for a challenge the user is defending**, or only one they
+  started. Probably both — the recorded account is defending three and challenging one — but
+  only the challenging case was asked for.
+- **Best rank.** Reachable after all, and purely numeric: the Chg cell (`Col2`) carries
+  `onmouseover="showTLRankInfo(event,153,35,143,105)"`, whose arguments are, per
+  `TournamentLadder::get_rank_info_format()`, current rank, best rank, start-of-period rank and
+  previous-period rank. `Col2` is hideable, so treat it as a bonus. The challenge budget ("you
+  have started X of max. Y") remains out of reach — translated prose with no anchor.
+- **No `TGDetached` sample.** The recorded page has none, so the annulled-game path is
+  specified but untested. Record one if a ladder game is ever annulled.
