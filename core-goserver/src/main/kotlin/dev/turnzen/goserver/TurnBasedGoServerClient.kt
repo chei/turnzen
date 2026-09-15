@@ -89,6 +89,18 @@ interface TurnBasedGoServerClient {
     )
 
     /**
+     * Where the user stands in [tournament], keyed by game, for every running game of theirs
+     * in it — empty when the tournament is not a ladder, when the user does not take part, or
+     * when the server has no such notion at all, which is why the default is to answer nothing.
+     *
+     * Deliberately not part of [game]: it is decoration, it costs its own request, and a
+     * caller must be free to decide it is not worth paying for. Deliberately *all* of the
+     * user's games in one answer rather than one game at a time, because a server that has to
+     * read a standings table to answer at all should be asked once, not once per game.
+     */
+    suspend fun ladderStandings(tournament: TournamentRef): Map<GameId, LadderStanding> = emptyMap()
+
+    /**
      * The game's page on the server's website, for an "open on the web" link — the escape
      * hatch for everything this client cannot do yet. Null when the server has no such page.
      */

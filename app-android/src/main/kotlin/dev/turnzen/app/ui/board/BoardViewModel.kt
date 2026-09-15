@@ -3,6 +3,7 @@ package dev.turnzen.app.ui.board
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.LadderStandings
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
@@ -23,6 +24,7 @@ import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.ScoreState
 import kotlinx.coroutines.delay
@@ -128,6 +130,12 @@ data class BoardUiState(
     val preview: GameSummary? = null,
     /** Non-null once the game has reached its scoring phase. */
     val scoring: ScoringUiState? = null,
+    /**
+     * Where the two players stand on the ladder, once it has been fetched. Arrives after the
+     * info sheet is already on screen, and stays null for every game that is not a ladder
+     * challenge — or whose standing could not be read, which is not worth telling anyone.
+     */
+    val ladderStanding: LadderStanding? = null,
 ) {
     /** The game is being counted, so the board marks dead stones instead of trying moves. */
     val isScoring: Boolean
@@ -266,6 +274,8 @@ class BoardViewModel(
     private val gameId: GameId,
     private val session: SessionManager,
     private val games: GamesStore,
+    /** Ladder standings for the info sheet; absent in tests that do not care about them. */
+    private val ladders: LadderStandings? = null,
     /** The game the queue moves to after this one; its record is warmed in the background. */
     private val nextGame: () -> GameId? = { null },
     /** The game is over (resigned): close the board rather than step to the next game. */
@@ -632,6 +642,30 @@ class BoardViewModel(
     }
 
     /**
+     * The info sheet has been opened. Everything else in it is already known, so the sheet is
+     * on screen before this runs and the standing appends underneath when it arrives — the
+     * one row in there that costs a request.
+     *
+     * Fetched here rather than in [load] because most games are not ladder challenges and
+     * most openings never reach the sheet: paying for a standings page on the way to playing
+     * a move would be exactly the wrong trade.
+     */
+    fun onInfoOpened() {
+        if (ladders == null || _state.value.ladderStanding != null) return
+        val tournament =
+            _state.value.detail
+                ?.info
+                ?.tournament ?: return
+        if (!tournament.isLadder) return
+        viewModelScope.launch {
+            // Never throws, and a null simply leaves the row off: this is decoration, and the
+            // sheet's own content is what reports a session or network problem.
+            val standing = ladders.standing(tournament, gameId)
+            if (standing != null) _state.update { it.copy(ladderStanding = standing) }
+        }
+    }
+
+    /**
      * Gives the game up. Unlike a move, this does not step the queue on: resigning is a
      * deliberate exit, so the board closes and the user lands back on their games.
      */
@@ -642,6 +676,8 @@ class BoardViewModel(
             try {
                 session.call { it.resign(gameId, detail.summary.moveToken) }
                 _state.update { it.copy(sending = false) }
+                // Ranks move exactly when a ladder game ends, ours among them.
+                ladders?.invalidate(detail.info?.tournament)
                 games.onGameEnded(gameId)
                 onGameEnded()
             } catch (e: GoServerException.StaleGame) {

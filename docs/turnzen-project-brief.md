@@ -494,13 +494,14 @@ Recommended order, cheapest/lowest-risk first:
 10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays
     "open in browser".
 11. **Finished games** — archive, view-only, with SGF export.
-12. **Ladder standings in the game info sheet** — "You are #4, challenging #1" for a running
-    ladder challenge. Half done: the sheet already names the ladder, its format and its round,
-    read out of the SGF's `EV`/`RO` header (September 2026). The standings half needs the HTML
-    client and is specified in detail — the page, the markup anchors, the extraction, the
-    traps — in [`dgs-ladder-standings.md`](dgs-ladder-standings.md), with the ladder page
-    itself recorded as a scrubbed `:core-dgs` fixture and the extraction already validated
-    against it. No DGS client shows this today, the web site included.
+12. **Ladder standings in the game info sheet** — *done (September 2026)*: a running ladder
+    challenge shows "You #153 → #108" under the ladder's name and format. The first thing in
+    the project to need the HTML client, because the ranks exist in no API: they are read from
+    the ladder page, cached per ladder on disk for a day, and fetched only when the sheet is
+    opened on a ladder game, so the sheet is never held up by them. All of the research — the
+    page, the markup anchors, the extraction, the traps — is in
+    [`dgs-ladder-standings.md`](dgs-ladder-standings.md). No other DGS client shows this, the
+    web site included.
 
 ### Explicitly out of scope for the MVP
 
@@ -508,7 +509,7 @@ Defer to "open in browser" links, following the DragonGoApp precedent:
 
 - Creating new games
 - Any operation that would require the HTML-form client (post-MVP item 12, ladder standings,
-  is the first thing that will cross this line)
+  was the first thing to cross this line, after the MVP)
 - Any live/real-time server support (architecture should allow it later; no implementation
   work now)
 

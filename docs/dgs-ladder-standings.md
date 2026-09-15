@@ -1,7 +1,8 @@
 # Ladder standings in the game info sheet (DGS)
 
-Status: **researched and specified, not implemented.** The tournament *identity* half shipped
-in September 2026; the *standings* half described here has not been built.
+Status: **implemented, September 2026.** This document is the research behind it and the
+reference for anyone changing it; the code is `DgsLadderPage` and `DgsClient.ladderStandings`
+in `:core-dgs`, `LadderStore` in `:app-android`, and the Standing row in `GameInfoSheet`.
 
 Goal: when a game is a ladder challenge, the game info sheet should say where the two players
 stand — "You are #4, challenging #1" — instead of only naming the ladder. No other DGS client
@@ -360,9 +361,9 @@ Invalidate on two signals besides the TTL, both free:
 - **One of our games on that ladder finished** — that is precisely the event that moves ranks,
   and ours among them. Drop the tid.
 
-## 7. Where the code goes
+## 7. Where the code went
 
-The module rules in `CLAUDE.md` decide most of this:
+The module rules in `CLAUDE.md` decided most of this:
 
 - `:core-goserver` — extend the value type, e.g.
   `TournamentRef.standing: LadderStanding?` with `yourRank`, `opponentRank` and

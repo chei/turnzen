@@ -3,6 +3,7 @@ package dev.turnzen.app
 import android.content.Context
 import dev.turnzen.app.data.EncryptedCredentialStore
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.LadderStore
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
@@ -36,4 +37,5 @@ class AppContainer(
 
     val session = SessionManager(credentials, settings, ::createClient)
     val games = GamesStore(session)
+    val ladders = LadderStore(appContext, session)
 }

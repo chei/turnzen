@@ -137,6 +137,7 @@ private fun SignedInShell(container: AppContainer) {
                                 gameId = game,
                                 session = container.session,
                                 games = container.games,
+                                ladders = container.ladders,
                                 // The queue's next game, warmed while this one is on screen.
                                 nextGame = { container.games.nextAfter(game, all = gamesTab == GamesTab.ALL) },
                                 onMoveSent = { sent -> advanceFrom(sent) },

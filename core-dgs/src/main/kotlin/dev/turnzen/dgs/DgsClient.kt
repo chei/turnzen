@@ -15,9 +15,11 @@ import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import java.net.URLEncoder
 
@@ -236,6 +238,30 @@ class DgsClient(
             "fmt" to ",",
             "move" to ScoreStateParser.encode(toggle),
         )
+
+    /**
+     * Reads the ladder's standings page. Only for ladders: asking for a tournament that is not
+     * one answers `err=bad_tournament`, and DGS *writes that to its error log*, so a client
+     * must not go fishing. [TournamentRef.isLadder] is the gate, and it is a reliable one —
+     * no DGS language translates the word, see `docs/dgs-ladder-standings.md`.
+     */
+    override suspend fun ladderStandings(tournament: TournamentRef): Map<GameId, LadderStanding> {
+        if (!tournament.isLadder) return emptyMap()
+        val response =
+            send(HttpRequest(HttpMethod.GET, url("tournaments/ladder/view.php", "tid" to tournament.id)))
+        // The page answers in three ways and the redirect tells them apart before any body is
+        // read. Redirects are visible because the transport does not follow them.
+        if (response.status in 300..399) {
+            val location = response.header("Location").firstOrNull().orEmpty()
+            if (location.contains("err=login_if_not_logged_in")) {
+                throw GoServerException.SessionExpired("$serverName signed the session out")
+            }
+            // err=bad_tournament (not a ladder after all), or anything else we did not expect:
+            // this is decoration, so say nothing rather than fail the sheet.
+            return emptyMap()
+        }
+        return DgsLadderPage.standings(response.body)
+    }
 
     override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)
 

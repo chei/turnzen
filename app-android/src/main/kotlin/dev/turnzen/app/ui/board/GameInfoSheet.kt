@@ -152,6 +152,22 @@ fun GameInfoSheet(
                             stringResource(R.string.info_round_of, round, rounds),
                         )
                     }
+                    // Appears a moment after the rest: it is the one row that costs a request.
+                    // Appended rather than inserted, so nothing above it moves when it lands.
+                    state.ladderStanding?.let { standing ->
+                        InfoRow(
+                            stringResource(R.string.info_standing),
+                            stringResource(
+                                if (standing.youAreChallenger) {
+                                    R.string.info_standing_challenging
+                                } else {
+                                    R.string.info_standing_defending
+                                },
+                                standing.yourRank,
+                                standing.opponentRank,
+                            ),
+                        )
+                    }
                 }
 
                 Spacer(Modifier.height(20.dp))

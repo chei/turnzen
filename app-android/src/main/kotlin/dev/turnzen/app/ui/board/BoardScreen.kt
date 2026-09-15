@@ -115,7 +115,17 @@ fun BoardScreen(
                 remaining = summary.remainingTime,
                 // The header names the game, so it is also the way into everything else about
                 // it. Only once the record is here: the sheet's actions need its move token.
-                onOpenInfo = if (state.detail != null) ({ showingInfo = true }) else null,
+                onOpenInfo =
+                    if (state.detail != null) {
+                        {
+                            showingInfo = true
+                            // Starts the one thing in the sheet that needs downloading; the
+                            // sheet itself opens now, from what is already known.
+                            viewModel.onInfoOpened()
+                        }
+                    } else {
+                        null
+                    },
             )
         } else {
             Spacer(Modifier.height(60.dp))

@@ -12,6 +12,7 @@ import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -177,6 +178,69 @@ class DgsClientTest {
             assertEquals("DGS Ladder (19x19)", tournament?.name)
             assertEquals(true, tournament?.isLadder)
             assertEquals(1, tournament?.roundCount)
+        }
+
+    @Test
+    fun `ladder standings are read from the ladder page`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.routes.add(
+                0,
+                { it: HttpRequest -> it.url.contains("tournaments/ladder/view.php") }
+                    to { _: HttpRequest -> ok(Fixtures.text("ladder_view_tid3.html")) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            val standings = client.ladderStandings(TournamentRef(id = "3", isLadder = true))
+
+            assertEquals(4, standings.size)
+            assertEquals(108, standings.getValue(GameId("1503981")).opponentRank)
+            assertTrue(standings.getValue(GameId("1503981")).youAreChallenger)
+            assertTrue(
+                transport.requests
+                    .last()
+                    .url
+                    .contains("tid=3"),
+            )
+        }
+
+    @Test
+    fun `a tournament that is not a ladder is never asked about`() =
+        runTest {
+            // Asking answers err=bad_tournament, and DGS writes that to its error log. The
+            // flag is the gate precisely so the client does not go fishing.
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val before = transport.requests.size
+
+            assertEquals(emptyMap(), client.ladderStandings(TournamentRef(id = "365", isLadder = false)))
+            assertEquals(before, transport.requests.size)
+        }
+
+    @Test
+    fun `a redirect off the ladder page is read, not followed`() =
+        runTest {
+            // The page answers in three ways and only the redirect tells them apart.
+            suspend fun standingsGiven(location: String): Map<GameId, dev.turnzen.goserver.LadderStanding> {
+                val transport = transportWithHappyPath()
+                transport.routes.add(
+                    0,
+                    { it: HttpRequest -> it.url.contains("tournaments/ladder/view.php") }
+                        to { _: HttpRequest -> HttpResponse(302, mapOf("Location" to listOf(location)), "") },
+                )
+                val client = DgsClient(transport, "https://dgs.example.test")
+                client.signIn(Credentials("fakeuser", "secret"))
+                return client.ladderStandings(TournamentRef(id = "3", isLadder = true))
+            }
+
+            // Not a ladder after all: quietly nothing, because this is decoration.
+            assertEquals(emptyMap(), standingsGiven("error.php?err=bad_tournament&eid=1"))
+            // Signed out: that is worth telling the app about.
+            assertFailsWith<GoServerException.SessionExpired> {
+                standingsGiven("error.php?err=login_if_not_logged_in&page=x")
+            }
         }
 
     @Test

@@ -16,6 +16,7 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
@@ -202,6 +203,14 @@ class FakeTurnBasedGoServerClient(
             dame = count.dame,
         )
     }
+
+    /** The demo ladder: one challenge the user started, so the sheet has a standing to show. */
+    override suspend fun ladderStandings(tournament: TournamentRef): Map<GameId, LadderStanding> =
+        if (tournament.isLadder) {
+            mapOf(GameId("demo-13") to LadderStanding(yourRank = 12, opponentRank = 7, youAreChallenger = true))
+        } else {
+            emptyMap()
+        }
 
     override fun gameUrl(id: GameId): String = "https://www.dragongoserver.net/game.php?gid=${id.value}"
 

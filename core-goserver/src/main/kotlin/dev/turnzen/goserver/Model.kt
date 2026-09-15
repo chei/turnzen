@@ -155,6 +155,24 @@ data class TournamentRef(
 )
 
 /**
+ * Where the two players of one running game stand on a ladder, from the user's own seat.
+ *
+ * A ladder is climbed by challenging someone above you, so the interesting fact is not two
+ * numbers but a direction: who called whom out. [youAreChallenger] carries it, because the
+ * ranks cannot — a challenge runs for weeks and either player may pass the other in the
+ * meantime, so the challenger is not reliably the lower-placed of the two by the time anyone
+ * reads this.
+ *
+ * Decoration, never required: a game is played the same whether or not this is known.
+ */
+data class LadderStanding(
+    val yourRank: Int,
+    val opponentRank: Int,
+    /** True when the user issued the challenge, false when they are defending one. */
+    val youAreChallenger: Boolean,
+)
+
+/**
  * The scoring phase as the server sees it: which stones are being treated as dead, the
  * territory that leaves, and the result it comes to. The server counts; this is its answer,
  * not ours, and it is what an agreement agrees to.
