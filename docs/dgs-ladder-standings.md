@@ -309,8 +309,8 @@ Rejected alternatives, so nobody re-derives them:
   (Actions) and `Col8` (Challenges-In) are non-hideable — in the recorded page they are exactly
   the headers with no hide link. Everything else, `Col16` (Challenges-Out) included, may be
   missing, which is why step 1 exists.
-- **Cache per tid, not per game.** Every running challenge on one ladder is answered by one
-  fetch. A TTL of minutes is plenty; ranks only move when a game ends.
+- **Cache per tid, not per game, and make it outlive the process.** See §6a — the naive
+  reading of "cache it" costs 1.5 MB a week where the right one costs 371 KB.
 - **Fetch lazily**, when the info sheet opens on a ladder game — never on the games list, and
   never as part of `game()`. `game()` is on the path to playing a move and must not grow a
   second-and-a-half round trip for decoration.
@@ -322,6 +322,43 @@ Rejected alternatives, so nobody re-derives them:
 - **The page is HTML meant for humans and may change.** It has been stable for many years
   (`view.php` predates 2014), but the parser must fail soft, and its fixtures must be refreshed
   when it does change.
+
+## 6a. The cache
+
+The thing on screen — "you #153, challenging #108" — changes only when one of those two players
+finishes a ladder game. On a correspondence ladder that is days or weeks apart, and being a day
+out of date is a cosmetic error in decorative information. So the cache should be biased hard
+towards fewer requests, and two decisions do all the work:
+
+**Cache the parsed result, not the page.** What a tid needs to remember is the user's own rank
+plus, for each of their running games on that ladder, the defender/challenger pair — four
+entries and a timestamp, on the order of a hundred bytes. Never keep the 582 KB of HTML.
+
+**Persist it.** An in-memory cache is emptied every time Android reclaims the process, which on
+a phone is constantly, so a process-lifetime cache quietly degrades towards no cache at all.
+This belongs in the same on-device store as the game-record cache.
+
+Worked example — four running games on ladder 3, the info sheet opened on all four every day
+for a week, at 54 KB a fetch:
+
+| Cache | Fetches / week | Wire / week |
+|---|---:|---:|
+| None (fetch per sheet open) | 28 | 1.45 MB |
+| In memory, short TTL, all four opened in one sitting | 7 | 371 KB |
+| In memory, short TTL, a few app sessions a day | 14–28 | 0.74–1.45 MB |
+| **Persisted, 24 h TTL** | **7** | **371 KB** |
+| Persisted, 72 h TTL | 3 | 163 KB |
+
+The middle row is the trap: with an in-memory cache the cost depends on how the user happens to
+use the phone, not on anything we chose. Persisting makes it a flat one fetch per ladder per
+day however often the sheet is opened.
+
+Invalidate on two signals besides the TTL, both free:
+
+- **A gid we are asked about is not in the cached index** — a new challenge has appeared since
+  the fetch, so the index is genuinely incomplete. Refetch.
+- **One of our games on that ladder finished** — that is precisely the event that moves ranks,
+  and ours among them. Drop the tid.
 
 ## 7. Where the code goes
 
