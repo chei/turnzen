@@ -446,10 +446,22 @@ Recommended order, cheapest/lowest-risk first:
 - Read-only context the board has no room for, all of it already present in the game payload
   the summary is parsed from: both players (rank, rank at the start, captures, and each
   side's own clock), board size, handicap, komi, ruleset, rated, time system, weekend clock,
-  start date, and the tournament id when the game belongs to one.
-- The tournament's *name and standings are not in that payload*; only `tournament_id` is. A
-  ladder is not there at all. Both would need either another QuickSuite object (unverified)
-  or the HTML client, so the sheet links out to the game's page on the server instead.
+  start date, and the tournament when the game belongs to one.
+- The tournament's *name is not in that payload*; only `tournament_id` is. It is in the SGF,
+  which the client downloads for the moves anyway: DGS writes the standard SGF header
+  properties `EV[(Dragon Ladder) Tournament #3: DGS Ladder (19x19)]` and `RO[Round 1 of 1]`
+  for a tournament game and omits both for a casual one. The bracketed prefix is the kind —
+  scope plus format, e.g. "Dragon Ladder", "Private Round Robin" — which is also how a ladder
+  game is told apart from a bracket or league one. Ladders on DGS *are* tournaments: they
+  share the id space and the `tournament_id` field.
+- The *standings reach no API at all*: there is no tournament object in the QuickSuite
+  (section 1 of `quick_suite.txt` lists `tourney` as a server section, but section 3
+  specifies commands for game, user, message, folder, contact, wroom, bulletin and tag only,
+  and nothing for tournaments is implemented). A ladder position — "you are #4, challenging
+  #1" — exists only on the login-gated ladder page, `tournaments/ladder/view.php?tid=N`, and
+  so needs the HTML client. **Researched in full and specified in
+  [`dgs-ladder-standings.md`](dgs-ladder-standings.md); not implemented.** Until it is, the
+  sheet links out to the game's page on the server.
 - Also the home of the rare actions: Pass (when it is the user's turn), "Open on <server>",
   and Resign.
 
@@ -482,13 +494,20 @@ Recommended order, cheapest/lowest-risk first:
 10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays
     "open in browser".
 11. **Finished games** — archive, view-only, with SGF export.
+12. **Ladder standings in the game info sheet** — "You are #4, challenging #1" for a running
+    ladder challenge. Half done: the sheet already names the ladder, its format and its round,
+    read out of the SGF's `EV`/`RO` header (September 2026). The standings half needs the HTML
+    client and is specified in detail — the page, the markup anchors, the extraction, the
+    traps — in [`dgs-ladder-standings.md`](dgs-ladder-standings.md). No DGS client shows this
+    today, the web site included.
 
 ### Explicitly out of scope for the MVP
 
 Defer to "open in browser" links, following the DragonGoApp precedent:
 
 - Creating new games
-- Any operation that would require the HTML-form client
+- Any operation that would require the HTML-form client (post-MVP item 12, ladder standings,
+  is the first thing that will cross this line)
 - Any live/real-time server support (architecture should allow it later; no implementation
   work now)
 
@@ -568,10 +587,16 @@ Decisions taken while building the MVP that refine or amend the sections above.
   everything a server can do that Turnzen cannot yet, and keeps the UI from knowing which
   server it talks to: the URL comes from the client, not from a constant in a screen.
 - **`GameDetail` carries a `GameInfo`** parsed from the *same* `cmd=info` payload as the
-  summary — ruleset, komi, rated, time system, weekend clock, start date, tournament id, and
-  a `PlayerDetail` per side with rank, rank at the start, captures and that side's clock.
-  None of it costs a request; the fields were simply being discarded. It is deliberately not
-  on `GameSummary`: the list rows never need it.
+  summary — ruleset, komi, rated, time system, weekend clock, start date, and a
+  `PlayerDetail` per side with rank, rank at the start, captures and that side's clock —
+  plus a `TournamentRef` merged in from the SGF's `EV`/`RO` header (id, name, kind, whether
+  it is a ladder, round of how many). None of it costs a request; the fields were simply
+  being discarded. It is deliberately not on `GameSummary`: the list rows never need it.
+  `isLadder` is read out of the kind wording and is deliberately best effort: the scope and
+  type words in `EV` *are* run through DGS's translation (the literal "Tournament" and
+  "Round x of y" are not), so a non-English account will not match "ladder". An unreadable
+  event line keeps the id and drops the rest. Never gate anything on `isLadder` alone — see
+  [`dgs-ladder-standings.md`](dgs-ladder-standings.md) §5.
 - **Counting is done twice, on purpose.** The server counts — its number is what an
   agreement agrees to, and it is what the app shows while the marks are untouched. But
   marking has to be instant and offline-tolerant, and the non-negotiable says a board tap

@@ -10,6 +10,8 @@ rather than assuming familiarity with the platform.
   Treat it as the source of truth; if you make a decision that contradicts it, update it.
 - `docs/mockups/DESIGN.md` + the SVGs next to it — visual reference and design tokens.
   `generate_mockups.py` regenerates the SVGs; update it if the design changes.
+- `docs/dgs-ladder-standings.md` — only when working on tournaments or ladders: the full
+  protocol research for showing a ladder position, and the traps in it.
 
 ## Architecture
 
