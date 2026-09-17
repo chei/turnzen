@@ -38,6 +38,15 @@
     <string name="board_to_move">to move</string>
     <string name="board_played_black">You played black, move %1$d</string>
     <string name="board_played_white">You played white, move %1$d</string>
+    <!-- Under the board: what happened at this point in the game that leaves no stone. -->
+    <string name="board_you_passed">You passed</string>
+    <string name="board_they_passed">%1$s passed</string>
+    <string name="board_you_resigned">You resigned</string>
+    <string name="board_they_resigned">%1$s resigned</string>
+    <string name="board_you_timed_out">You ran out of time</string>
+    <string name="board_they_timed_out">%1$s ran out of time</string>
+    <string name="board_you_forfeited">You forfeited</string>
+    <string name="board_they_forfeited">%1$s forfeited</string>
     <string name="board_skip">Skip</string>
     <string name="board_send">Send</string>
     <string name="board_first_move">First move</string>

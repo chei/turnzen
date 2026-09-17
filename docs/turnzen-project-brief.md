@@ -481,6 +481,16 @@ Recommended order, cheapest/lowest-risk first:
 - Move history navigation (step backward/forward through played moves with a move
   counter) is likely needed already in the MVP: in a weeks-long correspondence game the
   user has to be able to recover the context of the position.
+- **The event line** (September 2026): one reserved line under the board naming what happened
+  at the cursor when it leaves no stone — "You passed", "kaya_r resigned", "nori_88 ran out of
+  time". Without it the board goes silent exactly where it most needs explaining: a game that
+  was counted ends in two passes, so stepping back through it moves the counter and changes
+  nothing three times over, and in a running game the opponent's pass is the whole reason a
+  Pass button has appeared. The slot keeps its height when empty, so scrubbing never shifts
+  the navigation row.
+- **A finished game opens on its last stone, not its last move**: the trailing passes that
+  took it into counting are stepped over on the way in, so the first Back rewinds something
+  visible. Forward still walks into them, now with the event line to say what they are.
 
 **3b. Game info sheet** (opened from the board's header)
 - Read-only context the board has no room for, all of it already present in the game payload

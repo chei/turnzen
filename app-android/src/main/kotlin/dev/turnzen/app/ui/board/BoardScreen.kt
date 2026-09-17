@@ -183,7 +183,24 @@ fun BoardScreen(
             }
         }
 
-        Spacer(Modifier.height(20.dp))
+        // A fixed slot under the board for the move that leaves no stone — a pass, or the
+        // act that ended the game. Its height is reserved whether or not there is anything to
+        // say, so that scrubbing through a game never shifts the navigation row under the
+        // reader's thumb.
+        Box(
+            Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            val event = state.eventAtCursor
+            val who = state.headerSummary
+            if (event != null && who != null) {
+                Text(
+                    boardEventLabel(event, isYou = event.by == who.myColor, opponent = who.opponent.handle),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                )
+            }
+        }
 
         val scoring = state.scoring
         val summary = state.headerSummary
@@ -389,6 +406,47 @@ fun BoardScreen(
         }
     }
 }
+
+/** "You passed", "kaya_r resigned" — the line under the board, in the fewest words. */
+@Composable
+private fun boardEventLabel(
+    event: BoardEvent,
+    isYou: Boolean,
+    opponent: String,
+): String =
+    when (event.kind) {
+        BoardEventKind.PASS -> {
+            if (isYou) {
+                stringResource(R.string.board_you_passed)
+            } else {
+                stringResource(R.string.board_they_passed, opponent)
+            }
+        }
+
+        BoardEventKind.RESIGNATION -> {
+            if (isYou) {
+                stringResource(R.string.board_you_resigned)
+            } else {
+                stringResource(R.string.board_they_resigned, opponent)
+            }
+        }
+
+        BoardEventKind.TIMEOUT -> {
+            if (isYou) {
+                stringResource(R.string.board_you_timed_out)
+            } else {
+                stringResource(R.string.board_they_timed_out, opponent)
+            }
+        }
+
+        BoardEventKind.FORFEIT -> {
+            if (isYou) {
+                stringResource(R.string.board_you_forfeited)
+            } else {
+                stringResource(R.string.board_they_forfeited, opponent)
+            }
+        }
+    }
 
 /**
  * Move navigation: start, back, the cursor's move number, forward, end of trial. Five
@@ -846,8 +904,8 @@ private fun RowScope.CurrentMoveButton(
 // crossing one a chore. The repeat instead accelerates: it opens slow enough to stop on a
 // chosen move, then winds up to a rate that crosses a long game in a few seconds.
 
-/** Vertical space the board leaves for the header and move navigation around it. */
-private const val BOARD_HEIGHT_ALLOWANCE = 96
+/** Vertical space the board leaves for the header, the event line and the navigation row. */
+private const val BOARD_HEIGHT_ALLOWANCE = 104
 
 /** Below this the board would be unreadable; better to overflow than to shrink past it. */
 private const val MIN_BOARD_EDGE = 240

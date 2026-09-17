@@ -2,6 +2,7 @@ package dev.turnzen.app
 
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.app.ui.board.BoardEventKind
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
 import dev.turnzen.game.ColoredMove
@@ -35,6 +36,10 @@ class BoardViewModelTest : MainDispatcherTest() {
     private val game = GameId("demo-9")
     private val scoringGame = GameId("demo-scoring")
 
+    /** The demo archive: a counted game ending in two passes, and one that was resigned. */
+    private val countedGame = GameId("demo-done-win")
+    private val resignedGame = GameId("demo-done-loss")
+
     /** The white stone stranded in black's area in the demo server's scoring game (D8). */
     private val strandedStone = checkNotNull(Coordinates.parse("D8", 9))
 
@@ -48,9 +53,13 @@ class BoardViewModelTest : MainDispatcherTest() {
         var ended = 0
         lateinit var vm: BoardViewModel
 
-        suspend fun start(id: GameId) {
+        suspend fun start(
+            id: GameId,
+            finished: Boolean = false,
+        ) {
             session.signIn(Credentials("demo", "pw"))
             games.refresh()
+            if (finished) games.refreshFinished()
             vm = BoardViewModel(id, session, games, onGameEnded = { ended++ }) { sent += it }
             vm.load()
         }
@@ -489,6 +498,73 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertTrue(resigned.isFinished)
             assertEquals(ResultReason.RESIGNATION, resigned.result?.by)
             assertEquals(StoneColor.WHITE, resigned.result?.winner)
+        }
+
+    @Test
+    fun `a game counted into two passes opens on the last stone, and names the passes`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(countedGame, finished = true)
+            advanceUntilIdle()
+
+            val opened = h.vm.state.value
+            // Twelve stones, then the two passes that took the game to counting.
+            assertEquals(14, opened.moveCount)
+            assertEquals(12, opened.cursor)
+            // Nothing to explain where the board stands: a stone was played there.
+            assertNull(opened.eventAtCursor)
+
+            // Forward walks into the passes, and now the board says what they are.
+            h.vm.stepForward()
+            val passed = assertNotNull(h.vm.state.value.eventAtCursor)
+            assertEquals(BoardEventKind.PASS, passed.kind)
+            assertEquals(StoneColor.BLACK, passed.by)
+
+            h.vm.stepForward()
+            assertEquals(StoneColor.WHITE, assertNotNull(h.vm.state.value.eventAtCursor).by)
+
+            // And back out of them again.
+            h.vm.stepBack()
+            h.vm.stepBack()
+            h.vm.stepBack()
+            assertNull(h.vm.state.value.eventAtCursor)
+        }
+
+    @Test
+    fun `the end of a resigned game says who resigned`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(resignedGame, finished = true)
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            // Nothing to step over: a resignation is not a move, so the last stone is the end.
+            assertEquals(s.moveCount, s.cursor)
+            val ended = assertNotNull(s.eventAtCursor)
+            assertEquals(BoardEventKind.RESIGNATION, ended.kind)
+            // The demo user played white and lost, so they are the one who resigned.
+            assertEquals(StoneColor.WHITE, ended.by)
+
+            // A step back is an ordinary position again.
+            h.vm.stepBack()
+            assertNull(h.vm.state.value.eventAtCursor)
+        }
+
+    @Test
+    fun `a pass in a running game is reported too, which is why the Pass button appeared`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.askPass()
+            h.vm.confirm()
+            advanceUntilIdle()
+            h.vm.load(force = true)
+            advanceUntilIdle()
+
+            // The demo opponent answers a pass with a pass, so the board's last move is one.
+            val event = assertNotNull(h.vm.state.value.eventAtCursor)
+            assertEquals(BoardEventKind.PASS, event.kind)
         }
 
     @Test

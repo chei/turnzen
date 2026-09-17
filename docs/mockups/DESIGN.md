@@ -127,7 +127,14 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
   black, move N" — which states the colour, so no stone icon repeats it; right: remaining
   time over "to move", or, for a finished game, the outcome over the rating change) → board →
-  info row → action row → flexible space → bottom nav.
+  event line → move-navigation row → action row → flexible space → bottom nav.
+- **Event line**: one 24dp slot under the board for what happened at the cursor that leaves
+  no stone — "You passed", "kaya_r resigned", "nori_88 ran out of time". The height is
+  reserved whether or not there is anything to say, so scrubbing never shifts the navigation
+  row under the reader's thumb. Without it the board simply goes quiet at the moments that
+  most need explaining: the two passes at the end of a counted game, and the opponent's pass
+  that is the reason a Pass button has appeared. The space below the action row
+  absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
   move number, step forward, end; back and forward repeat while held. There is no separate
   info row, trial counter or hint line: the numbered stones and this counter already say

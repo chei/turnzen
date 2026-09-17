@@ -14,6 +14,7 @@ import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.Position
 import dev.turnzen.game.Replay
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoreCount
 import dev.turnzen.game.Scoring
 import dev.turnzen.game.ScoringRules
@@ -36,6 +37,24 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 enum class PendingConfirmation { SEND, PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
+
+/** Something that happened in the game and left no stone on the board to show for it. */
+enum class BoardEventKind { PASS, RESIGNATION, TIMEOUT, FORFEIT }
+
+/**
+ * What happened at the position the board is showing, when it is something the board cannot
+ * draw: a pass, or the act that ended the game. [by] is the player it was done by — the one
+ * who passed, or the one who lost the game that way.
+ *
+ * Without this the board goes quiet at exactly the moments that need explaining. Stepping
+ * back through a game that ended in two passes moves the counter and changes nothing on the
+ * board, three times over; and in a running game, "your opponent passed" is the whole reason
+ * the Pass button has appeared.
+ */
+data class BoardEvent(
+    val kind: BoardEventKind,
+    val by: StoneColor,
+)
 
 /**
  * The scoring phase: both players mark the stones they consider dead, and agree on what that
@@ -262,6 +281,31 @@ data class BoardUiState(
     val canPass: Boolean
         get() = isMyTurn && detail != null && !sending && !loading
 
+    /**
+     * The pass or the ending act at the cursor, if the position on show came about by one.
+     *
+     * Only ever about the game's own moves: inside a trial line there is nothing of the
+     * game's to report, and the scoring phase has its own panel saying where things stand.
+     */
+    val eventAtCursor: BoardEvent?
+        get() {
+            if (isScoring || cursor > trialStart) return null
+            val played = replay?.record?.moves?.getOrNull(cursor - 1)
+            if (played != null && played.move == Move.Pass) {
+                return BoardEvent(BoardEventKind.PASS, played.color)
+            }
+            // The end of a finished game is worth a line of its own when no move ended it.
+            if (!isFinished || cursor != moveCount) return null
+            val result = headerSummary?.result ?: return null
+            val loser = result.winner?.opposite ?: return null
+            return when (result.by) {
+                ResultReason.RESIGNATION -> BoardEvent(BoardEventKind.RESIGNATION, loser)
+                ResultReason.TIMEOUT -> BoardEvent(BoardEventKind.TIMEOUT, loser)
+                ResultReason.FORFEIT -> BoardEvent(BoardEventKind.FORFEIT, loser)
+                else -> null
+            }
+        }
+
     /** The opponent's last move was a pass, so they have offered to end the game. */
     val opponentPassed: Boolean
         get() =
@@ -340,7 +384,7 @@ class BoardViewModel(
                     replay = replay,
                     trial = TrialVariation.start(replay.finalPosition),
                     trialStart = replay.moveCount,
-                    cursor = replay.moveCount,
+                    cursor = openingCursor(replay, known.summary),
                     scoring = null,
                 )
             }
@@ -373,7 +417,7 @@ class BoardViewModel(
                         // A fresh trial on the current position, coloured for the side to move.
                         trial = TrialVariation.start(replay.finalPosition),
                         trialStart = replay.moveCount,
-                        cursor = replay.moveCount,
+                        cursor = openingCursor(replay, detail.summary),
                         scoring = null,
                     )
                 }
@@ -383,6 +427,27 @@ class BoardViewModel(
                 _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
             }
         }
+    }
+
+    /**
+     * Where the board lands when a game is opened: the last position anyone played a stone
+     * into.
+     *
+     * For a running game that is simply the current position. A game that was counted ends
+     * with the two passes that took it into scoring, and landing on those wastes the first
+     * two taps of Back on moves that change nothing visible — the board goes quiet and the
+     * player is left wondering whether the button works. So the passes are stepped over on
+     * the way in; Forward still walks into them, now with a line under the board saying what
+     * they are.
+     */
+    private fun openingCursor(
+        replay: Replay,
+        summary: GameSummary,
+    ): Int {
+        if (!summary.isFinished) return replay.moveCount
+        var at = replay.moveCount
+        while (at > 0 && replay.record.moves[at - 1].move == Move.Pass) at--
+        return at
     }
 
     /**
