@@ -100,4 +100,87 @@ class GamesStoreTest {
             assertNotNull(stillRunning)
             assertFalse(stillRunning.isMyTurn)
         }
+
+    @Test
+    fun `the first load is not an arrival, and an unchanged refresh brings none`() =
+        runTest {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(session)
+
+            // Every row is new on the first load; lighting them all up would say nothing.
+            store.refresh()
+            assertTrue(
+                store.arrivals.value.yourTurn
+                    .isEmpty(),
+            )
+            assertTrue(
+                store.arrivals.value.allRunning
+                    .isEmpty(),
+            )
+
+            store.refresh()
+            assertTrue(
+                store.arrivals.value.yourTurn
+                    .isEmpty(),
+            )
+            assertTrue(
+                store.arrivals.value.allRunning
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `a game that rejoins the your-turn queue arrives, and is shown only once`() =
+        runTest {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(session)
+            store.refresh()
+
+            // Stand in for the opponent moving: the game leaves the queue, then the next
+            // refresh finds it waiting on the user again.
+            store.onMovePlayed(GameId("demo-19"))
+            store.refresh()
+            assertEquals(setOf(GameId("demo-19")), store.arrivals.value.yourTurn)
+
+            // The highlight plays once: having been shown, it is not pending any more.
+            store.onArrivalShown(GameId("demo-19"))
+            assertTrue(
+                store.arrivals.value.yourTurn
+                    .isEmpty(),
+            )
+        }
+
+    @Test
+    fun `a move only counts as news when it leaves the game waiting on the user`() =
+        runTest {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            var refreshes = 0
+            // After the first load both games have moved on: "demo-9" is the user's turn
+            // again (the opponent played), "demo-waiting" is still the opponent's (the user
+            // played). Only the first is news.
+            val client =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun myRunningGames(): List<GameSummary> {
+                        refreshes++
+                        val games = fake.myRunningGames()
+                        if (refreshes == 1) return games
+                        return games.map {
+                            when (it.id.value) {
+                                "demo-9", "demo-waiting" -> it.copy(moveNumber = it.moveNumber + 1)
+                                else -> it
+                            }
+                        }
+                    }
+                }
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(session)
+
+            store.refresh()
+            store.refresh()
+
+            assertEquals(setOf(GameId("demo-9")), store.arrivals.value.allRunning)
+        }
 }

@@ -1,5 +1,9 @@
 package dev.turnzen.app.ui.games
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +33,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -60,6 +65,7 @@ fun GamesScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val games = state.listFor(tab)
+    val arrivals = state.arrivalsFor(tab)
 
     // Refresh every time the list is shown: on app start, on returning from a game, and on
     // resume after the app was in the background. Tied to the resumed state rather than to
@@ -153,7 +159,27 @@ fun GamesScreen(
 
                                 else -> {
                                     items(games, key = { it.id.value }) { game ->
-                                        GameRow(game) { onOpenGame(game.id) }
+                                        GameRow(
+                                            game = game,
+                                            arrived = game.id in arrivals,
+                                            onArrivalShown = { viewModel.onArrivalShown(game.id) },
+                                            onClick = { onOpenGame(game.id) },
+                                            // Placement only. A row that appears or leaves
+                                            // does so at once: with a fade here, every row
+                                            // would also fade in on arriving at the screen
+                                            // and on every tab switch, on top of the
+                                            // navigation transition already playing.
+                                            modifier =
+                                                Modifier.animateItem(
+                                                    fadeInSpec = null,
+                                                    fadeOutSpec = null,
+                                                    placementSpec =
+                                                        tween(
+                                                            SLIDE_MILLIS,
+                                                            easing = FastOutSlowInEasing,
+                                                        ),
+                                                ),
+                                        )
                                     }
                                 }
                             }
@@ -231,14 +257,66 @@ private fun EmptyState(tab: GamesTab) {
     }
 }
 
+/**
+ * How long the wash over a new row takes to arrive, and how long it takes to leave. It is
+ * deliberately lopsided: the colour appears faster than the eye can follow, then drains
+ * slowly enough to be watched on the way out, which is what points at the row. A flash of
+ * equal halves reads as a rendering glitch instead — and one too short to catch is over
+ * before a gaze that started elsewhere can reach it.
+ *
+ * Both are scaled by the system animation setting, so turning animations off skips this.
+ */
+private const val FLASH_IN_MILLIS = 120
+private const val FLASH_OUT_MILLIS = 700
+
+/**
+ * How long the rows under a new one take to move out of its way. Long enough to be read as
+ * the list making room — a row arriving with no warning at the top, shoving everything down
+ * between two frames, is the thing that makes a refreshed list hard to follow — and short
+ * enough to be over while the new row is still lit: the movement hands the eye to the
+ * colour rather than competing with it.
+ */
+private const val SLIDE_MILLIS = 300
+
 @Composable
 private fun GameRow(
     game: GameSummary,
+    arrived: Boolean,
+    onArrivalShown: () -> Unit,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
+    // A row a background refresh brought in lights up once, then fades back into the page.
+    // It plays on arrival and is reported back as played, so it never repeats on the next
+    // look at the list.
+    val flash = remember { Animatable(0f) }
+    LaunchedEffect(arrived) {
+        if (!arrived) return@LaunchedEffect
+        flash.animateTo(1f, tween(FLASH_IN_MILLIS, easing = LinearEasing))
+        flash.animateTo(0f, tween(FLASH_OUT_MILLIS, easing = LinearEasing))
+        onArrivalShown()
+    }
+    val flashColor = colors.accentSoft
+
+    // Opaque, not transparent over the window: rows are drawn in list order, so a row
+    // sliding down is drawn over the row arriving above it and uncovers it on the way, and
+    // the list reads as making room. Left see-through, the two would ghost through each
+    // other for the length of the slide.
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(colors.surface)
+            .clickable(onClick = onClick),
+    ) {
         Row(
-            Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 20.dp),
+            Modifier
+                .fillMaxWidth()
+                .height(72.dp)
+                // Read in the draw phase rather than as composable state: the fade then
+                // repaints the row without recomposing or re-laying-out anything. Placed
+                // before the padding, so the wash runs the full width of the screen.
+                .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) }
+                .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {

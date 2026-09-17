@@ -49,7 +49,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `ink2` | `#6B7470` | Secondary text |
 | `line` | `#D6DAD5` | Hairlines, disabled fills, outlined buttons |
 | `accent` | `#2E54C0` | Send button, active nav item, text actions (Sign out, links). A saturated indigo so text actions stay clearly distinct from `ink` labels while white text on the Send fill stays legible. |
-| `accentSoft` | `#E4E9F2` | Accent backgrounds: the live move-counter pill |
+| `accentSoft` | `#E4E9F2` | Accent backgrounds: the live move-counter pill, and the wash over a row a refresh has just brought into the games list |
 | `urgent` | `#B8483E` | Low remaining time |
 | `board` | `#D9B778` | Board surface (muted kaya) |
 | `boardLine` | `#5A4A2E` | Grid lines, hoshi, coordinates |
@@ -113,6 +113,24 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
+- **New rows flash once.** A refresh that happens while the games list is on screen — the
+  one after returning from a game, or on resume — lights the rows it brought in with an
+  `accentSoft` wash that arrives in 120ms and drains over 700ms, then plays no more. The
+  timing is lopsided on purpose: an equal-length flash reads as a rendering glitch, and one
+  short enough to be "quick" (about 300ms end to end) is gone before a gaze that started
+  elsewhere on the screen can arrive. The rise being near-instant is what makes it feel
+  brief anyway. A row qualifies when the list did not have that game before, or when it has
+  advanced a move and is now waiting on the user — so the opponent's move flashes and the
+  user's own move never flashes back at them. The first load of a list flashes nothing:
+  every row would light up and the highlight would mean nothing.
+- **The rows under it move out of the way**, over 300ms, rather than the list changing
+  between two frames. Rows are opaque for this: they are drawn in list order, so the row
+  sliding down covers the arriving row and uncovers it on the way, and the list reads as
+  making room. Placement only — rows that appear or leave do so at once. A fade would also
+  play every time the list is arrived at and on every tab switch, on top of the navigation
+  transition already running, which is why each tab has its own list rather than one list
+  re-filled: a game on both "Your turn" and "All games" shares a key, and rows would
+  otherwise animate from their place in one list to their place in the other.
 - **Games screen**: header is the wordmark "Turnzen". Below it, three tabs above the list
   (a content filter, distinct from the bottom destination bar): "Your turn" and "All games",
   each with a count, and "Finished" without one — it holds the last fifteen games, so the

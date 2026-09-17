@@ -2,10 +2,12 @@ package dev.turnzen.app.ui.games
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.turnzen.app.data.Arrivals
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
+import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,8 @@ data class GamesUiState(
     val allRunning: List<GameSummary>? = null,
     /** The last finished games, newest first. null until the Finished tab has been opened. */
     val finished: List<GameSummary>? = null,
+    /** The rows the last refresh brought in, for the screen to highlight once. */
+    val arrivals: Arrivals = Arrivals(),
     val refreshing: Boolean = false,
     /** The last refresh's failure, if it failed. Null while the list is trusted. */
     val problem: ServerProblem? = null,
@@ -39,6 +43,17 @@ data class GamesUiState(
             GamesTab.YOUR_TURN -> yourTurn
             GamesTab.ALL -> allRunning
             GamesTab.FINISHED -> finished
+        }
+
+    /**
+     * The games to highlight on [tab]. Never the archive: it is fetched from scratch the
+     * first time it is opened, so every row in it would count as new.
+     */
+    fun arrivalsFor(tab: GamesTab): Set<GameId> =
+        when (tab) {
+            GamesTab.YOUR_TURN -> arrivals.yourTurn
+            GamesTab.ALL -> arrivals.allRunning
+            GamesTab.FINISHED -> emptySet()
         }
 }
 
@@ -53,9 +68,15 @@ class GamesViewModel(
             store.yourTurn,
             store.allRunning,
             store.finished,
+            store.arrivals,
             transient,
-        ) { yourTurn, allRunning, finished, t ->
-            t.copy(yourTurn = yourTurn, allRunning = allRunning, finished = finished)
+        ) { yourTurn, allRunning, finished, arrivals, t ->
+            t.copy(
+                yourTurn = yourTurn,
+                allRunning = allRunning,
+                finished = finished,
+                arrivals = arrivals,
+            )
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
@@ -63,6 +84,7 @@ class GamesViewModel(
                 yourTurn = store.yourTurn.value,
                 allRunning = store.allRunning.value,
                 finished = store.finished.value,
+                arrivals = store.arrivals.value,
             ),
         )
 
@@ -78,6 +100,9 @@ class GamesViewModel(
     fun refresh(tab: GamesTab = GamesTab.YOUR_TURN) {
         if (tab == GamesTab.FINISHED) loadFinished(silent = false) else start(silent = false)
     }
+
+    /** A row has finished its highlight, so it is no longer new. */
+    fun onArrivalShown(id: GameId) = store.onArrivalShown(id)
 
     /**
      * The user switched to a tab. Only the archive has anything to do here: it is fetched

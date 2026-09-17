@@ -12,6 +12,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
 /**
+ * What the last refresh brought into each running list: the rows the Games screen has not
+ * yet drawn attention to. Consumed one row at a time, as each highlight plays out.
+ */
+data class Arrivals(
+    val yourTurn: Set<GameId> = emptySet(),
+    val allRunning: Set<GameId> = emptySet(),
+)
+
+/**
  * The game lists shown on the Games screen and used by the board screen's auto-advance.
  *
  * Three lists, all sorted with the most recent move first:
@@ -28,6 +37,7 @@ class GamesStore(
     private val _yourTurn = MutableStateFlow<List<GameSummary>?>(null)
     private val _allRunning = MutableStateFlow<List<GameSummary>?>(null)
     private val _finished = MutableStateFlow<List<GameSummary>?>(null)
+    private val _arrivals = MutableStateFlow(Arrivals())
 
     /**
      * Full records fetched ahead of time, so opening those games needs no download. Kept
@@ -43,14 +53,55 @@ class GamesStore(
     /** The most recently finished games, newest first. null until the tab asks for them. */
     val finished: StateFlow<List<GameSummary>?> = _finished.asStateFlow()
 
+    /** What the last [refresh] changed, for the screen to highlight. See [Arrivals]. */
+    val arrivals: StateFlow<Arrivals> = _arrivals.asStateFlow()
+
     /** Fetches both lists. The two server calls run concurrently. */
     suspend fun refresh() {
         coroutineScope {
             val turn = async { session.call { it.gamesAwaitingMe() } }
             val running = async { session.call { it.myRunningGames() } }
-            _yourTurn.value = turn.await().sortedByDescending { it.lastMoveAt }
-            _allRunning.value = running.await().sortedByDescending { it.lastMoveAt }
+            val turnList = turn.await().sortedByDescending { it.lastMoveAt }
+            val runningList = running.await().sortedByDescending { it.lastMoveAt }
+            // Worked out before the lists are replaced: what is new is only knowable
+            // against what was there. Replaces the previous arrivals rather than adding to
+            // them, so an old highlight never plays several refreshes late.
+            _arrivals.value =
+                Arrivals(
+                    yourTurn = arrivalsIn(_yourTurn.value, turnList),
+                    allRunning = arrivalsIn(_allRunning.value, runningList),
+                )
+            _yourTurn.value = turnList
+            _allRunning.value = runningList
         }
+    }
+
+    /**
+     * Which of [now] are news since [before]: a game the list did not have, or one that has
+     * advanced a move and is waiting on the user — the opponent having moved is the case
+     * the highlight exists for. A game the user has just played in has advanced a move too,
+     * but it is the opponent's turn afterwards, so it does not flash their own move back.
+     *
+     * Empty when [before] is null: nothing has been on screen yet, and a first load that
+     * lit up every row at once would say nothing about any of them.
+     */
+    private fun arrivalsIn(
+        before: List<GameSummary>?,
+        now: List<GameSummary>,
+    ): Set<GameId> {
+        if (before == null) return emptySet()
+        val known = before.associate { it.id to it.moveNumber }
+        return now
+            .filter { game ->
+                val was = known[game.id]
+                was == null || (game.moveNumber > was && game.isMyTurn)
+            }.map { it.id }
+            .toSet()
+    }
+
+    /** The highlight for [id] has played out; it must not play again on the next look. */
+    fun onArrivalShown(id: GameId) {
+        _arrivals.update { Arrivals(it.yourTurn - id, it.allRunning - id) }
     }
 
     /**
@@ -106,6 +157,7 @@ class GamesStore(
     fun onMovePlayed(id: GameId) {
         // The cached record predates the move that was just sent, so it is no longer usable.
         details.remove(id)
+        onArrivalShown(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list ->
             list?.map { if (it.id == id) it.copy(isMyTurn = false) else it }
@@ -118,6 +170,7 @@ class GamesStore(
      */
     fun onGameEnded(id: GameId) {
         details.remove(id)
+        onArrivalShown(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
         // The game has just joined the archive, which this copy predates: drop it so the
@@ -153,6 +206,7 @@ class GamesStore(
         _yourTurn.value = null
         _allRunning.value = null
         _finished.value = null
+        _arrivals.value = Arrivals()
         details.clear()
     }
 
