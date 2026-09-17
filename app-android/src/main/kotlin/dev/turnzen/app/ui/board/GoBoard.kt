@@ -31,9 +31,10 @@ import dev.turnzen.game.Coordinates
 import dev.turnzen.game.Point
 import dev.turnzen.game.Position
 import dev.turnzen.game.StoneColor
+import kotlin.math.abs
 
 /**
- * How far the finger travels for one move of the timeline.
+ * How far the finger travels for one move of the timeline, at [SCRUB_NEUTRAL_SPEED].
  *
  * A fixed rate rather than a mapping from the board's width, so the gesture feels the same in
  * a 40-move 9x9 and a 250-move 19x19; the ends of the timeline are the skip buttons' job.
@@ -41,6 +42,39 @@ import dev.turnzen.game.StoneColor
  * placed with a slightly unsteady finger is still a stone.
  */
 private val SCRUB_PER_MOVE = 12.dp
+
+/**
+ * The finger speed at which one move costs exactly [SCRUB_PER_MOVE]. Slower than this the
+ * timeline walks more deliberately, faster it runs — see [scrubGain].
+ */
+private val SCRUB_NEUTRAL_SPEED = 900.dp // per second
+
+/**
+ * What speed is allowed to do to the rate: a careful finger spends [SCRUB_PER_MOVE] / 0.7 on a
+ * move, a flick spends [SCRUB_PER_MOVE] / 2.5. The floor keeps single-move accuracy within
+ * reach of the rate the gesture was tuned at, and the ceiling stops a flick from throwing the
+ * board to the opening by accident.
+ */
+private const val SCRUB_MIN_GAIN = 0.7f
+private const val SCRUB_MAX_GAIN = 2.5f
+
+/**
+ * How much of each speed sample is believed. Pointer events arrive a few milliseconds apart and
+ * a finger's speed between two of them is noisy, so the rate follows a smoothed speed; low
+ * enough to ignore the jitter, high enough that speeding up mid-drag is felt within ~50ms.
+ */
+private const val SCRUB_SPEED_SMOOTHING = 0.3f
+
+/**
+ * The rate multiplier for a finger moving at [speed], where [neutral] is the speed the rate was
+ * tuned at. Proportional between the two clamps: twice the neutral speed crosses twice as many
+ * moves for the same distance, which is what makes a faster swipe rewind more of the game
+ * rather than merely reaching the same place sooner.
+ */
+private fun scrubGain(
+    speed: Float,
+    neutral: Float,
+): Float = (speed / neutral).coerceIn(SCRUB_MIN_GAIN, SCRUB_MAX_GAIN)
 
 /**
  * What a board being counted shows on top of the stones: the ones both players are treating
@@ -62,6 +96,8 @@ data class ScoringOverlay(
  *
  * A horizontal drag walks the game's timeline through [onScrub] — right towards the live
  * position, left towards the opening, matching the way the navigation buttons are laid out.
+ * How fast the finger moves sets the rate as well as the distance it covers ([scrubGain]), so
+ * one swipe can rewind a long game without giving up single-move accuracy when it is slow.
  * It is safe to have both gestures on one surface because they are told apart by *distance*:
  * a touch that never travels [SCRUB_PER_MOVE]'s worth of slop stays a tap and places its stone
  * with no delay. (A double tap could not be added on the same terms — it is told apart by
@@ -112,17 +148,34 @@ fun GoBoard(
             .pointerInput(enabled, onScrub != null) {
                 if (!enabled || scrub == null) return@pointerInput
                 val perMove = SCRUB_PER_MOVE.toPx()
+                val neutralSpeed = SCRUB_NEUTRAL_SPEED.toPx() / 1000f // per millisecond
                 // Distance the finger has travelled but not yet spent on a move, so a slow
                 // drag crosses moves at the same rate as a fast one instead of rounding each
-                // event's few pixels away to nothing.
+                // event's few pixels away to nothing. It is the *weighted* distance: each
+                // event's movement is worth what it was worth at the speed it was made, which
+                // is what lets the rate change in the middle of a swipe without the distance
+                // already banked being re-valued behind the finger.
                 var carried = 0f
+                var speed = neutralSpeed
+                var lastTime = 0L
+                val start = {
+                    carried = 0f
+                    speed = neutralSpeed
+                    lastTime = 0L
+                }
                 detectHorizontalDragGestures(
-                    onDragStart = { carried = 0f },
-                    onDragEnd = { carried = 0f },
-                    onDragCancel = { carried = 0f },
+                    onDragStart = { start() },
+                    onDragEnd = { start() },
+                    onDragCancel = { start() },
                 ) { change, dragAmount ->
                     change.consume()
-                    carried += dragAmount
+                    val now = change.uptimeMillis
+                    if (lastTime != 0L) {
+                        val sample = abs(dragAmount) / (now - lastTime).coerceAtLeast(1L)
+                        speed += SCRUB_SPEED_SMOOTHING * (sample - speed)
+                    }
+                    lastTime = now
+                    carried += dragAmount * scrubGain(speed, neutralSpeed)
                     val steps = (carried / perMove).toInt()
                     if (steps != 0) {
                         carried -= steps * perMove
@@ -214,8 +267,11 @@ fun GoBoard(
     }
 }
 
-/** How much of a stone is left showing once it has been marked dead. */
-private const val DEAD_STONE_ALPHA = 0.32f
+/**
+ * How much of a stone is left showing once it has been marked dead. Enough that a white ghost
+ * still reads as a stone against the board, since the marks are what the player is checking.
+ */
+private const val DEAD_STONE_ALPHA = 0.45f
 
 private fun DrawScope.drawStone(
     center: Offset,
