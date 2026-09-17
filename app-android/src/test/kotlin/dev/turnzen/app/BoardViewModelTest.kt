@@ -9,6 +9,7 @@ import dev.turnzen.game.Coordinates
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameDetail
@@ -459,7 +460,10 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.confirm()
             advanceUntilIdle()
 
-            assertFailsWith<GoServerException.ServerError> { client.game(scoringGame) }
+            // The game is over: it has left the running lists for the archive, where it is
+            // still readable — that is what the Finished tab shows.
+            assertTrue(client.myRunningGames().none { it.id == scoringGame })
+            assertTrue(client.game(scoringGame).summary.isFinished)
         }
 
     @Test
@@ -479,7 +483,12 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertEquals(1, h.ended)
             assertTrue(h.sent.isEmpty())
             assertNull(h.games.summary(game))
-            assertFailsWith<GoServerException.ServerError> { client.game(game) }
+            assertTrue(client.myRunningGames().none { it.id == game })
+            // Resigned, not gone: the archive keeps it, and says who won and how.
+            val resigned = client.game(game).summary
+            assertTrue(resigned.isFinished)
+            assertEquals(ResultReason.RESIGNATION, resigned.result?.by)
+            assertEquals(StoneColor.WHITE, resigned.result?.winner)
         }
 
     @Test

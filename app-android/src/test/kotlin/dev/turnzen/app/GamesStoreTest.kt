@@ -4,6 +4,8 @@ import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -46,6 +48,39 @@ class GamesStoreTest {
             assertEquals(GameId("demo-9"), store.nextAfter(GameId("demo-13")))
             // The last game does not wrap around to the first: null means "back to the list".
             assertNull(store.nextAfter(GameId("demo-9")))
+        }
+
+    @Test
+    fun `the archive is fetched on its own and only when asked for`() =
+        runTest {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(session)
+            store.refresh()
+
+            // Refreshing the running lists costs nothing in the archive: it stays unfetched.
+            assertNull(store.finished.value)
+
+            store.refreshFinished()
+            val finished = assertNotNull(store.finished.value)
+            assertEquals(listOf("demo-done-win", "demo-done-loss"), finished.map { it.id.value })
+            assertTrue(finished.all { it.isFinished })
+            assertTrue(finished.none { it.isMyTurn })
+            // The board opens a finished game from the list like any other.
+            assertNotNull(store.summary(GameId("demo-done-win")))
+        }
+
+    @Test
+    fun `a game that ends drops the archive, so the next look at it includes the game`() =
+        runTest {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(session)
+            store.refresh()
+            store.refreshFinished()
+
+            store.onGameEnded(GameId("demo-19"))
+            assertNull(store.finished.value)
         }
 
     @Test

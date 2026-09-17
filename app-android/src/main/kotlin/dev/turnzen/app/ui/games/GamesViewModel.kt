@@ -17,8 +17,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
-/** The two content filters on the Games screen. */
-enum class GamesTab { YOUR_TURN, ALL }
+/** The three content filters on the Games screen. */
+enum class GamesTab { YOUR_TURN, ALL, FINISHED }
 
 /** How recent a refresh has to be for [GamesViewModel.refreshOnShow] to skip a new one. */
 private val MIN_AUTO_REFRESH_NANOS = 15.seconds.inWholeNanoseconds
@@ -28,11 +28,18 @@ data class GamesUiState(
     val yourTurn: List<GameSummary>? = null,
     /** Every running game. null while the first load is in flight. */
     val allRunning: List<GameSummary>? = null,
+    /** The last finished games, newest first. null until the Finished tab has been opened. */
+    val finished: List<GameSummary>? = null,
     val refreshing: Boolean = false,
     /** The last refresh's failure, if it failed. Null while the list is trusted. */
     val problem: ServerProblem? = null,
 ) {
-    fun listFor(tab: GamesTab): List<GameSummary>? = if (tab == GamesTab.YOUR_TURN) yourTurn else allRunning
+    fun listFor(tab: GamesTab): List<GameSummary>? =
+        when (tab) {
+            GamesTab.YOUR_TURN -> yourTurn
+            GamesTab.ALL -> allRunning
+            GamesTab.FINISHED -> finished
+        }
 }
 
 class GamesViewModel(
@@ -42,19 +49,61 @@ class GamesViewModel(
     private val transient = MutableStateFlow(GamesUiState())
 
     val state: StateFlow<GamesUiState> =
-        combine(store.yourTurn, store.allRunning, transient) { yourTurn, allRunning, t ->
-            t.copy(yourTurn = yourTurn, allRunning = allRunning)
+        combine(
+            store.yourTurn,
+            store.allRunning,
+            store.finished,
+            transient,
+        ) { yourTurn, allRunning, finished, t ->
+            t.copy(yourTurn = yourTurn, allRunning = allRunning, finished = finished)
         }.stateIn(
             viewModelScope,
             SharingStarted.WhileSubscribed(5_000),
-            GamesUiState(yourTurn = store.yourTurn.value, allRunning = store.allRunning.value),
+            GamesUiState(
+                yourTurn = store.yourTurn.value,
+                allRunning = store.allRunning.value,
+                finished = store.finished.value,
+            ),
         )
 
     private var inFlight = false
     private var lastRefreshAt = 0L
+    private var finishedInFlight = false
 
-    /** Pull to refresh: the user asked, so the spinner shows. */
-    fun refresh() = start(silent = false)
+    /**
+     * Pull to refresh: the user asked, so the spinner shows. On the archive that means the
+     * archive only — the running lists are refreshed whenever the screen is shown, and the
+     * two answers cost two requests.
+     */
+    fun refresh(tab: GamesTab = GamesTab.YOUR_TURN) {
+        if (tab == GamesTab.FINISHED) loadFinished(silent = false) else start(silent = false)
+    }
+
+    /**
+     * The user switched to a tab. Only the archive has anything to do here: it is fetched
+     * the first time it is looked at, and then left alone, because a finished game does not
+     * change. [GamesStore.onGameEnded] drops the list when a game joins the archive, which
+     * is what makes the next visit fetch it again.
+     */
+    fun onTabShown(tab: GamesTab) {
+        if (tab == GamesTab.FINISHED && store.finished.value == null) loadFinished(silent = true)
+    }
+
+    private fun loadFinished(silent: Boolean) {
+        if (finishedInFlight) return
+        finishedInFlight = true
+        if (!silent) transient.update { it.copy(refreshing = true, problem = null) }
+        viewModelScope.launch {
+            try {
+                store.refreshFinished()
+                transient.update { it.copy(refreshing = false, problem = null) }
+            } catch (e: GoServerException) {
+                transient.update { it.copy(refreshing = false, problem = problemFor(e, session.serverName)) }
+            } finally {
+                finishedInFlight = false
+            }
+        }
+    }
 
     /**
      * Called whenever the list comes back into view — app start, returning from a game, or

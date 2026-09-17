@@ -3,10 +3,12 @@ package dev.turnzen.app.fake
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
 import dev.turnzen.game.GameRecord
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.PlayerInfo
 import dev.turnzen.game.Point
 import dev.turnzen.game.Replay
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.Scoring
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
@@ -56,10 +58,16 @@ class FakeTurnBasedGoServerClient(
         val scoring: Boolean = false,
         /** The dead stones both players are working from, as the server holds them. */
         val dead: MutableSet<Point> = LinkedHashSet(),
+        /** Set when the game is over, which takes it out of [games] and into [archive]. */
+        var result: GameResult? = null,
+        var finished: Boolean = false,
     )
 
     private val games: MutableList<FakeGame> =
         mutableListOf(demo19(), demo13(), demo9(), demoWaiting(), demoScoring())
+
+    /** Finished games, newest first — including the ones ended during this demo session. */
+    private val archive: MutableList<FakeGame> = mutableListOf(demoFinishedWin(), demoFinishedLoss())
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
         delay(latencyMillis)
@@ -87,6 +95,12 @@ class FakeTurnBasedGoServerClient(
         delay(latencyMillis)
         requireSession()
         return games.map { it.summary() }
+    }
+
+    override suspend fun myFinishedGames(limit: Int): List<GameSummary> {
+        delay(latencyMillis)
+        requireSession()
+        return archive.take(limit).map { it.summary() }
     }
 
     override suspend fun game(id: GameId): GameDetail {
@@ -122,8 +136,9 @@ class FakeTurnBasedGoServerClient(
         requireSession()
         val g = find(id)
         if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
-        // A resigned game is over, so it leaves both lists exactly as it would on a real server.
-        games.remove(g)
+        // A resigned game is over, so it leaves both lists exactly as it would on a real
+        // server — and turns up in the archive, which is also what a real server does.
+        g.finish(GameResult(g.myColor.opposite, null, ResultReason.RESIGNATION))
     }
 
     /**
@@ -170,7 +185,17 @@ class FakeTurnBasedGoServerClient(
         val g = requireScoring(id)
         if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
         // The demo opponent always agrees, so accepting finishes the game.
-        games.remove(g)
+        g.finish(g.stateFor(g.dead).result)
+    }
+
+    /** Ends a game: out of the running list, in at the top of the archive. */
+    private fun FakeGame.finish(outcome: GameResult?) {
+        games.remove(this)
+        result = outcome
+        finished = true
+        awaitingMe = false
+        lastMoveAt = Instant.now()
+        archive.add(0, this)
     }
 
     private fun requireScoring(id: GameId): FakeGame {
@@ -225,7 +250,9 @@ class FakeTurnBasedGoServerClient(
     }
 
     private fun find(id: GameId) =
-        games.firstOrNull { it.id == id } ?: throw GoServerException.ServerError("unknown_game", "Unknown game")
+        games.firstOrNull { it.id == id }
+            ?: archive.firstOrNull { it.id == id }
+            ?: throw GoServerException.ServerError("unknown_game", "Unknown game")
 
     private fun FakeGame.summary() =
         GameSummary(
@@ -236,10 +263,18 @@ class FakeTurnBasedGoServerClient(
             handicap = record.handicap,
             moveNumber = record.moves.size,
             lastMoveAt = lastMoveAt,
-            remainingTime = remaining,
-            pendingAction = if (scoring) PendingAction.SCORE else PendingAction.PLAY_MOVE,
-            isMyTurn = awaitingMe,
+            // A finished game has no clock left to report, exactly as DGS reports none.
+            remainingTime = if (finished) null else remaining,
+            pendingAction =
+                when {
+                    finished -> PendingAction.OTHER
+                    scoring -> PendingAction.SCORE
+                    else -> PendingAction.PLAY_MOVE
+                },
+            isMyTurn = awaitingMe && !finished,
             moveToken = MoveToken(moveId.toString()),
+            isFinished = finished,
+            result = result,
         )
 
     /** The demo server's stand-in for what DGS reports about a game beyond the summary. */
@@ -425,6 +460,61 @@ class FakeTurnBasedGoServerClient(
                 lastMoveAt = Instant.now().minus(Duration.ofHours(5)),
                 remaining = RemainingTime("9d", Duration.ofDays(9), "+ 1d"),
                 awaitingMe = false,
+            )
+        }
+
+        /**
+         * An archived win on points, so the Finished tab has something in it from the start.
+         * It ends the way every counted game ends — two passes — which is also what the
+         * board's opening cursor has to step over.
+         */
+        fun demoFinishedWin(): FakeGame {
+            val record =
+                GameRecord(
+                    boardSize = 9,
+                    komi = 6.5,
+                    moves =
+                        moves(9, "E5 G7 C3 G3 E7 E3 D4 F4 F5 G5 G4 H4") +
+                            ColoredMove(StoneColor.BLACK, Move.Pass) +
+                            ColoredMove(StoneColor.WHITE, Move.Pass),
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("nori_88", "8k"),
+                )
+            return FakeGame(
+                id = GameId("demo-done-win"),
+                opponent = Opponent("nori_88", null, "8k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Instant.now().minus(Duration.ofDays(3)),
+                remaining = RemainingTime("–"),
+                awaitingMe = false,
+                result = GameResult(StoneColor.BLACK, 12.5, ResultReason.POINTS),
+                finished = true,
+            )
+        }
+
+        /** And an archived loss, because a list of only wins would flatter the demo. */
+        fun demoFinishedLoss(): FakeGame {
+            val record =
+                GameRecord(
+                    boardSize = 19,
+                    komi = 6.5,
+                    moves = moves(19, "Q16 D4 Q4 D16 R14 C14 F17 F3 D3 E3 C3 C4"),
+                    black = PlayerInfo("tsuke_42", "6k"),
+                    white = PlayerInfo("Demo User", "8k"),
+                )
+            return FakeGame(
+                id = GameId("demo-done-loss"),
+                opponent = Opponent("tsuke_42", null, "6k"),
+                myColor = StoneColor.WHITE,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Instant.now().minus(Duration.ofDays(9)),
+                remaining = RemainingTime("–"),
+                awaitingMe = false,
+                result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),
+                finished = true,
             )
         }
     }

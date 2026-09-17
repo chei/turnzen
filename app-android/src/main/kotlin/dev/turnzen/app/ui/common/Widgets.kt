@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.theme.colors
+import dev.turnzen.game.GameResult
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.RemainingTime
 
@@ -234,6 +236,52 @@ fun RemainingTimeLabel(
         color = if (urgency == Urgency.NONE) colors.ink else colors.urgent,
     )
 }
+
+/**
+ * How a finished game went, from the reader's seat: "Won by 12.5". Their own result first —
+ * your own games are read for who won, not for which colour did. Takes the place a running
+ * game's clock has, on the list and in the board header alike.
+ */
+@Composable
+fun OutcomeLabel(
+    result: GameResult?,
+    you: StoneColor,
+    modifier: Modifier = Modifier,
+) {
+    val won = result?.winner == you
+    val detail = outcomeDetail(result)
+    val headline =
+        when {
+            result == null || result.by == ResultReason.NO_RESULT -> stringResource(R.string.score_no_result)
+            result.winner == null -> stringResource(R.string.score_draw)
+            won && detail != null -> stringResource(R.string.games_won_by, detail)
+            won -> stringResource(R.string.games_won)
+            detail != null -> stringResource(R.string.games_lost_by, detail)
+            else -> stringResource(R.string.games_lost)
+        }
+    Column(modifier, horizontalAlignment = Alignment.End) {
+        Text(
+            headline,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            // The accent marks the reader's own wins; everything else stays quiet. A loss is
+            // not an alarm, so it is never the urgent colour.
+            color = if (won) colors.accent else colors.ink2,
+        )
+    }
+}
+
+/** "by 7.5", "by resignation", "on time" — the second line of an outcome, or nothing. */
+@Composable
+fun outcomeDetail(result: GameResult?): String? =
+    when (result?.by) {
+        null, ResultReason.NO_RESULT, ResultReason.JIGO -> null
+        ResultReason.RESIGNATION -> stringResource(R.string.games_by_resignation)
+        ResultReason.TIMEOUT -> stringResource(R.string.games_on_time)
+        ResultReason.FORFEIT -> stringResource(R.string.games_by_forfeit)
+        ResultReason.POINTS -> result.margin?.let { stringResource(R.string.games_by_points, Formatting.points(it)) }
+    }
 
 enum class MainTab { GAMES, SETTINGS }
 

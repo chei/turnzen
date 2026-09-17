@@ -120,8 +120,13 @@ private fun SignedInShell(container: AppContainer) {
     val openGame = openGameId?.let(::GameId)
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
+    // The archive is a list to look things up in, not a queue to work through, so nothing
+    // steps on from a finished game: it closes back to the list it was opened from.
+    fun nextInQueue(id: GameId): GameId? =
+        if (gamesTab == GamesTab.FINISHED) null else container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)
+
     fun advanceFrom(id: GameId) {
-        openGameId = container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)?.value
+        openGameId = nextInQueue(id)?.value
     }
 
     BackHandler(enabled = openGame != null) { openGameId = null }
@@ -139,7 +144,7 @@ private fun SignedInShell(container: AppContainer) {
                                 games = container.games,
                                 ladders = container.ladders,
                                 // The queue's next game, warmed while this one is on screen.
-                                nextGame = { container.games.nextAfter(game, all = gamesTab == GamesTab.ALL) },
+                                nextGame = { nextInQueue(game) },
                                 onMoveSent = { sent -> advanceFrom(sent) },
                                 // A resigned game is over: back to the list, not on to the
                                 // next game in the queue.

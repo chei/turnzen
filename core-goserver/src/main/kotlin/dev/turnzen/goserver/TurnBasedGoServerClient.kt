@@ -34,6 +34,17 @@ interface TurnBasedGoServerClient {
      */
     suspend fun myRunningGames(): List<GameSummary>
 
+    /**
+     * The user's most recently finished games, at most [limit] of them, newest first —
+     * the tail of their archive, not all of it. Bounded on purpose: a server's archive can
+     * run to thousands of games, and no screen of this app browses one.
+     *
+     * The default answers nothing, for a server with no archive to read (and for test
+     * doubles that do not care). Entries have [GameSummary.isFinished] set, and their
+     * [GameSummary.moveToken] is not good for anything: there is no move to make.
+     */
+    suspend fun myFinishedGames(limit: Int): List<GameSummary> = emptyList()
+
     suspend fun game(id: GameId): GameDetail
 
     /**

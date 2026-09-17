@@ -175,6 +175,19 @@ data class BoardUiState(
     val isMyTurn: Boolean
         get() = headerSummary?.isMyTurn ?: false
 
+    /**
+     * The game is over and open for reading: the board replays it and trial stones still
+     * explore it, but nothing can be sent. Every action already hangs off [isMyTurn], which
+     * a finished game never has, so this exists for what the screen *shows* — a result
+     * instead of a clock, and no action row at all.
+     */
+    val isFinished: Boolean
+        get() = headerSummary?.isFinished ?: false
+
+    /** How the game ended, for a finished game the server stated a result for. */
+    val result: GameResult?
+        get() = headerSummary?.result
+
     val atStart: Boolean
         get() = cursor <= 0
 

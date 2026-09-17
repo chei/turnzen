@@ -1,5 +1,6 @@
 package dev.turnzen.app.ui.games
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -22,7 +23,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -35,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.common.OutcomeLabel
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
@@ -64,12 +69,22 @@ fun GamesScreen(
         onPauseOrDispose {}
     }
 
-    // One scroll position per tab: the two lists differ in length, and a single shared
+    // The archive is fetched the first time it is looked at, not with every refresh: a
+    // finished game does not change, so there is nothing to poll for.
+    LaunchedEffect(tab) { viewModel.onTabShown(tab) }
+
+    // One scroll position per tab: the lists differ in length, and a single shared
     // LazyListState re-anchors on its keyed items when the tab switches, which could leave
     // the other list scrolled to the bottom. Each tab now keeps and restores its own place.
     val yourTurnListState = rememberLazyListState()
     val allListState = rememberLazyListState()
-    val listState = if (tab == GamesTab.YOUR_TURN) yourTurnListState else allListState
+    val finishedListState = rememberLazyListState()
+    val listState =
+        when (tab) {
+            GamesTab.YOUR_TURN -> yourTurnListState
+            GamesTab.ALL -> allListState
+            GamesTab.FINISHED -> finishedListState
+        }
 
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(
@@ -91,41 +106,55 @@ fun GamesScreen(
                 selected = tab == GamesTab.ALL,
                 onClick = { onTabChange(GamesTab.ALL) },
             )
+            // No count: this tab shows the last few finished games rather than all of them,
+            // so any number next to it would count what happened to fit on the screen.
+            GamesTab(
+                label = stringResource(R.string.games_tab_finished),
+                count = null,
+                selected = tab == GamesTab.FINISHED,
+                onClick = { onTabChange(GamesTab.FINISHED) },
+            )
         }
 
         PullToRefreshBox(
             isRefreshing = state.refreshing && games != null,
-            onRefresh = viewModel::refresh,
+            onRefresh = { viewModel.refresh(tab) },
             modifier = Modifier.fillMaxSize(),
         ) {
-            LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
-                val problem = state.problem
-                when {
-                    // Nothing has ever loaded, so the problem is the whole screen: give it
-                    // the empty state's shape and an explicit Try again, rather than a line
-                    // of red text over an otherwise blank list.
-                    games == null && problem != null -> {
-                        item { ProblemState(problem, onRetry = viewModel::refresh) }
-                    }
-
-                    else -> {
-                        // A list is on screen, so the problem is only why it has not changed;
-                        // one line above it, and pull-to-refresh is the retry.
-                        problem?.let {
-                            item { ProblemMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+            // A list per tab, not one list re-filled: a game on both "Your turn" and "All
+            // games" keeps its key across a tab switch, and without this the row would
+            // animate from its place in one list to its place in the other. The scroll
+            // position survives, since each tab's LazyListState is held outside this.
+            key(tab) {
+                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                    val problem = state.problem
+                    when {
+                        // Nothing has ever loaded, so the problem is the whole screen: give
+                        // it the empty state's shape and an explicit Try again, rather than a
+                        // line of red text over an otherwise blank list.
+                        games == null && problem != null -> {
+                            item { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
                         }
-                        when {
-                            games == null -> {
-                                item { LoadingRow() }
-                            }
 
-                            games.isEmpty() -> {
-                                item { EmptyState(tab) }
+                        else -> {
+                            // A list is on screen, so the problem is only why it has not
+                            // changed; one line above it, and pull-to-refresh is the retry.
+                            problem?.let {
+                                item { ProblemMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
                             }
+                            when {
+                                games == null -> {
+                                    item { LoadingRow() }
+                                }
 
-                            else -> {
-                                items(games, key = { it.id.value }) { game ->
-                                    GameRow(game) { onOpenGame(game.id) }
+                                games.isEmpty() -> {
+                                    item { EmptyState(tab) }
+                                }
+
+                                else -> {
+                                    items(games, key = { it.id.value }) { game ->
+                                        GameRow(game) { onOpenGame(game.id) }
+                                    }
                                 }
                             }
                         }
@@ -178,10 +207,10 @@ private fun LoadingRow() {
 @Composable
 private fun EmptyState(tab: GamesTab) {
     val title =
-        if (tab == GamesTab.YOUR_TURN) {
-            stringResource(R.string.games_empty_title)
-        } else {
-            stringResource(R.string.games_empty_all_title)
+        when (tab) {
+            GamesTab.YOUR_TURN -> stringResource(R.string.games_empty_title)
+            GamesTab.ALL -> stringResource(R.string.games_empty_all_title)
+            GamesTab.FINISHED -> stringResource(R.string.games_empty_finished_title)
         }
     Column(
         Modifier.fillMaxWidth().padding(top = 160.dp, start = 20.dp, end = 20.dp),
@@ -219,13 +248,16 @@ private fun GameRow(
                 )
                 Text(
                     "${Formatting.boardSize(game.boardSize, game.handicap)}, " +
-                        // A game being counted is not waiting for a move, and saying "move 22"
-                        // would send the user looking for one.
                         (
-                            if (game.pendingAction == PendingAction.SCORE) {
-                                stringResource(R.string.games_counting)
-                            } else {
-                                stringResource(R.string.games_move, game.moveNumber)
+                            when {
+                                // A game that is over is not at a move, it had that many.
+                                game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
+
+                                // A game being counted is not waiting for a move either, and
+                                // saying "move 22" would send the user looking for one.
+                                game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                                else -> stringResource(R.string.games_move, game.moveNumber)
                             }
                         ) + ", ${Formatting.relative(game.lastMoveAt)}",
                     style = MaterialTheme.typography.bodyMedium,
@@ -235,7 +267,12 @@ private fun GameRow(
                 )
             }
             Spacer(Modifier.width(12.dp))
-            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+            // A finished game has no clock to show; what it has instead is how it went.
+            if (game.isFinished) {
+                OutcomeLabel(game.result, game.myColor)
+            } else {
+                RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+            }
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }

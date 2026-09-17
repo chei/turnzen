@@ -36,7 +36,10 @@ import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.StoneIcon
+import dev.turnzen.app.ui.common.outcomeDetail
 import dev.turnzen.app.ui.theme.colors
+import dev.turnzen.game.GameResult
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.LadderStanding
@@ -137,6 +140,12 @@ fun GameInfoSheet(
                 if (handicap > 0) InfoRow(stringResource(R.string.info_handicap), handicap.toString())
                 // How long it has been running, which is what the start date is really asked for.
                 info?.startedAt?.let { InfoRow(stringResource(R.string.info_started), Formatting.since(it)) }
+                if (state.isFinished) {
+                    // For a game that is over the interesting dates are the other way round:
+                    // when it ended, and what it ended as.
+                    summary.lastMoveAt?.let { InfoRow(stringResource(R.string.info_ended), Formatting.date(it)) }
+                    InfoRow(stringResource(R.string.info_result), resultLine(summary.result))
+                }
                 // What the game is part of. Only when the server actually described the game:
                 // a reopen with no network knows nothing, and "waiting room" would be a guess.
                 if (info != null) EventRows(info, state.ladderStanding)
@@ -152,13 +161,29 @@ fun GameInfoSheet(
                         colors.accent,
                     ) { onOpenWeb(gameUrl) }
                 }
-                // Last, and the only urgent thing in the sheet: giving the game up.
-                ActionLine(stringResource(R.string.board_resign), colors.urgent, onResign)
+                // Last, and the only urgent thing in the sheet: giving the game up. Gone
+                // once the game is over — there is nothing left to give up, and an offer to
+                // resign a game you already lost would be alarming.
+                if (!state.isFinished) {
+                    ActionLine(stringResource(R.string.board_resign), colors.urgent, onResign)
+                }
 
                 Spacer(Modifier.height(24.dp))
             }
         }
     }
+}
+
+/** "White by resignation", "Black by 7.5", "A draw" — the settled result, colour first. */
+@Composable
+private fun resultLine(result: GameResult?): String {
+    if (result == null || result.by == ResultReason.NO_RESULT) return stringResource(R.string.score_no_result)
+    val winner = result.winner ?: return stringResource(R.string.score_draw)
+    val detail = outcomeDetail(result) ?: return stringResource(R.string.score_no_result)
+    return stringResource(
+        if (winner == StoneColor.BLACK) R.string.info_result_black else R.string.info_result_white,
+        detail,
+    )
 }
 
 /** The handle to show for a side when the server sent no game info (an offline reopen). */

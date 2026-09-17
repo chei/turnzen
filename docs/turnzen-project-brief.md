@@ -138,6 +138,12 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   `quick_do.php?obj=<entity>&cmd=<action>&<params>`
   Observed examples:
   - `quick_do.php?obj=game&cmd=list&view=status` — list of games awaiting your move
+  - `quick_do.php?obj=game&cmd=list&view=finished&uid=mine&limit=N` — finished games, most
+    recently finished first (`list_order=time_lastmove-`), so a small `limit` takes the tail
+    of the archive rather than its beginning. `limit` is honoured only in 1..100; anything
+    else silently falls back to 10. A finished entry omits `move_color`, `move_uid`,
+    `move_opp` and `move_last` (nobody is to move) and carries `score` instead — the same
+    format as the scoring commands' ("W+7.5", "B+R", "0" for jigo, "VOID")
   - `quick_do.php?obj=game&cmd=move&gid=<id>&move_id=<n>&move=<coord>` — play a move
   - `quick_do.php?obj=game&cmd=resign&gid=<id>&move_id=<n>` — resign
   - `quick_do.php?obj=game&cmd=score&gid=<id>&toggle=uniq&move=<...>&move_id=<n>` and
@@ -400,6 +406,26 @@ Recommended order, cheapest/lowest-risk first:
 - States: loading, empty ("No games waiting for you" — this is good news, not an error),
   and unreachable-server with a "Try again" (a full-screen state before the first load, one
   quiet line above the list afterwards).
+- **A third tab, "Finished"** (September 2026), showing the fifteen most recently finished
+  games — a fixed number, scrolling like the other tabs. Sizing it to the screen instead was
+  tried and dropped: the count then means something different on every device, and hiding
+  games already fetched buys nothing. It is still a glance at how the last games went rather
+  than an archive to browse — no paging, no search — and the tab carries no count, since
+  fifteen would only ever be the limit. Rows put the outcome where a running game has its
+  clock: "Won by 12.5".
+- The archive is fetched from `view=finished` the first time the tab is opened and then left
+  alone — a finished game does not change, so polling it with every refresh would spend the
+  server's quota on an answer already known. Ending a game (a resignation, an accepted
+  score) drops the held list, so the next visit fetches one that includes it.
+- Opening a finished game is the board screen in read-only form: it replays, it takes trial
+  stones (a what-if on a game that is over is exactly what a player wants), and it offers no
+  Send, Pass, Resign or Skip. Its header carries the result instead of a clock, and the info
+  sheet gains "Ended" and "Result" rows while losing the resign action.
+- **A ladder position change is not shown, and cannot honestly be.** The ladder page carries
+  today's standings, not the standings as they were when a given game ended, and a challenge
+  settled weeks ago has had every game since moved through it. See
+  [`dgs-ladder-standings.md`](dgs-ladder-standings.md) — the same reason the running-game
+  standing is fetched fresh and shown only for a live challenge.
 
 **3. Board / game screen — the core of the MVP**
 - Layout: a thin header (opponent, colors, remaining time), the board at full width, a
@@ -521,7 +547,10 @@ Recommended order, cheapest/lowest-risk first:
    destination, view-only.
 10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays
     "open in browser".
-11. **Finished games** — archive, view-only, with SGF export.
+11. **Finished games** — *the recent tail is done (September 2026)*: the "Finished" tab on
+    the Games screen, described under screen 2 above, plus the read-only board it opens. Not
+    yet: a full browsable archive (paging past what fits on one screen, searching or
+    filtering it) and SGF export, which is item 8 and serves running games just as well.
 12. **Ladder standings in the game info sheet** — *done (September 2026)*: a running ladder
     challenge shows "You #153 → #108" under the ladder's name and format. The first thing in
     the project to need the HTML client, because the ranks exist in no API: they are read from

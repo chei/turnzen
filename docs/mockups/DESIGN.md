@@ -49,7 +49,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `ink2` | `#6B7470` | Secondary text |
 | `line` | `#D6DAD5` | Hairlines, disabled fills, outlined buttons |
 | `accent` | `#2E54C0` | Send button, active nav item, text actions (Sign out, links). A saturated indigo so text actions stay clearly distinct from `ink` labels while white text on the Send fill stays legible. |
-| `accentSoft` | `#E4E9F2` | Reserved for accent backgrounds if ever needed (not used in MVP) |
+| `accentSoft` | `#E4E9F2` | Accent backgrounds: the live move-counter pill |
 | `urgent` | `#B8483E` | Low remaining time |
 | `board` | `#D9B778` | Board surface (muted kaya) |
 | `boardLine` | `#5A4A2E` | Grid lines, hoshi, coordinates |
@@ -113,18 +113,20 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
-- **Games screen**: header is the wordmark "Turnzen". Below it, two tabs, "Your turn" and
-  "All games", each with a count, above the list (content filter, distinct from the bottom
-  destination bar). Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
+- **Games screen**: header is the wordmark "Turnzen". Below it, three tabs above the list
+  (a content filter, distinct from the bottom destination bar): "Your turn" and "All games",
+  each with a count, and "Finished" without one — it holds the last fifteen games, so the
+  count would only ever be the limit. A finished row puts the outcome where a running row
+  has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
+  resignation" in `ink2` otherwise. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
   move gets a small dot in the opposite color.
 - **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
   black, move N" — which states the colour, so no stone icon repeats it; right: remaining
-  time over "to move") → board →
-  info row → action row → flexible space → bottom nav. The space below the action row
-  absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
+  time over "to move", or, for a finished game, the outcome) → board →
+  info row → action row → flexible space → bottom nav.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
   move number, step forward, end; back and forward repeat while held. There is no separate
   info row, trial counter or hint line: the numbered stones and this counter already say

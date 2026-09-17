@@ -1,5 +1,6 @@
 package dev.turnzen.dgs
 
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
@@ -149,6 +150,31 @@ class DgsParsersTest {
         assertEquals("opp_a", games[0].opponent.handle)
         assertFalse(games[1].isMyTurn)
         assertEquals("opp_b", games[1].opponent.handle)
+    }
+
+    @Test
+    fun `finished list carries the result and nobody to move`() {
+        val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_finished.json")), "123456")
+        assertEquals(3, games.size)
+
+        val won = games[0]
+        assertEquals("1600001", won.id.value)
+        assertTrue(won.isFinished)
+        // DGS omits move_color, move_uid and the clock for a finished game; none of that may
+        // turn into "your turn" or an invented remaining time.
+        assertFalse(won.isMyTurn)
+        assertNull(won.remainingTime)
+        assertEquals(StoneColor.BLACK, won.myColor)
+        assertEquals(248, won.moveNumber)
+        assertEquals(PendingAction.OTHER, won.pendingAction)
+        assertEquals(GameResult(StoneColor.WHITE, 7.5, ResultReason.POINTS), won.result)
+
+        assertEquals(GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION), games[1].result)
+        assertEquals(StoneColor.BLACK, games[1].myColor)
+
+        // VOID: a game that ended without a result, and the user played white in it.
+        assertEquals(GameResult(null, null, ResultReason.NO_RESULT), games[2].result)
+        assertEquals(StoneColor.WHITE, games[2].myColor)
     }
 
     @Test

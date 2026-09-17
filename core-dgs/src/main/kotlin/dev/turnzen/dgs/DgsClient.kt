@@ -108,6 +108,26 @@ class DgsClient(
         return GameObjectParser.parseList(envelope, userId)
     }
 
+    /**
+     * DGS returns its game lists newest move first (`list_order=time_lastmove-`), which for
+     * finished games means most recently finished first, so [limit] takes the tail of the
+     * archive rather than its beginning. The list is sorted again by the caller anyway.
+     */
+    override suspend fun myFinishedGames(limit: Int): List<GameSummary> {
+        val envelope =
+            quickDo(
+                "obj" to "game",
+                "cmd" to "list",
+                "view" to "finished",
+                "uid" to "mine",
+                // DGS accepts 1..100 and silently defaults to 10 for anything else.
+                "limit" to limit.coerceIn(1, 100).toString(),
+                "lstyle" to "json",
+                "with" to "user_id",
+            )
+        return GameObjectParser.parseList(envelope, userId)
+    }
+
     override suspend fun game(id: GameId): GameDetail {
         val game =
             quickDo(

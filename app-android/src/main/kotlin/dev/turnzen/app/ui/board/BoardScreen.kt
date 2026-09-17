@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.data.BoardSettings
 import dev.turnzen.app.ui.common.Formatting
+import dev.turnzen.app.ui.common.OutcomeLabel
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
@@ -110,9 +111,25 @@ fun BoardScreen(
             Header(
                 opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
                 subtitle =
-                    "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
-                        "move $moveNumber",
+                    if (state.isFinished) {
+                        stringResource(
+                            if (summary.myColor == StoneColor.BLACK) {
+                                R.string.board_played_black
+                            } else {
+                                R.string.board_played_white
+                            },
+                            moveNumber,
+                        )
+                    } else {
+                        "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
+                            "move $moveNumber"
+                    },
                 remaining = summary.remainingTime,
+                // A finished game has no clock and nobody to move: the same corner carries
+                // how it ended instead.
+                result = if (state.isFinished) summary.result else null,
+                isFinished = state.isFinished,
+                you = summary.myColor,
                 // The header names the game, so it is also the way into everything else about
                 // it. Only once the record is here: the sheet's actions need its move token.
                 onOpenInfo =
@@ -210,73 +227,78 @@ fun BoardScreen(
         // Skip keeps a fixed half-width slot on the left in every game; Send fills the
         // right slot only on the user's own turn (an empty spacer holds it otherwise), so
         // Skip never changes size or position.
+        //
+        // A finished game gets no action row at all: there is no move to send, and Skip is
+        // the queue's button — the archive is not a queue, it is a list you came back from.
         Spacer(Modifier.height(8.dp))
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            PillButton(
-                text = stringResource(R.string.board_skip),
-                onClick = onSkip,
-                enabled = !state.sending,
-                modifier = Modifier.weight(1f),
-            )
-            if (scoring != null) {
-                // In the counting phase the right slot settles the score: the marks, when the
-                // user has made any, and otherwise agreement with the count as it stands.
-                if (state.isMyTurn) {
-                    PillButton(
-                        text =
-                            when {
-                                state.sending -> stringResource(R.string.board_sending)
-                                scoring.changed -> stringResource(R.string.score_send_marks)
-                                else -> stringResource(R.string.score_accept)
-                            },
-                        onClick = if (scoring.changed) viewModel::askSendMarks else viewModel::askAcceptScore,
-                        primary = true,
-                        enabled = state.canSettleScore,
-                        modifier = Modifier.weight(1f),
-                    )
+        if (!state.isFinished) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                PillButton(
+                    text = stringResource(R.string.board_skip),
+                    onClick = onSkip,
+                    enabled = !state.sending,
+                    modifier = Modifier.weight(1f),
+                )
+                if (scoring != null) {
+                    // In the counting phase the right slot settles the score: the marks, when the
+                    // user has made any, and otherwise agreement with the count as it stands.
+                    if (state.isMyTurn) {
+                        PillButton(
+                            text =
+                                when {
+                                    state.sending -> stringResource(R.string.board_sending)
+                                    scoring.changed -> stringResource(R.string.score_send_marks)
+                                    else -> stringResource(R.string.score_accept)
+                                },
+                            onClick = if (scoring.changed) viewModel::askSendMarks else viewModel::askAcceptScore,
+                            primary = true,
+                            enabled = state.canSettleScore,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
+                } else if (state.isMyTurn) {
+                    // The right slot always holds the move you would send. Normally that is Send
+                    // — armed with a trial stone, disabled without one. When the opponent has
+                    // passed and no stone is armed, the move on offer is a pass, so Pass takes
+                    // the slot: outlined, not filled, because giving up the move is not the
+                    // recommended answer, only an available one.
+                    if (state.passPromoted) {
+                        PillButton(
+                            text = stringResource(R.string.board_pass),
+                            onClick = viewModel::askPass,
+                            enabled = !state.sending,
+                            modifier = Modifier.weight(1f),
+                        )
+                    } else {
+                        PillButton(
+                            text =
+                                when {
+                                    state.sending -> {
+                                        stringResource(R.string.board_sending)
+                                    }
+
+                                    state.canSend && state.sendLabel != null -> {
+                                        "${stringResource(R.string.board_send)} ${state.sendLabel}"
+                                    }
+
+                                    else -> {
+                                        stringResource(R.string.board_send)
+                                    }
+                                },
+                            onClick = viewModel::askSend,
+                            primary = true,
+                            enabled = state.canSend,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-            } else if (state.isMyTurn) {
-                // The right slot always holds the move you would send. Normally that is Send
-                // — armed with a trial stone, disabled without one. When the opponent has
-                // passed and no stone is armed, the move on offer is a pass, so Pass takes
-                // the slot: outlined, not filled, because giving up the move is not the
-                // recommended answer, only an available one.
-                if (state.passPromoted) {
-                    PillButton(
-                        text = stringResource(R.string.board_pass),
-                        onClick = viewModel::askPass,
-                        enabled = !state.sending,
-                        modifier = Modifier.weight(1f),
-                    )
-                } else {
-                    PillButton(
-                        text =
-                            when {
-                                state.sending -> {
-                                    stringResource(R.string.board_sending)
-                                }
-
-                                state.canSend && state.sendLabel != null -> {
-                                    "${stringResource(R.string.board_send)} ${state.sendLabel}"
-                                }
-
-                                else -> {
-                                    stringResource(R.string.board_send)
-                                }
-                            },
-                        onClick = viewModel::askSend,
-                        primary = true,
-                        enabled = state.canSend,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Spacer(Modifier.weight(1f))
             }
         }
         Spacer(Modifier.height(24.dp))
@@ -925,6 +947,10 @@ private fun Header(
     opponent: String,
     subtitle: String,
     remaining: RemainingTime?,
+    you: StoneColor,
+    /** Non-null once the game is over; it then replaces the clock. */
+    result: GameResult? = null,
+    isFinished: Boolean = false,
     onOpenInfo: (() -> Unit)? = null,
 ) {
     val openInfo = stringResource(R.string.info_open)
@@ -950,12 +976,18 @@ private fun Header(
             Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            RemainingTimeLabel(remaining)
-            Text(
-                stringResource(R.string.board_to_move),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink2,
-            )
+            if (isFinished) {
+                // "Won by 12.5" in the corner the clock had: the question a finished game
+                // is opened to answer, in the place the clock answered while it ran.
+                OutcomeLabel(result, you)
+            } else {
+                RemainingTimeLabel(remaining)
+                Text(
+                    stringResource(R.string.board_to_move),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                )
+            }
         }
     }
 }

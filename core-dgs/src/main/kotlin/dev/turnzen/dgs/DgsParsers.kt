@@ -330,6 +330,8 @@ internal object GameObjectParser {
         myUserId: String?,
     ): GameSummary {
         val id = game.string("id") ?: throw GoServerException.Protocol("Game without id")
+        val status = game.string("status")
+        val finished = status.equals("FINISHED", ignoreCase = true)
         val black = game.obj("black_user")
         val white = game.obj("white_user")
         val me = myUserId ?: game.string("my_id")
@@ -351,9 +353,12 @@ internal object GameObjectParser {
             }
         val opponentUser = if (myColor == StoneColor.BLACK) white else black
         val myInfo = game.obj(if (myColor == StoneColor.BLACK) "black_gameinfo" else "white_gameinfo")
-        // Whose turn it is: prefer the explicit move_uid, fall back to the move color.
+        // Whose turn it is: prefer the explicit move_uid, fall back to the move color. A
+        // finished game is nobody's turn, and DGS omits both fields for one, so it is settled
+        // here rather than read out of fields that are not there.
         val myTurn =
             when {
+                finished -> false
                 me != null && game.string("move_uid") != null -> game.string("move_uid") == me
                 else -> parseColor(game.string("move_color")) == myColor
             }
@@ -371,12 +376,17 @@ internal object GameObjectParser {
             moveNumber = game.int("move_count") ?: game.int("move_id") ?: 0,
             lastMoveAt = DgsDates.parse(game.string("time_lastmove")),
             remainingTime = DgsTimeRemaining.parse(myInfo?.string("remtime")),
-            pendingAction = action(game.int("game_action"), game.string("status")),
+            pendingAction = action(game.int("game_action"), status),
             isMyTurn = myTurn,
+            // A finished game has no move to make, so a missing token is not a protocol
+            // failure there — the whole point of the entry is that the game is over.
             moveToken =
                 MoveToken(
-                    game.string("move_id") ?: throw GoServerException.Protocol("Game $id without move_id"),
+                    game.string("move_id")
+                        ?: if (finished) "" else throw GoServerException.Protocol("Game $id without move_id"),
                 ),
+            isFinished = finished,
+            result = DgsScore.parse(game.string("score")),
         )
     }
 

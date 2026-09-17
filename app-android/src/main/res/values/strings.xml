@@ -15,13 +15,27 @@
 
     <string name="games_tab_your_turn">Your turn</string>
     <string name="games_tab_all">All games</string>
+    <string name="games_tab_finished">Finished</string>
     <string name="games_empty_title">No games waiting for you</string>
     <string name="games_empty_all_title">No running games</string>
+    <string name="games_empty_finished_title">No finished games yet</string>
     <string name="games_empty_hint">Pull down to check again.</string>
     <string name="games_move">move %1$d</string>
+    <string name="games_moves">%1$d moves</string>
     <string name="games_counting">counting</string>
+    <string name="games_won">Won</string>
+    <string name="games_lost">Lost</string>
+    <!-- The outcome and how it came about, on one line: "Won by 12.5". -->
+    <string name="games_won_by">Won %1$s</string>
+    <string name="games_lost_by">Lost %1$s</string>
+    <string name="games_by_points">by %1$s</string>
+    <string name="games_by_resignation">by resignation</string>
+    <string name="games_on_time">on time</string>
+    <string name="games_by_forfeit">by forfeit</string>
 
     <string name="board_to_move">to move</string>
+    <string name="board_played_black">You played black, move %1$d</string>
+    <string name="board_played_white">You played white, move %1$d</string>
     <string name="board_skip">Skip</string>
     <string name="board_send">Send</string>
     <string name="board_first_move">First move</string>
@@ -81,6 +95,11 @@
     <string name="info_board">Board</string>
     <string name="info_handicap">Handicap</string>
     <string name="info_started">Started</string>
+    <string name="info_ended">Ended</string>
+    <string name="info_result">Result</string>
+    <!-- The winner and how they won, for a game that is over: "White by resignation". -->
+    <string name="info_result_black">Black %1$s</string>
+    <string name="info_result_white">White %1$s</string>
     <string name="info_tournament">Tournament</string>
     <string name="info_game">Game</string>
     <!-- A game belonging to no competition, however it was arranged. Not "casual", which

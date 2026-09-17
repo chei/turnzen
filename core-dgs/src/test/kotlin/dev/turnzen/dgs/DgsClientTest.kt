@@ -70,6 +70,10 @@ class DgsClientTest {
                 ok(Fixtures.text("quick_do_not_logged_in.json"))
             }
         }
+        // Registered before the catch-all list route, which routes are matched in order.
+        t.on({
+            it.url.contains("quick_do.php") && it.has("view=finished")
+        }) { ok(Fixtures.text("game_list_finished.json")) }
         t.on({ it.url.contains("quick_do.php") && it.has("cmd=list") }) { ok(Fixtures.text("game_list_status.json")) }
         t.on({
             it.url.contains("quick_do.php") && it.has("obj=game") && it.has("cmd=info")
@@ -135,6 +139,28 @@ class DgsClientTest {
             assertTrue(list.has("view=status"))
             assertTrue(list.has("lstyle=json"))
             assertTrue(list.has("limit=all"))
+        }
+
+    @Test
+    fun `the archive is asked for by the tail, newest first, and never for more than DGS allows`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            val games = client.myFinishedGames(12)
+            assertEquals(listOf("1600001", "1600002", "1600003"), games.map { it.id.value })
+            assertTrue(games.all { it.isFinished })
+            assertTrue(games.none { it.isMyTurn })
+            val list = transport.requests.last()
+            assertTrue(list.has("view=finished"))
+            assertTrue(list.has("uid=mine"))
+            assertTrue(list.has("limit=12"))
+
+            // DGS caps the page at 100 and quietly falls back to 10 for anything outside
+            // 1..100, which would make a larger ask return *fewer* games.
+            client.myFinishedGames(500)
+            assertTrue(transport.requests.last().has("limit=100"))
         }
 
     @Test

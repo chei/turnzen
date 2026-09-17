@@ -14,16 +14,20 @@ import kotlinx.coroutines.flow.update
 /**
  * The game lists shown on the Games screen and used by the board screen's auto-advance.
  *
- * Two lists, both sorted with the most recent move first:
+ * Three lists, all sorted with the most recent move first:
  * - [yourTurn]: games where it is the user's move (the "Your turn" tab, and the queue the
  *   board screen advances through after a Send).
  * - [allRunning]: every running game, whichever side is to move (the "All games" tab).
+ * - [finished]: the tail of the archive, for the "Finished" tab. Fetched on its own, only
+ *   when that tab is opened: finished games do not change, so polling them with every
+ *   refresh would spend the server's quota on an answer that is already known.
  */
 class GamesStore(
     private val session: SessionManager,
 ) {
     private val _yourTurn = MutableStateFlow<List<GameSummary>?>(null)
     private val _allRunning = MutableStateFlow<List<GameSummary>?>(null)
+    private val _finished = MutableStateFlow<List<GameSummary>?>(null)
 
     /**
      * Full records fetched ahead of time, so opening those games needs no download. Kept
@@ -36,6 +40,9 @@ class GamesStore(
     val yourTurn: StateFlow<List<GameSummary>?> = _yourTurn.asStateFlow()
     val allRunning: StateFlow<List<GameSummary>?> = _allRunning.asStateFlow()
 
+    /** The most recently finished games, newest first. null until the tab asks for them. */
+    val finished: StateFlow<List<GameSummary>?> = _finished.asStateFlow()
+
     /** Fetches both lists. The two server calls run concurrently. */
     suspend fun refresh() {
         coroutineScope {
@@ -44,6 +51,17 @@ class GamesStore(
             _yourTurn.value = turn.await().sortedByDescending { it.lastMoveAt }
             _allRunning.value = running.await().sortedByDescending { it.lastMoveAt }
         }
+    }
+
+    /**
+     * Fetches the last few finished games. Deliberately not part of [refresh]: it is a
+     * request the user pays for only when they look at the archive.
+     */
+    suspend fun refreshFinished() {
+        _finished.value =
+            session
+                .call { it.myFinishedGames(FINISHED_LIMIT) }
+                .sortedByDescending { it.lastMoveAt }
     }
 
     /** The record already held for [id], if one was fetched or prefetched earlier. */
@@ -102,6 +120,9 @@ class GamesStore(
         details.remove(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
+        // The game has just joined the archive, which this copy predates: drop it so the
+        // Finished tab fetches the list again rather than showing one without this game.
+        _finished.value = null
     }
 
     /**
@@ -111,6 +132,7 @@ class GamesStore(
     fun summary(id: GameId): GameSummary? =
         _allRunning.value?.firstOrNull { it.id == id }
             ?: _yourTurn.value?.firstOrNull { it.id == id }
+            ?: _finished.value?.firstOrNull { it.id == id }
 
     /**
      * The next game strictly after [id] within the list the user is browsing: all running
@@ -130,11 +152,21 @@ class GamesStore(
     fun clear() {
         _yourTurn.value = null
         _allRunning.value = null
+        _finished.value = null
         details.clear()
     }
 
     private companion object {
         /** Enough for the game in view plus the lookahead and a little history. */
         const val MAX_CACHED_DETAILS = 8
+
+        /**
+         * How many finished games the archive tab holds. A plain number, not "as many as the
+         * screen fits": the count has to mean the same thing on every device, and a list that
+         * scrolls a little is no worse than one that hides games already paid for. Fifteen is
+         * a few weeks of correspondence play — enough to find the game you are thinking of,
+         * far short of an archive to browse.
+         */
+        const val FINISHED_LIMIT = 15
     }
 }

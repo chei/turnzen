@@ -79,6 +79,16 @@ data class GameSummary(
     /** True when the server is waiting for this user to act; false when it is the opponent's turn. */
     val isMyTurn: Boolean,
     val moveToken: MoveToken,
+    /**
+     * True when the game is over. Nothing can be sent for it any more, whatever the rest of
+     * this summary says: a finished game reports no clock and nobody to move.
+     */
+    val isFinished: Boolean = false,
+    /**
+     * How the game ended, for a finished game whose result the server stated. Null while the
+     * game runs, and also for a finished game the server gave no readable score for.
+     */
+    val result: GameResult? = null,
 )
 
 /**
