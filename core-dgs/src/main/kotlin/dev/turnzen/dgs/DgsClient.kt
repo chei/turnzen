@@ -30,7 +30,6 @@ import java.net.URLEncoder
 class DgsClient(
     private val transport: HttpTransport,
     baseUrl: String = DEFAULT_BASE_URL,
-    private val userAgent: String = "Turnzen",
 ) : TurnBasedGoServerClient {
     companion object {
         const val DEFAULT_BASE_URL = "https://www.dragongoserver.net/"
@@ -300,8 +299,8 @@ class DgsClient(
     )
 
     private suspend fun send(request: HttpRequest): HttpResponse {
+        // The User-Agent is stamped by the transport, for every server client alike.
         val headers = HashMap(request.headers)
-        headers["User-Agent"] = userAgent
         cookies.headerValue()?.let { headers["Cookie"] = it }
         val response =
             try {

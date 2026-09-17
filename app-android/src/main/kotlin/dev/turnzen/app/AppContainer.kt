@@ -1,6 +1,7 @@
 package dev.turnzen.app
 
 import android.content.Context
+import android.os.Build
 import dev.turnzen.app.data.EncryptedCredentialStore
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
@@ -9,6 +10,7 @@ import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.dgs.DgsClient
 import dev.turnzen.dgs.http.OkHttpTransport
+import dev.turnzen.dgs.http.TurnzenUserAgent
 import dev.turnzen.goserver.TurnBasedGoServerClient
 
 /**
@@ -26,13 +28,23 @@ class AppContainer(
     val settings = SettingsStore(appContext)
     val credentials = EncryptedCredentialStore(appContext)
 
-    private val transport = OkHttpTransport()
+    // Named traffic: the version is the one this APK was built with, the API level the one
+    // the phone is running. Shared by every server client, DGS today and OGS later.
+    private val transport =
+        OkHttpTransport(
+            userAgent =
+                TurnzenUserAgent.format(
+                    versionName = BuildConfig.VERSION_NAME,
+                    androidSdkInt = Build.VERSION.SDK_INT,
+                    sourceUrl = BuildConfig.SOURCE_URL,
+                ),
+        )
 
     private fun createClient(serverUrl: String): TurnBasedGoServerClient =
         if (BuildConfig.USE_FAKE_SERVER) {
             FakeTurnBasedGoServerClient()
         } else {
-            DgsClient(transport, serverUrl, userAgent = "Turnzen/${BuildConfig.VERSION_NAME}")
+            DgsClient(transport, serverUrl)
         }
 
     val session = SessionManager(credentials, settings, ::createClient)

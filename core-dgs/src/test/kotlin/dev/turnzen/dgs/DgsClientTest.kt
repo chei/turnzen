@@ -111,7 +111,6 @@ class DgsClientTest {
 
             val userInfo = transport.requests[1]
             assertEquals("cookie_login=fakeuser; cookie_sessioncode=abc123", userInfo.headers["Cookie"])
-            assertEquals("Turnzen", userInfo.headers["User-Agent"])
         }
 
     @Test
