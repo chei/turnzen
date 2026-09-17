@@ -238,14 +238,16 @@ fun RemainingTimeLabel(
 }
 
 /**
- * How a finished game went, from the reader's seat: "Won by 12.5". Their own result first —
- * your own games are read for who won, not for which colour did. Takes the place a running
- * game's clock has, on the list and in the board header alike.
+ * How a finished game went, from the reader's seat: "Won by 12.5" on one line, and under it
+ * what the game did to their rating. Their own result first — your own games are read for who
+ * won, not for which colour did. Takes the place a running game's clock has, on the list and
+ * in the board header alike.
  */
 @Composable
 fun OutcomeLabel(
     result: GameResult?,
     you: StoneColor,
+    ratingChange: Double? = null,
     modifier: Modifier = Modifier,
 ) {
     val won = result?.winner == you
@@ -269,6 +271,14 @@ fun OutcomeLabel(
             // not an alarm, so it is never the urgent colour.
             color = if (won) colors.accent else colors.ink2,
         )
+        ratingChange?.let {
+            Text(
+                stringResource(R.string.games_rating_points, Formatting.ratingPoints(it)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+            )
+        }
     }
 }
 

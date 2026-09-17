@@ -28,6 +28,8 @@
     <!-- The outcome and how it came about, on one line: "Won by 12.5". -->
     <string name="games_won_by">Won %1$s</string>
     <string name="games_lost_by">Lost %1$s</string>
+    <!-- What a rated game moved the player by, in ranks. %1$s is signed: "rating +0.23". -->
+    <string name="games_rating_points">rating %1$s</string>
     <string name="games_by_points">by %1$s</string>
     <string name="games_by_resignation">by resignation</string>
     <string name="games_on_time">on time</string>

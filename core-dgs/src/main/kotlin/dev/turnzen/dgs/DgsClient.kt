@@ -123,7 +123,9 @@ class DgsClient(
                 // DGS accepts 1..100 and silently defaults to 10 for anything else.
                 "limit" to limit.coerceIn(1, 100).toString(),
                 "lstyle" to "json",
-                "with" to "user_id",
+                // ratingdiff is what fills rating_end/rating_diff, and DGS offers it on the
+                // finished view only — which is the only view that could use it.
+                "with" to "user_id,ratingdiff",
             )
         return GameObjectParser.parseList(envelope, userId)
     }
@@ -134,7 +136,9 @@ class DgsClient(
                 "obj" to "game",
                 "cmd" to "info",
                 "gid" to id.value,
-                "with" to "user_id",
+                // ratingdiff costs nothing on a running game (DGS fills it for finished ones
+                // only) and is what lets the info sheet show what the game did to both ranks.
+                "with" to "user_id,ratingdiff",
             )
         val summary = GameObjectParser.parse(game, userId)
         // Same payload, read twice: the summary is what every screen needs, the info is the

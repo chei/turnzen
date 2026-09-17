@@ -119,6 +119,7 @@ fun GameInfoSheet(
                     fallbackName = nameFor(state, StoneColor.BLACK),
                     isYou = summary.myColor == StoneColor.BLACK,
                     isToMove = toMove == StoneColor.BLACK,
+                    isFinished = state.isFinished,
                 )
                 Hairline()
                 PlayerLine(
@@ -127,6 +128,7 @@ fun GameInfoSheet(
                     fallbackName = nameFor(state, StoneColor.WHITE),
                     isYou = summary.myColor == StoneColor.WHITE,
                     isToMove = toMove == StoneColor.WHITE,
+                    isFinished = state.isFinished,
                 )
 
                 Spacer(Modifier.height(20.dp))
@@ -214,6 +216,7 @@ private fun PlayerLine(
     fallbackName: String,
     isYou: Boolean,
     isToMove: Boolean,
+    isFinished: Boolean = false,
 ) {
     val name = player?.handle ?: fallbackName
     val details =
@@ -240,7 +243,20 @@ private fun PlayerLine(
                 Text(details, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
             }
         }
-        RemainingTimeLabel(player?.remainingTime, muted = !isToMove)
+        // A finished game has no clock worth a line; what its players want from that corner
+        // is what the game did to their rating. Both sides, because the pair is the story:
+        // the points one player took are the points the other lost.
+        if (isFinished) {
+            player?.ratingChange?.let {
+                Text(
+                    Formatting.ratingPoints(it),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.ink2,
+                )
+            }
+        } else {
+            RemainingTimeLabel(player?.remainingTime, muted = !isToMove)
+        }
     }
 }
 

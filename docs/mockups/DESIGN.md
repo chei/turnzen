@@ -118,14 +118,15 @@ Use tabular figures for time and move counts so columns don't jitter.
   each with a count, and "Finished" without one — it holds the last fifteen games, so the
   count would only ever be the limit. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
-  resignation" in `ink2` otherwise. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
+  resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
   move gets a small dot in the opposite color.
 - **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
   black, move N" — which states the colour, so no stone icon repeats it; right: remaining
-  time over "to move", or, for a finished game, the outcome) → board →
+  time over "to move", or, for a finished game, the outcome over the rating change) → board →
   info row → action row → flexible space → bottom nav.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
   move number, step forward, end; back and forward repeat while held. There is no separate

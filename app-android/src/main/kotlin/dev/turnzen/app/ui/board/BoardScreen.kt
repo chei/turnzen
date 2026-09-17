@@ -128,6 +128,7 @@ fun BoardScreen(
                 // A finished game has no clock and nobody to move: the same corner carries
                 // how it ended instead.
                 result = if (state.isFinished) summary.result else null,
+                ratingChange = summary.ratingChange,
                 isFinished = state.isFinished,
                 you = summary.myColor,
                 // The header names the game, so it is also the way into everything else about
@@ -950,6 +951,7 @@ private fun Header(
     you: StoneColor,
     /** Non-null once the game is over; it then replaces the clock. */
     result: GameResult? = null,
+    ratingChange: Double? = null,
     isFinished: Boolean = false,
     onOpenInfo: (() -> Unit)? = null,
 ) {
@@ -977,9 +979,9 @@ private fun Header(
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (isFinished) {
-                // "Won by 12.5" in the corner the clock had: the question a finished game
-                // is opened to answer, in the place the clock answered while it ran.
-                OutcomeLabel(result, you)
+                // "Won by 12.5" in the corner the clock had, with what it did to the rating
+                // under it — the two things a player looks up about a game that is over.
+                OutcomeLabel(result, you, ratingChange)
             } else {
                 RemainingTimeLabel(remaining)
                 Text(

@@ -132,6 +132,27 @@ internal object DgsTimeRemaining {
 internal object DgsRatings {
     /** "3k (-7%)" -> "3k"; "" -> null. */
     fun rank(rating: String?): String? = rating?.trim()?.substringBefore(' ')?.ifEmpty { null }
+
+    /**
+     * What a finished game did to one player's rating: DGS's own `rating_diff`, out of the
+     * `black_gameinfo` / `white_gameinfo` block, and only when the request asked for
+     * `with=ratingdiff`. The unit is ranks — "+0.23" is not quite a quarter of a stone.
+     *
+     * Deliberately not the difference between `rating_start` and `rating_end`. Those are the
+     * ranks the player held at the two ends of *this game*, and a correspondence game runs
+     * for months: the gap between them is mostly other games, and it is there for an unrated
+     * game too, where this game moved nothing at all.
+     *
+     * Null when the game was not rated, which is the same answer as "nothing to say": an
+     * unrated game earns no line rather than a "+0.00" that reads like a rounding error.
+     */
+    fun change(
+        info: JsonObject?,
+        rated: Boolean,
+    ): Double? {
+        if (info == null || !rated) return null
+        return info.string("rating_diff")?.trim()?.toDoubleOrNull()
+    }
 }
 
 internal object UserInfoParser {
@@ -245,6 +266,7 @@ internal object GameInfoParser {
     ): PlayerDetail {
         val user = game.obj("${color}_user")
         val standing = game.obj("${color}_gameinfo")
+        val finished = game.string("status").equals("FINISHED", ignoreCase = true)
         return PlayerDetail(
             handle = user?.string("handle") ?: "?",
             displayName = user?.string("name")?.ifBlank { null },
@@ -254,6 +276,12 @@ internal object GameInfoParser {
             prisoners = standing?.int("prisoners"),
             // Both clocks, unlike the summary's, which only carries the user's own.
             remainingTime = DgsTimeRemaining.parse(standing?.string("remtime")),
+            ratingChange =
+                if (finished) {
+                    DgsRatings.change(standing, rated = game.int("rated")?.let { it != 0 } ?: false)
+                } else {
+                    null
+                },
         )
     }
 
@@ -387,6 +415,13 @@ internal object GameObjectParser {
                 ),
             isFinished = finished,
             result = DgsScore.parse(game.string("score")),
+            // Only ever sent for a finished game, and only when the request asked for it.
+            ratingChange =
+                if (finished) {
+                    DgsRatings.change(myInfo, rated = game.int("rated")?.let { it != 0 } ?: false)
+                } else {
+                    null
+                },
         )
     }
 

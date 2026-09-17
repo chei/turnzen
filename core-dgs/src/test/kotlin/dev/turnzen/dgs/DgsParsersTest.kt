@@ -178,6 +178,20 @@ class DgsParsersTest {
     }
 
     @Test
+    fun `a finished game carries what it did to the user's rating, in ranks`() {
+        val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_finished.json")), "123456")
+
+        // DGS's own rating_diff, which is what this game was worth — a quarter of a stone.
+        assertEquals(-0.25, assertNotNull(games[0].ratingChange), 0.001)
+        assertEquals(0.34, assertNotNull(games[1].ratingChange), 0.001)
+
+        // The unrated game says nothing. Its player's rank moved from 4k to 3k while it ran,
+        // and reading that as the game's doing is exactly the trap: months of other games
+        // moved it, and an unrated game moves nothing at all.
+        assertNull(games[2].ratingChange)
+    }
+
+    @Test
     fun `own color falls back to move_color when the user id is unknown`() {
         val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_status.json")), null)
         assertEquals(StoneColor.BLACK, games[0].myColor)

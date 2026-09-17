@@ -61,6 +61,8 @@ class FakeTurnBasedGoServerClient(
         /** Set when the game is over, which takes it out of [games] and into [archive]. */
         var result: GameResult? = null,
         var finished: Boolean = false,
+        /** What the finished game did to the demo user's rating, in ranks. */
+        var ratingChange: Double? = null,
     )
 
     private val games: MutableList<FakeGame> =
@@ -193,6 +195,9 @@ class FakeTurnBasedGoServerClient(
         games.remove(this)
         result = outcome
         finished = true
+        // A plausible rating move, so the archive shows the same shape a real server does:
+        // DGS counts in ranks, and one game is worth a fraction of a stone.
+        ratingChange = if (outcome?.winner == myColor) 0.31 else -0.29
         awaitingMe = false
         lastMoveAt = Instant.now()
         archive.add(0, this)
@@ -275,6 +280,7 @@ class FakeTurnBasedGoServerClient(
             moveToken = MoveToken(moveId.toString()),
             isFinished = finished,
             result = result,
+            ratingChange = ratingChange,
         )
 
     /** The demo server's stand-in for what DGS reports about a game beyond the summary. */
@@ -292,6 +298,9 @@ class FakeTurnBasedGoServerClient(
                 rankAtStart = player.rank,
                 prisoners = prisoners[color] ?: 0,
                 remainingTime = remaining,
+                // The opponent's move is this one's mirror: the ranks one side takes are
+                // the ranks the other gives up.
+                ratingChange = ratingChange?.let { if (mine) it else -it },
             )
         }
         return GameInfo(
@@ -491,6 +500,7 @@ class FakeTurnBasedGoServerClient(
                 awaitingMe = false,
                 result = GameResult(StoneColor.BLACK, 12.5, ResultReason.POINTS),
                 finished = true,
+                ratingChange = 0.34,
             )
         }
 
@@ -515,6 +525,7 @@ class FakeTurnBasedGoServerClient(
                 awaitingMe = false,
                 result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),
                 finished = true,
+                ratingChange = -0.25,
             )
         }
     }

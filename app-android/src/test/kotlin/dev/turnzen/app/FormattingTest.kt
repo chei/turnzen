@@ -12,6 +12,17 @@ import kotlin.test.assertTrue
 
 class FormattingTest {
     @Test
+    fun `a rating move keeps its hundredths, which is all a game is worth`() {
+        // DGS counts in ranks: one game moves a player by a fraction of a stone, and that
+        // fraction is the whole of what there is to report.
+        assertEquals("+0.23", Formatting.ratingPoints(0.23))
+        assertEquals("−0.25", Formatting.ratingPoints(-0.25))
+        assertEquals("+0.09", Formatting.ratingPoints(0.09))
+        assertEquals("+1.40", Formatting.ratingPoints(1.4))
+        assertEquals("±0.00", Formatting.ratingPoints(0.0))
+    }
+
+    @Test
     fun `remaining time is rendered in the app's language`() {
         assertEquals("3 d 4 h", Formatting.remaining(RemainingTime("3d 4h", Duration.ofDays(3).plusHours(4))))
         assertEquals("6 h", Formatting.remaining(RemainingTime("6h", Duration.ofHours(6))))

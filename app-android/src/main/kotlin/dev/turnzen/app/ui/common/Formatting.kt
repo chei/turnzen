@@ -5,6 +5,8 @@ import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.abs
 
 /** How close to timing out a game is, in three steps of the single urgency colour. */
 enum class Urgency { NONE, URGENT, CRITICAL }
@@ -127,6 +129,24 @@ object Formatting {
         } else {
             value.toString()
         }
+
+    /**
+     * A rating move, signed and always to two places: "+0.23", "−0.25", "±0.00".
+     *
+     * The unit is ranks, and two decimals is the resolution the change is interesting at —
+     * a game moves a player by hundredths of a stone, and a win worth +0.34 followed by one
+     * worth +0.09 is a player closing on the next rank. Rounding those to whole numbers
+     * would throw the whole figure away. A true minus sign, not a hyphen.
+     */
+    fun ratingPoints(points: Double): String {
+        val sign =
+            when {
+                points > 0 -> "+"
+                points < 0 -> "−"
+                else -> "±"
+            }
+        return sign + String.format(Locale.US, "%.2f", abs(points))
+    }
 
     fun boardSize(
         size: Int,

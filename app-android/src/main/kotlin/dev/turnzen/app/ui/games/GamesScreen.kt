@@ -269,7 +269,7 @@ private fun GameRow(
             Spacer(Modifier.width(12.dp))
             // A finished game has no clock to show; what it has instead is how it went.
             if (game.isFinished) {
-                OutcomeLabel(game.result, game.myColor)
+                OutcomeLabel(game.result, game.myColor, game.ratingChange)
             } else {
                 RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
             }

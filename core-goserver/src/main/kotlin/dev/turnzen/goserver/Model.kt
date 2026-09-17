@@ -89,6 +89,15 @@ data class GameSummary(
      * game runs, and also for a finished game the server gave no readable score for.
      */
     val result: GameResult? = null,
+    /**
+     * What the finished game did to this user's rating, in ranks: +0.23 is a bit under a
+     * quarter of a stone, and a player at 4k exactly who gains it stands at 4k +0.23.
+     *
+     * The game's own doing, and nothing else — not the difference between the ranks the
+     * player held at the two ends of it, which in a game that ran for months is mostly other
+     * games. Null for an unrated game and for a server that reports no such thing.
+     */
+    val ratingChange: Double? = null,
 )
 
 /**
@@ -110,6 +119,8 @@ data class PlayerDetail(
     /** Stones this player has captured so far. */
     val prisoners: Int? = null,
     val remainingTime: RemainingTime? = null,
+    /** What a finished, rated game did to this player's rating, in ranks. See [GameSummary]. */
+    val ratingChange: Double? = null,
 )
 
 /**

@@ -412,7 +412,7 @@ Recommended order, cheapest/lowest-risk first:
   games already fetched buys nothing. It is still a glance at how the last games went rather
   than an archive to browse — no paging, no search — and the tab carries no count, since
   fifteen would only ever be the limit. Rows put the outcome where a running game has its
-  clock: "Won by 12.5".
+  clock ("Won by 12.5"), with what the game did to the reader's rating under it.
 - The archive is fetched from `view=finished` the first time the tab is opened and then left
   alone — a finished game does not change, so polling it with every refresh would spend the
   server's quota on an answer already known. Ending a game (a resignation, an accepted
@@ -421,6 +421,20 @@ Recommended order, cheapest/lowest-risk first:
   stones (a what-if on a game that is over is exactly what a player wants), and it offers no
   Send, Pass, Resign or Skip. Its header carries the result instead of a clock, and the info
   sheet gains "Ended" and "Result" rows while losing the resign action.
+- **What the game did to the rating**, under the outcome, and in the info sheet for both
+  players, in the corner their clocks had. DGS reports it only when the request asks
+  (`with=ratingdiff`, on `cmd=info` and on the finished list) and only for finished games.
+- **The unit is ranks, shown to two places: "rating +0.23".** DGS counts a rating move in
+  hundredths of a stone — a player at 4k exactly who wins +0.23 stands at 4k +0.23, and two
+  more such wins put them past 3k. Those hundredths are the whole of what a single game is
+  worth, so they are never rounded away.
+- **The figure is DGS's own `rating_diff`, never the gap between `rating_start` and
+  `rating_end`.** Those two are the ranks the player held at the two ends of *this game*, and
+  a correspondence game runs for months: the gap between them is mostly other games. Showing
+  it as this game's doing produced "3k → 4k" on an unrated ladder game, which is how the
+  mistake was caught.
+- **An unrated game gets no line at all** — not "±0.00", which reads like a rounding error
+  rather than "this game was never going to move anything".
 - **A ladder position change is not shown, and cannot honestly be.** The ladder page carries
   today's standings, not the standings as they were when a given game ended, and a challenge
   settled weeks ago has had every game since moved through it. See
