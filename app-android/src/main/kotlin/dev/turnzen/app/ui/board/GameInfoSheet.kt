@@ -228,8 +228,11 @@ private fun PlayerLine(
  * rated, which is the one thing that actually tells two of them apart. An ordinary tournament
  * keeps its name: that one someone chose.
  *
- * For a casual game the row names both of the ways one starts, because DGS keeps nothing on
- * the game that tells a waiting-room pairing from an accepted invitation.
+ * A game in no competition at all is "Friendly" — the football and chess sense of a match that
+ * counts for nothing beyond itself. It says what the row is actually for (this game is part of
+ * nothing) without claiming how it was arranged, which DGS does not record: nothing on the game
+ * tells a waiting-room pairing from an accepted invitation. Not "casual", which players read as
+ * unrated, and a friendly game on DGS usually is rated.
  *
  * The event's kind ("Dragon Ladder", "Private Round Robin") is never shown: for a ladder it
  * repeats the label, and for anything else it repeats the tournament's own name.

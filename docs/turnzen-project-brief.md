@@ -459,17 +459,21 @@ Recommended order, cheapest/lowest-risk first:
   which serves the last move and gives up for a calendar date after a fortnight.
 - **What the game is part of is one row**, and the label carries the category so the value
   stays short: `Ladder  #3 · rated`, `Tournament  #365 · <name>`, or, for a game belonging to
-  no tournament, `Game  Waiting room or invitation`. A ladder is identified by its *number*,
+  no tournament, `Game  Friendly`. A ladder is identified by its *number*,
   and nothing else it is called is worth a character: "DGS Ladder (19x19)" is the word Ladder
   again, the server's own name, and the board size the row above already gives. Rated is the
   exception — it is what tells two otherwise identical ladders apart — and it is shown in both
   states, since "rated" alone would make an unrated ladder look like missing data. An ordinary
   tournament keeps its name; that one a person chose. The kind ("Dragon Ladder", "Private Round
-  Robin") is never shown: for a ladder it repeats the label, otherwise it repeats the name. The waiting-room/invitation wording names both possibilities because DGS keeps
-  nothing on the game that tells them apart — not `game_type` (always `GO` for a normal game),
-  not `flags`, not `shape_id`; the origin is simply not recorded on the game row. The row is
-  omitted entirely when the server did not describe the game at all (an offline reopen), since
-  "casual" would then be a guess rather than a fact.
+  Robin") is never shown: for a ladder it repeats the label, otherwise it repeats the name.
+- **"Friendly"** for a game in no competition, in the football and chess sense of a match that
+  counts for nothing beyond itself. It was first written as "Waiting room or invitation", which
+  tried to be exhaustive about an origin the server never stored, and read as uncertainty. DGS
+  keeps nothing on the game that tells a waiting-room pairing from an accepted invitation — not
+  `game_type` (always `GO` for a normal game), not `flags`, not `shape_id` — so the row says
+  what the game *is* rather than how it came about. Not "casual", which players read as unrated,
+  and a friendly game on DGS is usually rated. The row is omitted entirely when the server did
+  not describe the game at all (an offline reopen), where any of these words would be a guess.
 - The tournament's *name is not in that payload*; only `tournament_id` is. It is in the SGF,
   which the client downloads for the moves anyway: DGS writes the standard SGF header
   properties `EV[(Dragon Ladder) Tournament #3: DGS Ladder (19x19)]` and `RO[Round 1 of 1]`

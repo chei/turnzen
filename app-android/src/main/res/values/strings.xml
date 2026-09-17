@@ -83,8 +83,9 @@
     <string name="info_started">Started</string>
     <string name="info_tournament">Tournament</string>
     <string name="info_game">Game</string>
-    <!-- DGS records no difference between the two, so the row names both possibilities. -->
-    <string name="info_game_casual">Waiting room or invitation</string>
+    <!-- A game belonging to no competition, however it was arranged. Not "casual", which
+         would be read as unrated: a friendly game on DGS is usually rated. -->
+    <string name="info_game_casual">Friendly</string>
     <string name="info_event_id">#%1$s</string>
     <!-- Lower case: these land inside the ladder row, as "#3 · rated". -->
     <string name="info_rated">rated</string>
