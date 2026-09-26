@@ -308,6 +308,22 @@ Use tabular figures for time and move counts so columns don't jitter.
   <server>" (accent), and Resign last, the only `urgent` thing in the sheet, confirmed with
   an `urgent` confirm button because it cannot be undone. Nothing in the sheet is needed to
   play a move.
+- **Comments** sit at the bottom of the board screen, below the action row, and show what
+  the players wrote with the move on show: at the current position of a running game that is
+  the opponent's message with their last move, which is the one that matters. Inside a trial
+  the move it branched from stays the one on show, so the message remains readable while the
+  answer is worked out. Below everything that is operated, because a comment comes and goes
+  while scrubbing and must never move a button under the thumb. Each is headed by its writer
+  in `ink` 600 — "You" or the opponent's handle, never a colour — with the text in body size
+  below; consecutive parts by the same writer share one heading. A part not everyone can
+  read yet carries one `ink2` line saying so ("hidden until the game ends", "secret until the
+  game ends", "only you can see this"), because its writer is the one person who sees it and
+  must not mistake it for said; the line goes once the game is over. Public and players-only
+  parts carry nothing: the difference is real but not worth a label on every message.
+- **A comment is written in the move's confirmation**, as an underlined field like the
+  sign-in ones, labelled "Comment (optional)", under the explanation. Both Send and Pass
+  offer it; resigning does not. What is typed survives a failed send (Send is the retry) and
+  is cleared once the move is sent. See `09-board-comment.svg` and `09b-send-with-comment.svg`.
 - **Say what the app cannot do, before the move rather than after it.** Passing when the
   opponent has already passed ends the game and starts scoring, which Turnzen has no screen
   for; the confirmation says so and names the server where it can be finished.

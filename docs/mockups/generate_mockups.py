@@ -442,6 +442,40 @@ def screen_board_header_two_servers():
     return s + bottom_nav("Games") + "</svg>"
 
 
+def screen_board_comment(dialog=False):
+    """The board with the opponent's message under the action row, and the send confirmation
+    with its comment field."""
+    s = frame_open() + status_bar()
+    s += header_game("mkvtl", "7k", "black", 12, "22 h")
+    trial = (("E6", "B"),) if dialog else ()
+    b, yend = board(9, 104, STONES_9, LAST_9, trial, trial_mode=dialog)
+    s += b
+    y = yend + 20
+    s += move_nav(y, 13 if dialog else 12, live=not dialog, forward_enabled=dialog)
+    y += 60
+    bw = (W - 40 - 12) / 2
+    s += button(20, y, bw, 48, "Skip")
+    s += button(20 + bw + 12, y, bw, 48, "Send E6" if dialog else "Send", primary=True, disabled=not dialog)
+    # Comments: below everything that is operated, so they never move a button.
+    y += 48 + 16 + 18
+    s += text(20, y, "mkvtl", 14, 600)
+    s += text(20, y + 22, "I wasn't sure about that last one.", 16)
+    s += text(20, y + 44, "We'll see. Your move!", 16)
+    if dialog:
+        s += f'<rect width="{W}" height="{H}" fill="#000000" fill-opacity="0.32"/>'
+        dx, dy, dw, dh = 24, 250, W - 48, 290
+        s += f'<rect x="{dx}" y="{dy}" width="{dw}" height="{dh}" rx="28" fill="{BG}"/>'
+        s += text(dx + 24, dy + 44, "Send E6?", 20, 400)
+        s += text(dx + 24, dy + 80, "Only this move is sent. The other trial", 14, 400, INK2)
+        s += text(dx + 24, dy + 100, "stones stay on your device.", 14, 400, INK2)
+        s += text(dx + 24, dy + 140, "Comment (optional)", 14, 400, INK2)
+        s += text(dx + 24, dy + 176, "Thanks, I think it holds", 16)
+        s += f'<rect x="{dx + 24}" y="{dy + 190}" width="{dw - 48}" height="2" fill="{ACCENT}"/>'
+        s += text(dx + dw - 128, dy + dh - 30, "Cancel", 14, 500, INK, "end")
+        s += text(dx + dw - 24, dy + dh - 30, "Send E6", 14, 500, ACCENT, "end")
+    return s + bottom_nav("Games") + "</svg>"
+
+
 screens = {
     "01-signin": screen_signin(),
     "02-games-your-move": screen_games(),
@@ -460,6 +494,8 @@ screens.update({
     "06c-signin-both-signed-in": screen_signin_two_servers(ogs_in=True, dgs_in=True),
     "07-settings-two-servers": screen_settings_two_servers(),
     "08-board-server-dot": screen_board_header_two_servers(),
+    "09-board-comment": screen_board_comment(),
+    "09b-send-with-comment": screen_board_comment(dialog=True),
 })
 use_palette(DARK)
 screens.update({

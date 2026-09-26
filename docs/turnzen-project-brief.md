@@ -158,6 +158,9 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   means the session expired and requires re-login.
 - **SGF export is a separate, non-JSON endpoint**: `sgf.php?gid=<id>&owned_comments=1&quick_mode=1`,
   returning raw SGF text lines (lines starting with `[` are filtered out — likely headers).
+  `owned_comments` decides whose view the file is written for: `1` a player's (their move
+  messages, private parts included, plus their private game notes), `0` an observer's (public
+  parts only), `N` none at all. How the messages sit in the file is under "Comments".
 - **The scoring phase** (verified against `specs/quick_suite.txt`, September 2026):
   `quick_do.php?obj=game&cmd=status_score&gid=&move_id=&move=<coords>&toggle=uniq&fmt=,`
   is a *read*: it returns `ruleset`, `score` ("B+2.5", "0" for jigo, "VOID", or "W+R"/"B+T"/
@@ -261,7 +264,8 @@ for it.
 - **Non-square boards** (OGS allows e.g. 19×9) are not supported: such a game is listed,
   but its row opens the game on the web instead of the board.
 - Conditional moves and game chat exist on OGS (websocket `game/conditional_moves/set`,
-  `game/chat`); both are future work, like DGS move comments.
+  `game/chat`). Conditional moves are future work; the players' chat is read and written as
+  of September 2026 — see "Comments".
 
 ### Accounts and sign-in
 
@@ -429,6 +433,75 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
    loopback, overview parsing, clock-to-duration, rank formatting, websocket send/resign.
 3. App wiring (multi-client ViewModels, server-keyed games), then the UI to the approved
    mockups.
+
+## Comments (September 2026)
+
+Post-MVP item 5, on both servers at once. The user asked for it in two steps — the shared
+model, DGS and the board first, OGS second — and both are done.
+
+### What the servers have
+
+The two servers mean different things by a comment, and the model is cut to fit both:
+
+- **DGS: a message belongs to a move.** QuickSuite's `move` (and `pass`, `resign`, `score`,
+  `set_handicap`) take an optional `msg`; the server stores it with that move. It can only be
+  written by the player to move, together with the move. It is read back from the SGF
+  download, as the `C` of that move's node — bare text, no name in front, in a two-player
+  game. Parts of a message can be addressed differently with tags written into the text:
+  `<c>…</c>` (`<comment>`) public, `<h>…</h>` (`<hidden>`) the writer's alone until the game
+  ends and public after, `<m>…</m>` (`<mysecret>`) the writer's alone until the end and then
+  the opponent's too, never observers'. Untagged text is for the two players. The server has
+  already removed what the viewer may not read; what is left keeps its tags. Found by reading
+  the server's SGF builder and game-comment helper (AGPL, read only; nothing copied).
+- **OGS: chat is its own stream beside the game.** A line is sent with the realtime
+  `game/chat` command (`game_id`, `type`, `move_number`, `body`), whoever's turn it is, and
+  arrives as a `game/<id>/chat` event (`{channel, line: {chat_id, body, date, move_number,
+  player_id, username}}`). There is no REST call for one game's chat: joining the game with
+  `game/connect {chat: true}` makes the server replay the history as chat events, with no
+  marker for where the replay ends and no promise that it comes before or after `gamedata`.
+  Channels: `main` (the players; observers read it), `malkovich` (hidden from the opponent
+  until the end), `personal` (a note to self), `spectator` (observers). Read from the
+  protocol types of the goban library (Apache-2.0) and the OGS web client (AGPL, read only).
+
+### Decisions
+
+- **One shared shape**: `GameComment(afterMove, by, text, visibility)`, pinned to a move
+  count of the record (0 = before the first move), written by one of the two players.
+  `CommentVisibility` names the reader's situation — `EVERYONE`, `PLAYERS`,
+  `HIDDEN_UNTIL_END`, `SECRET_UNTIL_END`, `WRITER_ONLY` — and each server maps onto it. A DGS
+  message with tagged parts becomes several comments in the order written.
+- **Only the players' own words.** DGS's scoring summary on the result node, the root
+  comment of a shape game and the appended game notes are dropped; OGS observers (the
+  `spectator` channel, and anyone but the two players in `main`) are left out. Showing
+  observers' chat would be a separate, deliberate feature.
+- **Reading: free where it is free, asked for where it costs.** `GameDetail.comments` is
+  filled by DGS, whose messages come in the SGF already downloaded. OGS leaves it null and
+  `TurnBasedGoServerClient.comments(id)` fetches them: a realtime connection per game
+  opening, which is why it is not part of `game()`. The board asks for them after the game
+  loads, every time it is opened (a chat line can arrive without a move), and a failure shows
+  nothing rather than a problem — they are decoration to the job of the screen.
+- **The end of the OGS replay is found by silence**: after joining, the client reads until
+  the socket has been quiet for a second (at most eight). A correspondence game sends no
+  clock ticks to break that silence. A `reset-chats` event discards what came before; lines
+  are de-duplicated by `chat_id`.
+- **Writing: a comment goes with a move**, as a field in the send (and pass) confirmation.
+  `sendMove(…, comment)`. On DGS it is the move's `msg`, in the same request. On OGS it is a
+  `main` chat line sent right after the server has echoed the move, with `move_number` = the
+  move just played, and the client waits (at most ten seconds) for it to come back. The move
+  is already made by then, so a chat line that fails or does not come back is not reported
+  as a failed send. Off-turn chat (possible on OGS only) is not offered yet.
+- **DGS's own view needs `owned_comments=1`**, which also appends the user's private game
+  notes to the last node as `Notes - <name as in PB/PW>:`. They are cut off under the user's
+  own name only, so a message that happens to contain the words stays whole.
+
+### Not verified against the live servers
+
+Neither server could be reached from the environment this was built in, so the fixtures
+are written from the sources above rather than recorded: `game_1000001_comments.sgf` in
+`:core-dgs`, and the chat frames in `OgsClientTest`. To confirm with real captures: DGS's
+notes block and tag handling; on OGS, that a replay really arrives within the quiet window,
+the exact `move_number` convention in handicap games, and that a player's own `main` line is
+echoed back to them.
 
 ## Licensing
 
@@ -748,8 +821,9 @@ Recommended order, cheapest/lowest-risk first:
 
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)
 
-5. **Move comment** — a text field added to the send confirmation, plus display of
-   existing per-move comments / in-game messages on the board screen (DGS supports both).
+5. **Move comment** — *done (September 2026)*: a text field in the send and pass
+   confirmations, and the players' comments at the move on show below the action row, on DGS
+   and OGS alike. See "Comments".
 6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed
    (irreversible; must not be reachable by accident). A resigned game leaves both lists and
    the record cache, and the board closes back to the list rather than stepping the queue on,
