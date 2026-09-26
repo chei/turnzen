@@ -4,6 +4,7 @@ import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.sgf.SgfCoordinates
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -22,6 +23,7 @@ import dev.turnzen.ogs.net.OgsSocketConnector
 import dev.turnzen.ogs.net.OgsTransportException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
@@ -71,6 +73,12 @@ class OgsClient(
 
         /** Finished games are filtered to correspondence, so ask for more than will be shown. */
         private const val FINISHED_PAGE = 50
+
+        /** The longest a chat history replay is waited for; it normally ends well within a second. */
+        private const val CHAT_REPLAY_MILLIS = 8_000L
+
+        /** How long a comment sent after a move is given to come back from the server. */
+        private const val CHAT_ECHO_MILLIS = 10_000L
     }
 
     @Serializable
@@ -246,7 +254,11 @@ class OgsClient(
                 Move.Pass -> ".."
                 is Move.Play -> SgfCoordinates.encode(move.point)
             }
-        inGame(id, token) {
+        val message = comment?.trim().orEmpty()
+        val me = if (message.isEmpty()) null else myId()
+        // Chat on only when there is something to say: it is what lets the comment's own
+        // echo be seen, and otherwise just brings the whole history along for nothing.
+        inGame(id, token, chat = me != null) { gamedata ->
             send(
                 "game/move",
                 buildJsonObject {
@@ -255,15 +267,64 @@ class OgsClient(
                 },
             )
             awaitEvent("move")
+            if (me != null) {
+                val played = (gamedata.arr("moves")?.size ?: token.value.toIntOrNull() ?: 0) + 1
+                sayAfterMove(message, played, me)
+            }
         }
         overview = null
     }
+
+    /**
+     * Posts [message] to the game chat, pinned to the move just played, and waits for it to
+     * come back. OGS has no message that belongs to a move, so this is the nearest thing: the
+     * players' chat line, written at that move.
+     *
+     * The move is already made when this runs, so nothing here may fail it. A chat line that
+     * does not come back in time is left to the server; the socket carried it either way.
+     */
+    private suspend fun OgsRealtime.GameConnection.sayAfterMove(
+        message: String,
+        moveNumber: Int,
+        me: Long,
+    ) {
+        send(
+            "game/chat",
+            buildJsonObject {
+                put("game_id", JsonPrimitive(gameId))
+                put("type", JsonPrimitive("main"))
+                put("move_number", JsonPrimitive(moveNumber))
+                put("body", JsonPrimitive(message))
+            },
+        )
+        try {
+            withTimeoutOrNull(CHAT_ECHO_MILLIS) {
+                while (true) {
+                    val line = (awaitEvent("chat") as? JsonObject)?.obj("line") ?: continue
+                    if (line.long("player_id") == me && line.str("body") == message) break
+                }
+            }
+        } catch (e: GoServerException) {
+            // Best effort, as above.
+        }
+    }
+
+    /**
+     * The game chat, read by joining the game with chat on and letting the server replay its
+     * history. OGS has no REST call for one game's chat, so this costs a realtime connection
+     * of a second or two — which is why [game] leaves it out and the caller asks separately.
+     */
+    override suspend fun comments(id: GameId): List<GameComment> =
+        inGame(id, token = null, chat = true) { gamedata ->
+            val events = settleChat(CHAT_REPLAY_MILLIS)
+            OgsChat.comments(events, gamedata, moveCount = gamedata.arr("moves")?.size ?: 0)
+        }
 
     override suspend fun resign(
         id: GameId,
         token: MoveToken,
     ) {
-        inGame(id, token) {
+        inGame(id, token) { _ ->
             send("game/resign", buildJsonObject { put("game_id", JsonPrimitive(gameId)) })
             while (true) {
                 val (name, data) = awaitAnyEvent("phase", "gamedata")
@@ -320,22 +381,24 @@ class OgsClient(
 
     /**
      * Joins the game on the realtime connection, and refuses to act when the game is no
-     * longer the one the user decided on: [token] is the move count they saw.
+     * longer the one the user decided on: [token] is the move count they saw. Reading needs
+     * no such check, and passes no token.
      */
-    private suspend fun inGame(
+    private suspend fun <T> inGame(
         id: GameId,
-        token: MoveToken,
-        action: suspend OgsRealtime.GameConnection.() -> Unit,
-    ) {
+        token: MoveToken?,
+        chat: Boolean = false,
+        action: suspend OgsRealtime.GameConnection.(gamedata: JsonObject) -> T,
+    ): T {
         val jwt =
             api("/api/v1/ui/config/").str("user_jwt") ?: throw GoServerException.Protocol("OGS sent no realtime token")
         val gameId = id.value.toLongOrNull() ?: throw GoServerException.Protocol("Not an OGS game id: ${id.value}")
-        realtime.inGame(jwt, gameId) { gamedata ->
+        return realtime.inGame(jwt, gameId, chat) { gamedata ->
             val moves = gamedata.arr("moves")?.size
-            if (moves != null && token.value.isNotEmpty() && moves.toString() != token.value) {
+            if (token != null && moves != null && token.value.isNotEmpty() && moves.toString() != token.value) {
                 throw GoServerException.StaleGame()
             }
-            action()
+            action(gamedata)
         }
     }
 
