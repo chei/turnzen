@@ -12,7 +12,9 @@ import dev.turnzen.game.ResultReason
 import dev.turnzen.game.Scoring
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.CommentVisibility
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameInfo
@@ -40,7 +42,8 @@ import java.time.Instant
  *
  * The demo build runs two of these, standing in for DGS and OGS, so a mixed games list can
  * be seen without accounts. [browserSignIn] makes one behave like OGS: it signs in "in the
- * browser", which here simply succeeds.
+ * browser", which here simply succeeds, and its comments are a request of their own rather
+ * than part of the game.
  */
 class FakeTurnBasedGoServerClient(
     private val latencyMillis: Long = 300,
@@ -80,6 +83,7 @@ class FakeTurnBasedGoServerClient(
         var finished: Boolean = false,
         /** What the finished game did to the demo user's rating, in ranks. */
         var ratingChange: Double? = null,
+        val comments: MutableList<GameComment> = mutableListOf(),
     )
 
     // Split between the two demo servers when asked, so each has games of its own and the
@@ -157,19 +161,30 @@ class FakeTurnBasedGoServerClient(
         delay(latencyMillis)
         requireSession()
         val g = find(id)
-        return GameDetail(g.summary(), g.record, g.info())
+        // Like OGS, the browser-signed-in server keeps its chat apart from the game.
+        return GameDetail(g.summary(), g.record, g.info(), if (browserSignIn) null else g.comments.toList())
+    }
+
+    override suspend fun comments(id: GameId): List<GameComment> {
+        delay(latencyMillis)
+        requireSession()
+        return find(id).comments.toList()
     }
 
     override suspend fun sendMove(
         id: GameId,
         token: MoveToken,
         move: Move,
+        comment: String?,
     ) {
         delay(latencyMillis)
         requireSession()
         val g = find(id)
         if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
         val opponentColor = g.myColor.opposite
+        comment?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            g.comments += GameComment(g.record.moves.size + 1, g.myColor, it)
+        }
         g.record =
             g.record.copy(
                 moves = g.record.moves + ColoredMove(g.myColor, move) + ColoredMove(opponentColor, Move.Pass),
@@ -416,6 +431,21 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofMinutes(18)),
                 remaining = RemainingTime("3d 4h", Duration.ofDays(3).plusHours(4), "+ 1d * 10"),
+                comments =
+                    mutableListOf(
+                        GameComment(2, StoneColor.WHITE, "Hi, have a good game!"),
+                        GameComment(
+                            record.moves.size,
+                            StoneColor.WHITE,
+                            "I wasn't sure about O14. We'll see.",
+                        ),
+                        GameComment(
+                            record.moves.size,
+                            StoneColor.WHITE,
+                            "Nice fight in the top right",
+                            CommentVisibility.EVERYONE,
+                        ),
+                    ),
             )
         }
 
@@ -459,6 +489,7 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Instant.now().minus(Duration.ofDays(1)),
                 remaining = RemainingTime("5d", Duration.ofDays(5), "+ 1d"),
+                comments = mutableListOf(GameComment(record.moves.size, StoneColor.WHITE, "Your move, Demo!")),
             )
         }
 

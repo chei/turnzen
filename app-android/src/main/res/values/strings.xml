@@ -81,6 +81,11 @@
     <string name="board_resign_question">Resign?</string>
     <string name="board_resign_explain">You give the game up. This can\'t be undone.</string>
     <string name="board_sending">Sending…</string>
+    <string name="board_comment_label">Comment (optional)</string>
+    <string name="board_comment_you">You</string>
+    <string name="comment_hidden_until_end">hidden until the game ends</string>
+    <string name="comment_secret_until_end">secret until the game ends</string>
+    <string name="comment_writer_only">only you can see this</string>
 
     <string name="score_hint_mark">Tap a group to mark it dead.</string>
     <string name="score_hint_changed">Your marks are on this device until you send them.</string>
