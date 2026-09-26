@@ -14,6 +14,7 @@ import dev.turnzen.game.Point
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -694,6 +695,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                         id: GameId,
                         token: MoveToken,
                         move: Move,
+                        comment: String?,
                     ): Unit = throw GoServerException.MoveRejected("not_your_turn", "not your turn")
 
                     override suspend fun gamesAwaitingMe(): List<GameSummary> {
@@ -729,6 +731,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                         id: GameId,
                         token: MoveToken,
                         move: Move,
+                        comment: String?,
                     ): Unit = throw GoServerException.MoveRejected("ko", "ko")
                 }
             val h = Harness(rejecting)
@@ -754,6 +757,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                         id: GameId,
                         token: MoveToken,
                         move: Move,
+                        comment: String?,
                     ): Unit = throw GoServerException.Unreachable("offline")
                 }
             val h = Harness(failing)
@@ -769,6 +773,154 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertEquals(1, s.trialMoves.size)
             assertTrue(s.canSend)
             assertTrue(h.sent.isEmpty())
+        }
+
+    @Test
+    fun `the opponent's message is on show at the current position`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(
+                listOf("Your move, Demo!"),
+                h.vm.state.value.commentsAtCursor
+                    .map { it.text },
+            )
+
+            // It belongs to the move it came with: one step back and it is gone...
+            h.vm.stepBack()
+            assertEquals(emptyList(), h.vm.state.value.commentsAtCursor)
+
+            // ...while a trial stone tried in answer to it keeps it in view.
+            h.vm.toCurrent()
+            h.vm.onTap(Point(0, 0))
+            assertEquals(
+                listOf("Your move, Demo!"),
+                h.vm.state.value.commentsAtCursor
+                    .map { it.text },
+            )
+        }
+
+    @Test
+    fun `a comment goes with the move and is then cleared`() =
+        runTest(dispatcher) {
+            val comments = ArrayList<String?>()
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val recording =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                        comment: String?,
+                    ) {
+                        comments += comment
+                        fake.sendMove(id, token, move, comment)
+                    }
+                }
+            val h = Harness(recording)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.askSend()
+            h.vm.onCommentChange("  Thanks, you too  ")
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals(listOf<String?>("Thanks, you too"), comments)
+            assertEquals("", h.vm.state.value.commentDraft)
+        }
+
+    @Test
+    fun `a move without a comment sends none`() =
+        runTest(dispatcher) {
+            val comments = ArrayList<String?>()
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val recording =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                        comment: String?,
+                    ) {
+                        comments += comment
+                    }
+                }
+            val h = Harness(recording)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.askPass()
+            h.vm.onCommentChange("   ")
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals(listOf<String?>(null), comments)
+        }
+
+    @Test
+    fun `a failed send keeps the comment for the retry`() =
+        runTest(dispatcher) {
+            val failing =
+                object : TurnBasedGoServerClient by FakeTurnBasedGoServerClient(latencyMillis = 0) {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                        comment: String?,
+                    ): Unit = throw GoServerException.Unreachable("offline")
+                }
+            val h = Harness(failing)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.askSend()
+            h.vm.onCommentChange("good luck")
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals("good luck", h.vm.state.value.commentDraft)
+        }
+
+    @Test
+    fun `comments a server keeps apart from the game are asked for after it loads`() =
+        runTest(dispatcher) {
+            var asked = 0
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0, browserSignIn = true)
+            val counting =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun comments(id: GameId): List<GameComment> {
+                        asked++
+                        return fake.comments(id)
+                    }
+                }
+            val h = Harness(counting)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(1, asked)
+            assertEquals(
+                listOf("Your move, Demo!"),
+                h.vm.state.value.commentsAtCursor
+                    .map { it.text },
+            )
+        }
+
+    @Test
+    fun `comments that cannot be read leave the board alone`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0, browserSignIn = true)
+            val failing =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun comments(id: GameId): List<GameComment> =
+                        throw GoServerException.Unreachable("offline")
+                }
+            val h = Harness(failing)
+            h.start(game)
+            advanceUntilIdle()
+            val s = h.vm.state.value
+            assertNull(s.problem)
+            assertEquals(12, s.moveCount)
+            assertEquals(emptyList(), s.commentsAtCursor)
         }
 
     @Test

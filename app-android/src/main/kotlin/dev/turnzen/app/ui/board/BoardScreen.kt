@@ -26,11 +26,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +61,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -79,6 +83,8 @@ import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoreCount
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.CommentVisibility
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.delay
@@ -322,6 +328,21 @@ fun BoardScreen(
                 }
             }
         }
+
+        // What the players wrote with the move on show. Below everything that is operated,
+        // so a comment appearing or going away while scrubbing never moves a button.
+        val commenter = state.headerSummary
+        val comments = state.commentsAtCursor
+        if (commenter != null && comments.isNotEmpty()) {
+            Spacer(Modifier.height(16.dp))
+            Comments(
+                comments = comments,
+                you = commenter.myColor,
+                opponent = commenter.opponent.handle,
+                finished = state.isFinished,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
         Spacer(Modifier.height(24.dp))
     }
 
@@ -353,6 +374,8 @@ fun BoardScreen(
                 confirmLabel = "${stringResource(R.string.board_send)} ${state.sendLabel}",
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
+                comment = state.commentDraft,
+                onCommentChange = viewModel::onCommentChange,
             )
         }
 
@@ -370,6 +393,8 @@ fun BoardScreen(
                 confirmLabel = stringResource(R.string.board_pass),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
+                comment = state.commentDraft,
+                onCommentChange = viewModel::onCommentChange,
             )
         }
 
@@ -1077,6 +1102,66 @@ private fun Chevron(modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * The comments at the cursor, each under its writer's name: "You" or the opponent's handle,
+ * never a colour, as everywhere else the board speaks from the reader's seat. A part not
+ * everyone can read yet says so, because its writer is the one person who sees it and
+ * should not mistake it for said.
+ */
+@Composable
+private fun Comments(
+    comments: List<GameComment>,
+    you: StoneColor,
+    opponent: String,
+    finished: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        comments.forEachIndexed { index, comment ->
+            // One writer's parts in a row read as one message, so the name is not repeated.
+            val sameWriter = index > 0 && comments[index - 1].by == comment.by
+            Column {
+                if (!sameWriter) {
+                    Text(
+                        if (comment.by == you) stringResource(R.string.board_comment_you) else opponent,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = colors.ink,
+                    )
+                }
+                Text(comment.text, style = MaterialTheme.typography.bodyLarge, color = colors.ink)
+                commentAudience(comment.visibility, finished)?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+                }
+            }
+        }
+    }
+}
+
+/** Only the audiences worth a warning; a hidden part stops being hidden when the game ends. */
+@Composable
+private fun commentAudience(
+    visibility: CommentVisibility,
+    finished: Boolean,
+): String? =
+    when (visibility) {
+        CommentVisibility.HIDDEN_UNTIL_END -> {
+            if (finished) null else stringResource(R.string.comment_hidden_until_end)
+        }
+
+        CommentVisibility.SECRET_UNTIL_END -> {
+            if (finished) null else stringResource(R.string.comment_secret_until_end)
+        }
+
+        CommentVisibility.WRITER_ONLY -> {
+            stringResource(R.string.comment_writer_only)
+        }
+
+        CommentVisibility.EVERYONE, CommentVisibility.PLAYERS -> {
+            null
+        }
+    }
+
 @Composable
 private fun Confirmation(
     title: String,
@@ -1085,6 +1170,9 @@ private fun Confirmation(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     confirmColor: Color = colors.accent,
+    /** Non-null for a move, which can carry a message: the field shows what is typed. */
+    comment: String? = null,
+    onCommentChange: (String) -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1092,7 +1180,12 @@ private fun Confirmation(
         titleContentColor = colors.ink,
         textContentColor = colors.ink2,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(text, style = MaterialTheme.typography.bodyMedium)
+                if (comment != null) CommentField(comment, onCommentChange)
+            }
+        },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = confirmColor) } },
         dismissButton = {
             TextButton(
@@ -1100,4 +1193,38 @@ private fun Confirmation(
             ) { Text(stringResource(R.string.board_cancel), color = colors.ink) }
         },
     )
+}
+
+/** An underlined field like the sign-in ones, growing to a few lines for a longer message. */
+@Composable
+private fun CommentField(
+    value: String,
+    onChange: (String) -> Unit,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Text(
+            stringResource(R.string.board_comment_label),
+            style = MaterialTheme.typography.bodyMedium,
+            color = colors.ink2,
+        )
+        TextField(
+            value = value,
+            onValueChange = onChange,
+            maxLines = 4,
+            textStyle = MaterialTheme.typography.bodyLarge,
+            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+            colors =
+                TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    disabledContainerColor = Color.Transparent,
+                    focusedIndicatorColor = colors.accent,
+                    unfocusedIndicatorColor = colors.line,
+                    cursorColor = colors.accent,
+                    focusedTextColor = colors.ink,
+                    unfocusedTextColor = colors.ink,
+                ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }

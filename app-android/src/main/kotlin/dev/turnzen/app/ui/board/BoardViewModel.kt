@@ -21,6 +21,7 @@ import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.game.TrialOutcome
 import dev.turnzen.game.TrialVariation
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -160,6 +161,14 @@ data class BoardUiState(
      * challenge — or whose standing could not be read, which is not worth telling anyone.
      */
     val ladderStanding: LadderStanding? = null,
+    /**
+     * The players' comments, oldest first. Null until known: a server that brings them with
+     * the game has them here as soon as the record is, one that needs asking (OGS) a moment
+     * later — and a game whose comments could not be read simply shows none.
+     */
+    val comments: List<GameComment>? = null,
+    /** What the user has typed to go with their next move. Kept when a send fails. */
+    val commentDraft: String = "",
 ) {
     /** The game is being counted, so the board marks dead stones instead of trying moves. */
     val isScoring: Boolean
@@ -311,6 +320,18 @@ data class BoardUiState(
             }
         }
 
+    /**
+     * The comments written with the game move on show, which is the most recent move the
+     * board's line shares with the game: inside a trial that is the move it branched from, so
+     * the opponent's message stays in view while the answer to it is being worked out. At the
+     * current position of a running game this is what the opponent said with their last move.
+     */
+    val commentsAtCursor: List<GameComment>
+        get() {
+            val at = minOf(cursor, trialStart)
+            return comments?.filter { it.afterMove == at }.orEmpty()
+        }
+
     /** The opponent's last move was a pass, so they have offered to end the game. */
     val opponentPassed: Boolean
         get() =
@@ -391,9 +412,11 @@ class BoardViewModel(
                     trialStart = replay.moveCount,
                     cursor = openingCursor(replay, known.summary),
                     scoring = null,
+                    comments = known.comments ?: it.comments,
                 )
             }
             loadScoreIfCounting()
+            loadCommentsIfSeparate(known)
             warmNext()
             return
         }
@@ -424,12 +447,34 @@ class BoardViewModel(
                         trialStart = replay.moveCount,
                         cursor = openingCursor(replay, detail.summary),
                         scoring = null,
+                        comments = detail.comments ?: current.comments,
                     )
                 }
                 loadScoreIfCounting()
+                loadCommentsIfSeparate(detail)
                 warmNext()
             } catch (e: GoServerException) {
                 _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
+            }
+        }
+    }
+
+    /**
+     * Asks for the comments when the server keeps them apart from the game (OGS chat), each
+     * time the game is opened: a message can arrive without a move, so the record being
+     * current says nothing about them. Whatever was shown before stays until the answer is in.
+     *
+     * Decoration, like the ladder standing: a failure leaves the board as it is and says
+     * nothing, since the board and its problem line are about playing, not reading.
+     */
+    private fun loadCommentsIfSeparate(detail: GameDetail) {
+        if (detail.comments != null) return
+        viewModelScope.launch {
+            try {
+                val comments = session.call { it.comments(gameId) }
+                _state.update { it.copy(comments = comments) }
+            } catch (e: GoServerException) {
+                // Nothing to show is the honest answer; the game itself loaded fine.
             }
         }
     }
@@ -728,6 +773,9 @@ class BoardViewModel(
 
     fun cancelConfirmation() = _state.update { it.copy(confirmation = null) }
 
+    /** The comment field in the send and pass confirmations. */
+    fun onCommentChange(text: String) = _state.update { it.copy(commentDraft = text) }
+
     fun confirm() {
         val s = _state.value
         when (s.confirmation) {
@@ -789,11 +837,16 @@ class BoardViewModel(
 
     private fun send(move: Move) {
         val detail = _state.value.detail ?: return
+        val comment =
+            _state.value.commentDraft
+                .trim()
+                .ifEmpty { null }
         _state.update { it.copy(confirmation = null, sending = true, notice = null) }
         viewModelScope.launch {
             try {
-                session.call { it.sendMove(gameId, detail.summary.moveToken, move) }
-                _state.update { it.copy(sending = false) }
+                session.call { it.sendMove(gameId, detail.summary.moveToken, move, comment) }
+                // Said and gone with the move; a failed send keeps it for the retry instead.
+                _state.update { it.copy(sending = false, commentDraft = "") }
                 // A short beat before auto-advancing to the next game, so the send does
                 // not feel like an instant, unexplained jump.
                 delay(600)
