@@ -149,11 +149,14 @@ class DgsClient(
         // Same payload, read twice: the summary is what every screen needs, the info is the
         // rest of what DGS already told us (ruleset, komi, both clocks, captures, tournament).
         val info = GameInfoParser.parse(game)
+        // owned_comments=1 is what brings the players' own messages: without it DGS writes
+        // the SGF for an observer, who gets only the public parts. It also appends the user's
+        // private game notes, which DgsComments cuts off again.
         val sgf =
             send(
                 HttpRequest(
                     HttpMethod.GET,
-                    url("sgf.php", "gid" to id.value, "owned_comments" to "N", "quick_mode" to "1", "no_cache" to "1"),
+                    url("sgf.php", "gid" to id.value, "owned_comments" to "1", "quick_mode" to "1", "no_cache" to "1"),
                 ),
             )
         val body = sgf.body
@@ -172,19 +175,22 @@ class DgsClient(
         // same game, so the info is completed here rather than in either parser alone.
         val completed =
             info.copy(tournament = DgsTournament.merge(info.tournament, sgfGame.rootProperties))
-        return GameDetail(summary, sgfGame.record, completed)
+        return GameDetail(summary, sgfGame.record, completed, DgsComments.parse(sgfGame, summary.myColor))
     }
 
     override suspend fun sendMove(
         id: GameId,
         token: MoveToken,
         move: Move,
+        comment: String?,
     ) {
         val encoded =
             when (move) {
                 Move.Pass -> "pass"
                 is Move.Play -> SgfCoordinates.encode(move.point)
             }
+        // A DGS message is part of the move: it goes in the same request and is stored with it.
+        val message = comment?.trim().orEmpty()
         quickDo(
             method = HttpMethod.POST,
             "obj" to "game",
@@ -192,6 +198,7 @@ class DgsClient(
             "gid" to id.value,
             "move_id" to token.value,
             "move" to encoded,
+            *(if (message.isEmpty()) emptyArray() else arrayOf("msg" to message)),
         )
     }
 
