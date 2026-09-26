@@ -65,13 +65,26 @@ interface TurnBasedGoServerClient {
     suspend fun game(id: GameId): GameDetail
 
     /**
+     * The players' comments in a game, oldest first, for a server whose [game] does not bring
+     * them along ([GameDetail.comments] is null). A request of its own, so the caller decides
+     * whether it is worth one; the default answers nothing, for a server with no comments.
+     */
+    suspend fun comments(id: GameId): List<GameComment> = emptyList()
+
+    /**
      * Sends exactly one move. [token] must be the one returned with the game state the
      * move was decided on; the server rejects it with [GoServerException.StaleGame] otherwise.
+     *
+     * [comment], when there is one, is the player's message to go with the move. Where the
+     * server keeps a message as part of the move (DGS) it travels in the same request. Where a
+     * message is a thing of its own (OGS chat) it follows the move, and failing to deliver it
+     * does not fail a move the server has already accepted.
      */
     suspend fun sendMove(
         id: GameId,
         token: MoveToken,
         move: Move,
+        comment: String? = null,
     )
 
     /**
