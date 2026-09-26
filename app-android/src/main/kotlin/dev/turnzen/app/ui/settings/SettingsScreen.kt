@@ -30,12 +30,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
+import dev.turnzen.app.data.Accounts
+import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.ThemeMode
 import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.signin.AccountPanels
+import dev.turnzen.app.ui.signin.KeepAwake
 import dev.turnzen.app.ui.theme.colors
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    accounts: Accounts,
+    games: GamesStore,
+    browserSignInAvailable: Boolean,
+    keepAwake: KeepAwake,
+) {
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
     var choosingTheme by remember { mutableStateOf(false) }
@@ -52,10 +62,10 @@ fun SettingsScreen(viewModel: SettingsViewModel) {
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
         )
 
-        Group(stringResource(R.string.settings_group_account)) {
-            ValueRow(stringResource(R.string.settings_signed_in_as), viewModel.userHandle)
-            ActionRow(stringResource(R.string.settings_sign_out), viewModel::signOut)
-        }
+        // The accounts are the sign-in screen's own panels: adding the second server, or
+        // signing one out, looks exactly like signing in did.
+        AccountPanels(accounts, games, browserSignInAvailable, Modifier.padding(horizontal = 20.dp), keepAwake)
+        Spacer(Modifier.height(4.dp))
 
         Group(stringResource(R.string.settings_group_board)) {
             ToggleRow(stringResource(R.string.settings_coordinates), settings.board.showCoordinates) { on ->

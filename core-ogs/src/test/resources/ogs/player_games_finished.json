@@ -1,0 +1,1067 @@
+{
+ "count": 10,
+ "next": null,
+ "previous": null,
+ "results": [
+  {
+   "players": {
+    "black": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2007,
+     "username": "opponent7",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1971.322366143946,
+       "deviation": 204.86643364317746,
+       "volatility": 0.05999971950062758
+      }
+     },
+     "ranking": 30.628875711301784,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000003,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 1001,
+   "white": 2007,
+   "width": 9,
+   "height": 9,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 95543,
+   "time_control_parameters": "{\"time_control\": \"fischer\", \"initial_time\": 259200, \"max_time\": 259200, \"time_increment\": 86400}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": 315,
+   "pause_on_weekends": false,
+   "outcome": "",
+   "black_lost": true,
+   "white_lost": true,
+   "annulled": false,
+   "started": "2026-09-17T15:20:22.005463Z",
+   "ended": null,
+   "historical_ratings": {
+    "black": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2007,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1971.3223876953125,
+       "deviation": 204.86643981933594,
+       "volatility": 0.05999971926212311
+      }
+     },
+     "username": "opponent7",
+     "country": "un",
+     "ranking": 30.628875711301784,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2004,
+     "username": "opponent4",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1097.5892882886733,
+       "deviation": 61.64602365730401,
+       "volatility": 0.05996772995096094
+      }
+     },
+     "ranking": 17.072505393031726,
+     "professional": false,
+     "ui_class": "supporter"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000004,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2004,
+   "white": 1001,
+   "width": 13,
+   "height": 13,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 90782,
+   "time_control_parameters": "{\"time_control\": \"fischer\", \"initial_time\": 259200, \"max_time\": 259200, \"time_increment\": 86400}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": 314,
+   "pause_on_weekends": false,
+   "outcome": "",
+   "black_lost": true,
+   "white_lost": true,
+   "annulled": false,
+   "started": "2026-09-17T15:18:42.131518Z",
+   "ended": null,
+   "historical_ratings": {
+    "black": {
+     "id": 2004,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1097.5892333984375,
+       "deviation": 61.64602279663086,
+       "volatility": 0.059967730194330215
+      }
+     },
+     "username": "opponent4",
+     "country": "un",
+     "ranking": 17.072505393031726,
+     "professional": false,
+     "ui_class": "supporter"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2003,
+     "username": "opponent3",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 856.4265364553277,
+       "deviation": 65.87770033214296,
+       "volatility": 0.05990402155588832
+      }
+     },
+     "ranking": 11.328921974969514,
+     "professional": false,
+     "ui_class": ""
+    }
+   },
+   "id": 7000005,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 1001,
+   "white": 2003,
+   "width": 19,
+   "height": 19,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 88451,
+   "time_control_parameters": "{\"time_control\": \"fischer\", \"initial_time\": 259200, \"max_time\": 259200, \"time_increment\": 86400}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": 313,
+   "pause_on_weekends": false,
+   "outcome": "",
+   "black_lost": true,
+   "white_lost": true,
+   "annulled": false,
+   "started": "2026-09-17T15:16:04.181832Z",
+   "ended": null,
+   "historical_ratings": {
+    "black": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2003,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 856.426513671875,
+       "deviation": 65.87770080566406,
+       "volatility": 0.05990402027964592
+      }
+     },
+     "username": "opponent3",
+     "country": "un",
+     "ranking": 11.328921974969514,
+     "professional": false,
+     "ui_class": ""
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2002,
+     "username": "opponent2",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1168.3364393169102,
+       "deviation": 105.67352058939868,
+       "volatility": 0.14948326359185485
+      }
+     },
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000006,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2002,
+   "white": 1001,
+   "width": 9,
+   "height": 9,
+   "rules": "chinese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "7.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 6,
+   "time_control_parameters": "{\"system\": \"fischer\", \"time_control\": \"fischer\", \"speed\": \"blitz\", \"pause_on_weekends\": false, \"time_increment\": 5, \"initial_time\": 30, \"max_time\": 300}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": false,
+   "outcome": "Resignation",
+   "black_lost": true,
+   "white_lost": false,
+   "annulled": true,
+   "started": "2026-09-17T09:59:02.125240Z",
+   "ended": "2026-09-17T10:01:16.792464Z",
+   "historical_ratings": {
+    "black": {
+     "id": 2002,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 902.71923828125,
+       "deviation": 99.25216674804688,
+       "volatility": 0.14983299374580383
+      }
+     },
+     "username": "opponent2",
+     "country": "un",
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2002,
+     "username": "opponent2",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1168.3364393169102,
+       "deviation": 105.67352058939868,
+       "volatility": 0.14948326359185485
+      }
+     },
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000007,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2002,
+   "white": 1001,
+   "width": 9,
+   "height": 9,
+   "rules": "chinese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "7.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 6,
+   "time_control_parameters": "{\"system\": \"fischer\", \"time_control\": \"fischer\", \"speed\": \"blitz\", \"pause_on_weekends\": false, \"time_increment\": 5, \"initial_time\": 30, \"max_time\": 300}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": false,
+   "outcome": "11.5 points",
+   "black_lost": false,
+   "white_lost": true,
+   "annulled": true,
+   "started": "2026-09-17T09:57:27.581023Z",
+   "ended": "2026-09-17T09:58:57.027125Z",
+   "historical_ratings": {
+    "black": {
+     "id": 2002,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 902.71923828125,
+       "deviation": 99.25216674804688,
+       "volatility": 0.14983299374580383
+      }
+     },
+     "username": "opponent2",
+     "country": "un",
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2002,
+     "username": "opponent2",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1168.3364393169102,
+       "deviation": 105.67352058939868,
+       "volatility": 0.14948326359185485
+      }
+     },
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000008,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2002,
+   "white": 1001,
+   "width": 9,
+   "height": 9,
+   "rules": "chinese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "7.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 6,
+   "time_control_parameters": "{\"system\": \"fischer\", \"time_control\": \"fischer\", \"speed\": \"blitz\", \"pause_on_weekends\": false, \"time_increment\": 5, \"initial_time\": 30, \"max_time\": 300}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": false,
+   "outcome": "5.5 points",
+   "black_lost": false,
+   "white_lost": true,
+   "annulled": true,
+   "started": "2026-09-17T09:55:28.079951Z",
+   "ended": "2026-09-17T09:57:21.705683Z",
+   "historical_ratings": {
+    "black": {
+     "id": 2002,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 902.71923828125,
+       "deviation": 99.25216674804688,
+       "volatility": 0.14983299374580383
+      }
+     },
+     "username": "opponent2",
+     "country": "un",
+     "ranking": 18.518562539624426,
+     "professional": false,
+     "ui_class": "bot"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2005,
+     "username": "opponent5",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1201.085523439881,
+       "deviation": 102.40044022485033,
+       "volatility": 0.1489258588901588
+      }
+     },
+     "ranking": 19.158541059393844,
+     "professional": false,
+     "ui_class": "bot"
+    }
+   },
+   "id": 7000009,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 1001,
+   "white": 2005,
+   "width": 19,
+   "height": 19,
+   "rules": "chinese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "7.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 5,
+   "time_control_parameters": "{\"system\": \"fischer\", \"time_control\": \"fischer\", \"speed\": \"blitz\", \"pause_on_weekends\": false, \"time_increment\": 5, \"initial_time\": 30, \"max_time\": 300}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": false,
+   "outcome": "62.5 points",
+   "black_lost": true,
+   "white_lost": false,
+   "annulled": true,
+   "started": "2026-09-17T09:35:19.015567Z",
+   "ended": "2026-09-17T09:46:38.004521Z",
+   "historical_ratings": {
+    "black": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 350,
+       "volatility": 0.06
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 2005,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1232.0340576171875,
+       "deviation": 98.68521118164062,
+       "volatility": 0.14946924149990082
+      }
+     },
+     "username": "opponent5",
+     "country": "un",
+     "ranking": 19.158541059393844,
+     "professional": false,
+     "ui_class": "bot"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2008,
+     "username": "opponent8",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1630.8239228192012,
+       "deviation": 254.19424217671445,
+       "volatility": 0.05999889219280764
+      }
+     },
+     "ranking": 26.239191041958176,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000001,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2008,
+   "white": 1001,
+   "width": 19,
+   "height": 19,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 88451,
+   "time_control_parameters": "{\"system\": \"fischer\", \"speed\": \"correspondence\", \"pause_on_weekends\": true, \"initial_time\": 259200, \"time_increment\": 86400, \"max_time\": 604800, \"time_control\": \"fischer\"}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": true,
+   "outcome": "",
+   "black_lost": true,
+   "white_lost": true,
+   "annulled": false,
+   "started": "2026-09-17T09:34:04.496737Z",
+   "ended": null,
+   "historical_ratings": {
+    "black": {
+     "id": 2008,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1630.823974609375,
+       "deviation": 254.19424438476562,
+       "volatility": 0.05999889224767685
+      }
+     },
+     "username": "opponent8",
+     "country": "un",
+     "ranking": 26.239191041958176,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2006,
+     "username": "opponent6",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1687.851147811639,
+       "deviation": 60.67233915372201,
+       "volatility": 0.059967562905176686
+      }
+     },
+     "ranking": 27.034876184213232,
+     "professional": false,
+     "ui_class": ""
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000010,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2006,
+   "white": 1001,
+   "width": 13,
+   "height": 13,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 90782,
+   "time_control_parameters": "{\"system\": \"fischer\", \"speed\": \"correspondence\", \"pause_on_weekends\": true, \"initial_time\": 259200, \"time_increment\": 86400, \"max_time\": 604800, \"time_control\": \"fischer\"}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": true,
+   "outcome": "Cancellation",
+   "black_lost": true,
+   "white_lost": false,
+   "annulled": true,
+   "started": "2026-09-17T09:33:33.497377Z",
+   "ended": "2026-09-18T19:02:31.141343Z",
+   "historical_ratings": {
+    "black": {
+     "id": 2006,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1687.8511962890625,
+       "deviation": 60.672340393066406,
+       "volatility": 0.059967562556266785
+      }
+     },
+     "username": "opponent6",
+     "country": "un",
+     "ranking": 27.034876184213232,
+     "professional": false,
+     "ui_class": ""
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  },
+  {
+   "players": {
+    "black": {
+     "id": 2009,
+     "username": "opponent9",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 350,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 1001,
+     "username": "turnzen-test",
+     "country": "un",
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500,
+       "deviation": 250,
+       "volatility": 0.06
+      }
+     },
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "id": 7000002,
+   "name": "Friendly match",
+   "mode": "game",
+   "source": "play",
+   "black": 2009,
+   "white": 1001,
+   "width": 9,
+   "height": 9,
+   "rules": "japanese",
+   "ranked": true,
+   "handicap_rank_difference": "0.0",
+   "handicap": 0,
+   "komi": "6.50",
+   "time_control": "fischer",
+   "black_player_rank": 0,
+   "black_player_rating": "0.000",
+   "white_player_rank": 0,
+   "white_player_rating": "0.000",
+   "time_per_move": 95543,
+   "time_control_parameters": "{\"system\": \"fischer\", \"speed\": \"correspondence\", \"pause_on_weekends\": true, \"initial_time\": 259200, \"time_increment\": 86400, \"max_time\": 604800, \"time_control\": \"fischer\"}",
+   "disable_analysis": false,
+   "tournament": null,
+   "tournament_round": 0,
+   "ladder": null,
+   "pause_on_weekends": true,
+   "outcome": "Timeout",
+   "black_lost": true,
+   "white_lost": false,
+   "annulled": true,
+   "started": "2026-09-17T09:32:30.433153Z",
+   "ended": "2026-09-25T19:52:44.587032Z",
+   "historical_ratings": {
+    "black": {
+     "id": 2009,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 350.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "opponent9",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    },
+    "white": {
+     "id": 1001,
+     "ratings": {
+      "version": 5,
+      "overall": {
+       "rating": 1500.0,
+       "deviation": 250.0,
+       "volatility": 0.05999999865889549
+      }
+     },
+     "username": "turnzen-test",
+     "country": "un",
+     "ranking": 24.303382182144386,
+     "professional": false,
+     "ui_class": "provisional"
+    }
+   },
+   "rengo": false,
+   "rengo_black_team": null,
+   "rengo_white_team": null,
+   "rengo_casual_mode": false,
+   "bot_parameters": null
+  }
+ ]
+}

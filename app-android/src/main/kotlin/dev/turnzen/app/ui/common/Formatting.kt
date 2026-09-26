@@ -151,7 +151,11 @@ object Formatting {
     fun boardSize(
         size: Int,
         handicap: Int,
-    ): String = if (handicap > 0) "${size}x$size, H$handicap" else "${size}x$size"
+        height: Int = size,
+    ): String {
+        val board = "${size}x$height"
+        return if (handicap > 0) "$board, H$handicap" else board
+    }
 
     fun opponent(
         handle: String,

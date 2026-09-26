@@ -3,6 +3,8 @@ package dev.turnzen.app.data
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.SignInMethod
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,8 +27,9 @@ sealed interface AuthState {
 }
 
 /**
- * Owns the server client and the sign-in state. Every server call from the UI goes
- * through [call], which transparently re-signs in once when the session has expired.
+ * Owns one server's client and its sign-in state; the app has one per server (see
+ * [Accounts]). Every server call from the UI goes through [call], which transparently
+ * re-signs in once when the session has expired.
  */
 class SessionManager(
     private val credentials: CredentialStore,
@@ -46,14 +49,32 @@ class SessionManager(
     // — which surfaced as a spurious "signed out" message even though re-login had worked.
     private var sessionGeneration = 0
 
+    /** Which server this session belongs to; every game it lists carries it. */
+    val serverId: ServerId
+        get() = client.serverId
+
     val serverName: String
         get() = client.serverName
+
+    val signInMethod: SignInMethod
+        get() = client.signInMethod
+
+    /** False when scoring this server's games has to happen on its website. */
+    val scoresInApp: Boolean
+        get() = client.scoresInApp
+
+    val isSignedIn: Boolean
+        get() = _state.value is AuthState.SignedIn
 
     val registrationUrl: String
         get() = client.registrationUrl
 
     /** The current server's web page for a game, for the "open on the web" escape hatch. */
     fun gameUrl(id: GameId): String? = client.gameUrl(id)
+
+    /** The signed-in user's page on the server's website, if the server has one. */
+    val accountUrl: String?
+        get() = signedInUser?.let(client::accountUrl)
 
     val signedInUser: SignedInUser?
         get() = (_state.value as? AuthState.SignedIn)?.user
@@ -62,7 +83,10 @@ class SessionManager(
     suspend fun restore() {
         val storedSession = credentials.session
         val storedUser = credentials.user
-        if (storedSession == null || credentials.credentials == null) {
+        // A password server needs the password too, to sign in again when the session lapses;
+        // a browser sign-in never had one, and its session is all there is.
+        val needsPassword = client.signInMethod == SignInMethod.PASSWORD
+        if (storedSession == null || (needsPassword && credentials.credentials == null)) {
             _state.value = AuthState.SignedOut()
             return
         }
@@ -74,8 +98,12 @@ class SessionManager(
             try {
                 reSignIn(sessionGeneration)
             } catch (e: GoServerException) {
-                // reSignIn already updated the state for credential problems.
-                if (e !is GoServerException.InvalidCredentials && storedUser != null) {
+                // reSignIn already updated the state for credential problems, and for a
+                // browser sign-in that has lapsed (SessionExpired).
+                if (e !is GoServerException.InvalidCredentials &&
+                    e !is GoServerException.SessionExpired &&
+                    storedUser != null
+                ) {
                     _state.value = AuthState.SignedIn(storedUser)
                 }
             }
@@ -94,6 +122,17 @@ class SessionManager(
     suspend fun signIn(creds: Credentials): SignedInUser {
         val user = client.signIn(creds)
         credentials.credentials = creds
+        remember(user)
+        return user
+    }
+
+    /**
+     * Signs in on the server's own web page ([SignInMethod.BROWSER]). [openPage] is asked to
+     * show the page; the call returns once the server has handed the sign-in back.
+     */
+    suspend fun signInInBrowser(openPage: (url: String) -> Unit): SignedInUser {
+        val user = client.signInInBrowser(openPage)
+        credentials.credentials = null
         remember(user)
         return user
     }
@@ -118,12 +157,26 @@ class SessionManager(
 
     suspend fun <T> call(block: suspend (TurnBasedGoServerClient) -> T): T {
         val generationBefore = sessionGeneration
-        return try {
-            block(client)
-        } catch (e: GoServerException.SessionExpired) {
-            reSignIn(generationBefore)
-            block(client)
-        }
+        val result =
+            try {
+                block(client)
+            } catch (e: GoServerException.SessionExpired) {
+                reSignIn(generationBefore)
+                block(client)
+            }
+        persistSession()
+        return result
+    }
+
+    /**
+     * Keeps the stored session in step with the client's. A server that renews its tokens as
+     * they age (OGS) hands out a new pair during ordinary calls, and the old one stops working:
+     * a session saved only at sign-in would be dead by the next launch.
+     */
+    private fun persistSession() {
+        if (_state.value !is AuthState.SignedIn) return
+        val current = client.exportSession() ?: return
+        if (current != credentials.session) credentials.session = current
     }
 
     private suspend fun reSignIn(seenGeneration: Int) {
@@ -133,7 +186,10 @@ class SessionManager(
             if (sessionGeneration != seenGeneration) return
             val creds = credentials.credentials
             if (creds == null) {
-                _state.value = AuthState.SignedOut()
+                // Nothing to sign in with silently: a browser sign-in has to be done again by
+                // the user. The session is dropped so the next launch does not retry it.
+                credentials.session = null
+                _state.value = AuthState.SignedOut("${client.serverName} signed you out. Sign in again.")
                 throw GoServerException.SessionExpired()
             }
             try {

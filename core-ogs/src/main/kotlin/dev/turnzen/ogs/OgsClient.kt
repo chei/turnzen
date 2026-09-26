@@ -1,0 +1,445 @@
+package dev.turnzen.ogs
+
+import dev.turnzen.game.Move
+import dev.turnzen.game.Point
+import dev.turnzen.game.sgf.SgfCoordinates
+import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.GameDetail
+import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.ScoreState
+import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.SignInMethod
+import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TurnBasedGoServerClient
+import dev.turnzen.ogs.net.OgsHttp
+import dev.turnzen.ogs.net.OgsMethod
+import dev.turnzen.ogs.net.OgsRequest
+import dev.turnzen.ogs.net.OgsResponse
+import dev.turnzen.ogs.net.OgsSocketConnector
+import dev.turnzen.ogs.net.OgsTransportException
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import java.io.IOException
+import java.time.Instant
+
+/**
+ * Online Go Server client, correspondence games only. All OGS specifics live here: the REST
+ * API for reading, OAuth for signing in, and a short realtime connection for the actions
+ * OGS offers nowhere else.
+ *
+ * Signs in in the browser ([SignInMethod.BROWSER]): OAuth 2 with PKCE as a public client —
+ * [clientId] is public, there is no secret — and a loopback redirect on [redirectPort], so
+ * Turnzen never sees an OGS password. See the brief, "Online Go Server (OGS) support".
+ */
+class OgsClient(
+    private val http: OgsHttp,
+    sockets: OgsSocketConnector,
+    private val clientId: String,
+    /** Where the "Back to Turnzen" link on the post-sign-in page points; null for no link. */
+    private val returnLink: String? = null,
+    clientVersion: String = "dev",
+    private val redirectPort: Int = DEFAULT_REDIRECT_PORT,
+    private val baseUrl: String = DEFAULT_BASE_URL,
+    private val now: () -> Instant = Instant::now,
+) : TurnBasedGoServerClient {
+    companion object {
+        const val DEFAULT_BASE_URL = "https://online-go.com"
+
+        /**
+         * The loopback port OGS redirects to after sign-in. Fixed, because the redirect URI is
+         * registered with the OAuth application and must match it exactly.
+         */
+        const val DEFAULT_REDIRECT_PORT = 8735
+        const val REDIRECT_PATH = "/ogs/signed-in"
+
+        /** OGS's [ServerId], carried by every [GameId] this client hands out. */
+        val SERVER_ID = ServerId("ogs")
+
+        /** Renew a token this long before it runs out, rather than fail a call on it. */
+        private const val RENEW_MARGIN_MILLIS = 5 * 60 * 1000L
+
+        /** The overview answers two lists at once; the games screen asks for both together. */
+        private const val OVERVIEW_REUSE_MILLIS = 5_000L
+
+        /** Finished games are filtered to correspondence, so ask for more than will be shown. */
+        private const val FINISHED_PAGE = 50
+    }
+
+    @Serializable
+    private data class Tokens(
+        val access: String,
+        val refresh: String,
+        /** Epoch milliseconds. */
+        val expiresAt: Long,
+        val userId: Long? = null,
+    )
+
+    private val realtime = OgsRealtime(sockets, baseUrl.replaceFirst("http", "ws"), clientVersion)
+    private var tokens: Tokens? = null
+    private val renewLock = Mutex()
+    private val overviewLock = Mutex()
+    private var overview: Pair<Long, JsonObject>? = null
+
+    override val serverId: ServerId = SERVER_ID
+    override val serverName: String = "Online Go Server"
+    override val registrationUrl: String = "$baseUrl/register"
+    override val signInMethod: SignInMethod = SignInMethod.BROWSER
+    override val scoresInApp: Boolean = false
+
+    override suspend fun signIn(credentials: Credentials): SignedInUser =
+        throw UnsupportedOperationException("$serverName signs in in the browser")
+
+    override suspend fun signInInBrowser(openPage: (url: String) -> Unit): SignedInUser {
+        val pkce = Pkce.create()
+        val loopback = LoopbackRedirect(redirectPort, REDIRECT_PATH, returnLink)
+        val authorize =
+            "$baseUrl/oauth2/authorize/?" +
+                listOf(
+                    "response_type" to "code",
+                    "client_id" to clientId,
+                    "redirect_uri" to loopback.redirectUri,
+                    "scope" to "read write",
+                    "state" to pkce.state,
+                    "code_challenge" to pkce.challenge,
+                    "code_challenge_method" to "S256",
+                ).joinToString("&") { (k, v) -> "$k=${LoopbackRedirect.encode(v)}" }
+        val redirect =
+            try {
+                loopback.await { openPage(authorize) }
+            } catch (e: IOException) {
+                throw GoServerException.Unreachable("Couldn't wait for $serverName's answer: ${e.message}", e)
+            }
+        val code =
+            when (redirect) {
+                is Redirect.Denied -> {
+                    throw GoServerException.InvalidCredentials(
+                        message = "$serverName did not sign you in (${redirect.error})",
+                    )
+                }
+
+                is Redirect.Code -> {
+                    if (redirect.state != pkce.state) {
+                        throw GoServerException.Protocol("$serverName answered a different sign-in")
+                    }
+                    redirect.code
+                }
+            }
+        tokens =
+            tokenRequest(
+                mapOf(
+                    "grant_type" to "authorization_code",
+                    "code" to code,
+                    "redirect_uri" to loopback.redirectUri,
+                    "client_id" to clientId,
+                    "code_verifier" to pkce.verifier,
+                ),
+            ) ?: throw GoServerException.InvalidCredentials(message = "$serverName did not accept the sign-in")
+        return currentUser()
+    }
+
+    override suspend fun signOut() {
+        val held = tokens
+        tokens = null
+        overview = null
+        if (held != null) {
+            // Best effort: an unrevoked token simply expires on its own.
+            runCatching {
+                http.execute(
+                    OgsRequest(
+                        OgsMethod.POST,
+                        "$baseUrl/oauth2/revoke_token/",
+                        form = mapOf("token" to held.access, "client_id" to clientId),
+                    ),
+                )
+            }
+        }
+    }
+
+    override suspend fun currentUser(): SignedInUser {
+        val config = api("/api/v1/ui/config/")
+        val user = OgsUser.parse(config.obj("user"))
+        tokens = tokens?.copy(userId = user.id.toLong())
+        return user
+    }
+
+    override suspend fun gamesAwaitingMe(): List<GameSummary> = myRunningGames().filter { it.isMyTurn }
+
+    override suspend fun myRunningGames(): List<GameSummary> {
+        val me = myId()
+        val games = overview().arr("active_games") ?: return emptyList()
+        return games.mapNotNull { element ->
+            val entry = element as? JsonObject ?: return@mapNotNull null
+            val gamedata = entry.obj("json") ?: entry.obj("gamedata") ?: return@mapNotNull null
+            if (!OgsGameData.isCorrespondence(gamedata.obj("time_control"))) return@mapNotNull null
+            OgsGameData.summary(gamedata, entry.obj("black"), entry.obj("white"), me, now())
+        }
+    }
+
+    override suspend fun myFinishedGames(limit: Int): List<GameSummary> {
+        val me = myId()
+        val page =
+            api(
+                "/api/v1/players/$me/games/?ended__isnull=false&ordering=-ended&page_size=$FINISHED_PAGE",
+            )
+        val entries =
+            page
+                .arr("results")
+                .orEmpty()
+                .mapNotNull { it as? JsonObject }
+                .filter { OgsFinishedGames.isCorrespondence(it) }
+                .take(limit)
+        val changes = ratingChanges(me)
+        return entries.mapNotNull { entry ->
+            val id = entry.long("id")?.toString()
+            OgsFinishedGames.summary(entry, me, changes[id])
+        }
+    }
+
+    override suspend fun game(id: GameId): GameDetail {
+        val me = myId()
+        val game = api("/api/v1/games/${id.value}")
+        val gamedata =
+            game.obj("gamedata") ?: throw GoServerException.Protocol("OGS game ${id.value} without game data")
+        val players = game.obj("players")
+        val black = players?.obj("black")
+        val white = players?.obj("white")
+        val summary =
+            OgsGameData.summary(gamedata, black, white, me, now()).let { summary ->
+                // The game endpoint states the outcome plainly; game data only names a winner.
+                if (summary.isFinished) {
+                    summary.copy(
+                        result =
+                            OgsOutcome.result(
+                                game.str("outcome"),
+                                game.bool("black_lost"),
+                                game.bool("white_lost"),
+                            ) ?: summary.result,
+                        lastMoveAt =
+                            game.str("ended")?.let { runCatching { Instant.parse(it) }.getOrNull() }
+                                ?: summary.lastMoveAt,
+                    )
+                } else {
+                    summary
+                }
+            }
+        val record = OgsGameData.record(gamedata, black?.str("username"), white?.str("username"))
+        val info = OgsGameData.info(gamedata, black, white, now())
+        return GameDetail(summary, record, info)
+    }
+
+    override suspend fun sendMove(
+        id: GameId,
+        token: MoveToken,
+        move: Move,
+    ) {
+        val encoded =
+            when (move) {
+                Move.Pass -> ".."
+                is Move.Play -> SgfCoordinates.encode(move.point)
+            }
+        inGame(id, token) {
+            send(
+                "game/move",
+                buildJsonObject {
+                    put("game_id", JsonPrimitive(gameId))
+                    put("move", JsonPrimitive(encoded))
+                },
+            )
+            awaitEvent("move")
+        }
+        overview = null
+    }
+
+    override suspend fun resign(
+        id: GameId,
+        token: MoveToken,
+    ) {
+        inGame(id, token) {
+            send("game/resign", buildJsonObject { put("game_id", JsonPrimitive(gameId)) })
+            while (true) {
+                val (name, data) = awaitAnyEvent("phase", "gamedata")
+                val phase =
+                    if (name ==
+                        "phase"
+                    ) {
+                        (data as? JsonPrimitive)?.content
+                    } else {
+                        (data as? JsonObject)?.str("phase")
+                    }
+                if (phase == "finished") break
+            }
+        }
+        overview = null
+    }
+
+    override suspend fun scoreState(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ): ScoreState = throw scoringOnTheWeb()
+
+    override suspend fun disputeScore(
+        id: GameId,
+        token: MoveToken,
+        toggle: Set<Point>,
+    ): Unit = throw scoringOnTheWeb()
+
+    override suspend fun acceptScore(
+        id: GameId,
+        token: MoveToken,
+    ): Unit = throw scoringOnTheWeb()
+
+    private fun scoringOnTheWeb() =
+        GoServerException.ServerError("scoring", "Scoring on $serverName happens on the web for now")
+
+    override fun gameUrl(id: GameId): String = "$baseUrl/game/${id.value}"
+
+    override fun accountUrl(user: SignedInUser): String = "$baseUrl/user/view/${user.id}"
+
+    override fun exportSession(): String? = tokens?.let { OgsJson.json.encodeToString(Tokens.serializer(), it) }
+
+    override fun restoreSession(session: String) {
+        tokens =
+            try {
+                OgsJson.json.decodeFromString(Tokens.serializer(), session)
+            } catch (e: SerializationException) {
+                null
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+    }
+
+    /**
+     * Joins the game on the realtime connection, and refuses to act when the game is no
+     * longer the one the user decided on: [token] is the move count they saw.
+     */
+    private suspend fun inGame(
+        id: GameId,
+        token: MoveToken,
+        action: suspend OgsRealtime.GameConnection.() -> Unit,
+    ) {
+        val jwt =
+            api("/api/v1/ui/config/").str("user_jwt") ?: throw GoServerException.Protocol("OGS sent no realtime token")
+        val gameId = id.value.toLongOrNull() ?: throw GoServerException.Protocol("Not an OGS game id: ${id.value}")
+        realtime.inGame(jwt, gameId) { gamedata ->
+            val moves = gamedata.arr("moves")?.size
+            if (moves != null && token.value.isNotEmpty() && moves.toString() != token.value) {
+                throw GoServerException.StaleGame()
+            }
+            action()
+        }
+    }
+
+    private suspend fun myId(): Long {
+        tokens?.userId?.let { return it }
+        return currentUser().id.toLong()
+    }
+
+    private suspend fun overview(): JsonObject =
+        overviewLock.withLock {
+            val held = overview
+            val at = now().toEpochMilli()
+            if (held != null && at - held.first < OVERVIEW_REUSE_MILLIS) return held.second
+            api("/api/v1/ui/overview/").also { overview = at to it }
+        }
+
+    /** Best effort: the history is undocumented, so any trouble with it just leaves the numbers out. */
+    private suspend fun ratingChanges(me: Long): Map<String, Double> =
+        try {
+            val response =
+                authorized(
+                    OgsRequest(
+                        OgsMethod.GET,
+                        "$baseUrl/termination-api/player/$me/v5-rating-history?speed=overall&size=0",
+                    ),
+                )
+            if (response.status == 200) OgsRatingHistory.changes(response.body) else emptyMap()
+        } catch (e: GoServerException) {
+            emptyMap()
+        }
+
+    private suspend fun api(path: String): JsonObject {
+        val response = authorized(OgsRequest(OgsMethod.GET, baseUrl + path))
+        check(response)
+        return OgsJson.parseObject(response.body, "an answer")
+    }
+
+    private fun check(response: OgsResponse) {
+        when {
+            response.status == 429 -> throw GoServerException.RateLimited("$serverName is limiting requests")
+
+            response.status >= 500 -> throw GoServerException.Unreachable(
+                "$serverName answered with HTTP ${response.status}",
+            )
+
+            response.status == 401 || response.status == 403 -> throw GoServerException.SessionExpired(
+                "$serverName signed you out",
+            )
+
+            response.status >= 400 -> throw GoServerException.Protocol(
+                "$serverName answered with HTTP ${response.status}",
+            )
+        }
+    }
+
+    /** Sends [request] with the access token, renewing it first when it is about to expire, or once after a 401. */
+    private suspend fun authorized(request: OgsRequest): OgsResponse {
+        val current = freshTokens()
+        val response = send(request.withToken(current.access))
+        if (response.status != 401) return response
+        val renewed = renew(current) ?: throw GoServerException.SessionExpired("$serverName signed you out")
+        return send(request.withToken(renewed.access))
+    }
+
+    private fun OgsRequest.withToken(access: String) = copy(headers = headers + ("Authorization" to "Bearer $access"))
+
+    private suspend fun freshTokens(): Tokens {
+        val held = tokens ?: throw GoServerException.SessionExpired("Not signed in to $serverName")
+        if (held.expiresAt - now().toEpochMilli() > RENEW_MARGIN_MILLIS) return held
+        return renew(held) ?: throw GoServerException.SessionExpired("$serverName signed you out")
+    }
+
+    /** Swaps the refresh token for a new pair; null when OGS will not (it has expired, or was revoked). */
+    private suspend fun renew(stale: Tokens): Tokens? =
+        renewLock.withLock {
+            // Someone else renewed while we waited: use theirs.
+            tokens?.let { if (it.access != stale.access) return it }
+            val renewed =
+                tokenRequest(
+                    mapOf(
+                        "grant_type" to "refresh_token",
+                        "refresh_token" to stale.refresh,
+                        "client_id" to clientId,
+                    ),
+                )?.copy(userId = stale.userId)
+            tokens = renewed
+            renewed
+        }
+
+    /** One call to the token endpoint. Null when OGS refuses the grant. */
+    private suspend fun tokenRequest(form: Map<String, String>): Tokens? {
+        val response = send(OgsRequest(OgsMethod.POST, "$baseUrl/oauth2/token/", form = form))
+        if (response.status == 400 || response.status == 401) return null
+        check(response)
+        val body = OgsJson.parseObject(response.body, "a token answer")
+        val access = body.str("access_token") ?: throw GoServerException.Protocol("$serverName sent no access token")
+        val refresh = body.str("refresh_token") ?: throw GoServerException.Protocol("$serverName sent no refresh token")
+        val lifetime = body.long("expires_in") ?: 3600
+        return Tokens(access, refresh, now().toEpochMilli() + lifetime * 1000, userId = tokens?.userId)
+    }
+
+    private suspend fun send(request: OgsRequest): OgsResponse =
+        try {
+            http.execute(request.copy(headers = request.headers + ("Accept" to "application/json")))
+        } catch (e: OgsTransportException) {
+            throw GoServerException.Unreachable("Couldn't reach $serverName", e)
+        }
+}

@@ -25,6 +25,8 @@ import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ScoreState
+import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.SignInMethod
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
@@ -35,12 +37,27 @@ import java.time.Instant
 /**
  * In-memory server for previews and for developing the UI without DGS. Sending a move
  * appends it to the record and lets the "opponent" answer with a pass.
+ *
+ * The demo build runs two of these, standing in for DGS and OGS, so a mixed games list can
+ * be seen without accounts. [browserSignIn] makes one behave like OGS: it signs in "in the
+ * browser", which here simply succeeds.
  */
 class FakeTurnBasedGoServerClient(
     private val latencyMillis: Long = 300,
+    override val serverId: ServerId = ServerId("dgs"),
+    override val serverName: String = "Demo server",
+    private val browserSignIn: Boolean = false,
+    /**
+     * Gives this instance only its share of the demo games, for the demo build's two servers:
+     * the browser-signed-in one gets the 9x9s, the other the rest. Off, it has them all.
+     */
+    private val shareGames: Boolean = false,
 ) : TurnBasedGoServerClient {
-    override val serverName = "Demo server"
     override val registrationUrl = "https://www.dragongoserver.net/register.php"
+    override val signInMethod: SignInMethod = if (browserSignIn) SignInMethod.BROWSER else SignInMethod.PASSWORD
+
+    // Like OGS, the browser-signed-in demo server leaves scoring to the web.
+    override val scoresInApp: Boolean = !browserSignIn
 
     private var signedIn = false
     private val user = SignedInUser("1", "demo", "Demo User", "8k")
@@ -65,15 +82,46 @@ class FakeTurnBasedGoServerClient(
         var ratingChange: Double? = null,
     )
 
+    // Split between the two demo servers when asked, so each has games of its own and the
+    // list mixes them.
     private val games: MutableList<FakeGame> =
-        mutableListOf(demo19(), demo13(), demo9(), demoWaiting(), demoScoring())
+        when {
+            !shareGames -> {
+                mutableListOf(
+                    demo19(serverId),
+                    demo13(serverId),
+                    demo9(serverId),
+                    demoWaiting(serverId),
+                    demoScoring(serverId),
+                )
+            }
+
+            browserSignIn -> {
+                mutableListOf(demo9(serverId), demoWaiting(serverId))
+            }
+
+            else -> {
+                mutableListOf(demo19(serverId), demo13(serverId), demoScoring(serverId))
+            }
+        }
 
     /** Finished games, newest first — including the ones ended during this demo session. */
-    private val archive: MutableList<FakeGame> = mutableListOf(demoFinishedWin(), demoFinishedLoss())
+    private val archive: MutableList<FakeGame> =
+        when {
+            !shareGames -> mutableListOf(demoFinishedWin(serverId), demoFinishedLoss(serverId))
+            browserSignIn -> mutableListOf(demoFinishedWin(serverId))
+            else -> mutableListOf(demoFinishedLoss(serverId))
+        }
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
         delay(latencyMillis)
         if (credentials.password == "wrong") throw GoServerException.InvalidCredentials()
+        signedIn = true
+        return user
+    }
+
+    override suspend fun signInInBrowser(openPage: (url: String) -> Unit): SignedInUser {
+        delay(latencyMillis)
         signedIn = true
         return user
     }
@@ -237,12 +285,17 @@ class FakeTurnBasedGoServerClient(
     /** The demo ladder: one challenge the user started, so the sheet has a standing to show. */
     override suspend fun ladderStandings(tournament: TournamentRef): Map<GameId, LadderStanding> =
         if (tournament.isLadder) {
-            mapOf(GameId("demo-13") to LadderStanding(yourRank = 12, opponentRank = 7, youAreChallenger = true))
+            mapOf(GameId(serverId, "demo-13") to LadderStanding(12, opponentRank = 7, youAreChallenger = true))
         } else {
             emptyMap()
         }
 
-    override fun gameUrl(id: GameId): String = "https://www.dragongoserver.net/game.php?gid=${id.value}"
+    override fun gameUrl(id: GameId): String =
+        if (browserSignIn) {
+            "https://online-go.com/game/${id.value}"
+        } else {
+            "https://www.dragongoserver.net/game.php?gid=${id.value}"
+        }
 
     override fun exportSession(): String? = if (signedIn) "demo" else null
 
@@ -341,7 +394,7 @@ class FakeTurnBasedGoServerClient(
             }
         }
 
-        fun demo19(): FakeGame {
+        fun demo19(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 19,
@@ -356,7 +409,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("mkvtl", "7k"),
                 )
             return FakeGame(
-                id = GameId("demo-19"),
+                id = GameId(server, "demo-19"),
                 opponent = Opponent("mkvtl", null, "7k"),
                 myColor = StoneColor.BLACK,
                 record = record,
@@ -366,7 +419,7 @@ class FakeTurnBasedGoServerClient(
             )
         }
 
-        fun demo13(): FakeGame {
+        fun demo13(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 13,
@@ -379,7 +432,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("Demo User", "8k"),
                 )
             return FakeGame(
-                id = GameId("demo-13"),
+                id = GameId(server, "demo-13"),
                 opponent = Opponent("hana_go", null, "9k"),
                 myColor = StoneColor.WHITE,
                 record = record,
@@ -389,7 +442,7 @@ class FakeTurnBasedGoServerClient(
             )
         }
 
-        fun demo9(): FakeGame {
+        fun demo9(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 9,
@@ -399,7 +452,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("BerndW", "6k"),
                 )
             return FakeGame(
-                id = GameId("demo-9"),
+                id = GameId(server, "demo-9"),
                 opponent = Opponent("BerndW", "Bernd", "6k"),
                 myColor = StoneColor.BLACK,
                 record = record,
@@ -415,7 +468,7 @@ class FakeTurnBasedGoServerClient(
          * nobody's, and marking it dead turns that into eighteen points and a prisoner — which
          * is the point of the marking step, in one tap.
          */
-        fun demoScoring(): FakeGame {
+        fun demoScoring(server: ServerId): FakeGame {
             val size = 9
 
             fun point(label: String) = checkNotNull(Coordinates.parse(label, size)) { "bad label $label" }
@@ -438,7 +491,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("kaya_r", "8k"),
                 )
             return FakeGame(
-                id = GameId("demo-scoring"),
+                id = GameId(server, "demo-scoring"),
                 opponent = Opponent("kaya_r", null, "8k"),
                 myColor = StoneColor.BLACK,
                 record = record,
@@ -450,7 +503,7 @@ class FakeTurnBasedGoServerClient(
         }
 
         /** A game where the opponent is to move: shows in "All games" but not "Your turn". */
-        fun demoWaiting(): FakeGame {
+        fun demoWaiting(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 19,
@@ -461,7 +514,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("kaya_go", "5k"),
                 )
             return FakeGame(
-                id = GameId("demo-waiting"),
+                id = GameId(server, "demo-waiting"),
                 opponent = Opponent("kaya_go", null, "5k"),
                 myColor = StoneColor.BLACK,
                 record = record,
@@ -477,7 +530,7 @@ class FakeTurnBasedGoServerClient(
          * It ends the way every counted game ends — two passes — which is also what the
          * board's opening cursor has to step over.
          */
-        fun demoFinishedWin(): FakeGame {
+        fun demoFinishedWin(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 9,
@@ -490,7 +543,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("nori_88", "8k"),
                 )
             return FakeGame(
-                id = GameId("demo-done-win"),
+                id = GameId(server, "demo-done-win"),
                 opponent = Opponent("nori_88", null, "8k"),
                 myColor = StoneColor.BLACK,
                 record = record,
@@ -505,7 +558,7 @@ class FakeTurnBasedGoServerClient(
         }
 
         /** And an archived loss, because a list of only wins would flatter the demo. */
-        fun demoFinishedLoss(): FakeGame {
+        fun demoFinishedLoss(server: ServerId): FakeGame {
             val record =
                 GameRecord(
                     boardSize = 19,
@@ -515,7 +568,7 @@ class FakeTurnBasedGoServerClient(
                     white = PlayerInfo("Demo User", "8k"),
                 )
             return FakeGame(
-                id = GameId("demo-done-loss"),
+                id = GameId(server, "demo-done-loss"),
                 opponent = Opponent("tsuke_42", null, "6k"),
                 myColor = StoneColor.WHITE,
                 record = record,

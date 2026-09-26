@@ -391,7 +391,7 @@ internal object GameObjectParser {
                 else -> parseColor(game.string("move_color")) == myColor
             }
         return GameSummary(
-            id = GameId(id),
+            id = GameId(DgsClient.SERVER_ID, id),
             opponent =
                 Opponent(
                     handle = opponentUser?.string("handle") ?: "?",

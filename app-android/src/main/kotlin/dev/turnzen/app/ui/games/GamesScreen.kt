@@ -34,7 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,6 +51,7 @@ import dev.turnzen.app.ui.common.OutcomeLabel
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
@@ -62,8 +66,11 @@ fun GamesScreen(
     tab: GamesTab,
     onTabChange: (GamesTab) -> Unit,
     onOpenGame: (GameId) -> Unit,
+    /** Where a server's lapsed sign-in is put right: the account panels in Settings. */
+    onSignInAgain: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val uriHandler = LocalUriHandler.current
     val games = state.listFor(tab)
     val arrivals = state.arrivalsFor(tab)
 
@@ -143,10 +150,27 @@ fun GamesScreen(
                         }
 
                         else -> {
-                            // A list is on screen, so the problem is only why it has not
-                            // changed; one line above it, and pull-to-refresh is the retry.
-                            problem?.let {
-                                item { ProblemMessage(it, Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) }
+                            // A list is on screen, so a problem is only why it — or one
+                            // server's part of it — has not changed; one line each above it,
+                            // and pull-to-refresh is the retry. A server that signed the user
+                            // out says so, with the way back in.
+                            state.allProblems.forEach { line ->
+                                item {
+                                    val signedOut = line in state.signedOut
+                                    ProblemMessage(
+                                        line,
+                                        Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                        onRetry = if (signedOut) onSignInAgain else null,
+                                        retryLabel =
+                                            if (signedOut) {
+                                                stringResource(
+                                                    R.string.games_sign_in_again,
+                                                )
+                                            } else {
+                                                null
+                                            },
+                                    )
+                                }
                             }
                             when {
                                 games == null -> {
@@ -158,12 +182,21 @@ fun GamesScreen(
                                 }
 
                                 else -> {
-                                    items(games, key = { it.id.value }) { game ->
+                                    // Keyed by server too: both servers number their games.
+                                    items(games, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
                                         GameRow(
                                             game = game,
+                                            serverName = viewModel.serverName(game.id),
                                             arrived = game.id in arrivals,
                                             onArrivalShown = { viewModel.onArrivalShown(game.id) },
-                                            onClick = { onOpenGame(game.id) },
+                                            onClick = {
+                                                // A board Turnzen cannot draw opens where it can be played.
+                                                if (game.onlyOnWeb) {
+                                                    viewModel.gameUrl(game.id)?.let(uriHandler::openUri)
+                                                } else {
+                                                    onOpenGame(game.id)
+                                                }
+                                            },
                                             // Placement only. A row that appears or leaves
                                             // does so at once: with a fade here, every row
                                             // would also fade in on arriving at the screen
@@ -281,6 +314,7 @@ private const val SLIDE_MILLIS = 300
 @Composable
 private fun GameRow(
     game: GameSummary,
+    serverName: String,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -306,52 +340,74 @@ private fun GameRow(
         modifier
             .fillMaxWidth()
             .background(colors.surface)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            // The colour bar says which server this is to the eye; this says it to TalkBack.
+            .semantics { stateDescription = "on $serverName" },
     ) {
-        Row(
+        Box(
             Modifier
                 .fillMaxWidth()
                 .height(72.dp)
                 // Read in the draw phase rather than as composable state: the fade then
                 // repaints the row without recomposing or re-laying-out anything. Placed
                 // before the padding, so the wash runs the full width of the screen.
-                .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) }
-                .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) },
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    Formatting.opponent(game.opponent.handle, game.opponent.rank),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    "${Formatting.boardSize(game.boardSize, game.handicap)}, " +
-                        (
-                            when {
-                                // A game that is over is not at a move, it had that many.
-                                game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
-
-                                // A game being counted is not waiting for a move either, and
-                                // saying "move 22" would send the user looking for one.
-                                game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
-
-                                else -> stringResource(R.string.games_move, game.moveNumber)
-                            }
-                        ) + ", ${Formatting.relative(game.lastMoveAt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            // A finished game has no clock to show; what it has instead is how it went.
-            if (game.isFinished) {
-                OutcomeLabel(game.result, game.myColor, game.ratingChange)
-            } else {
-                RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
-            }
+            // The server's mark sits in the margin, so the text keeps its column whether one
+            // server is signed in or two.
+            ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
+            GameRowContent(game)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
+    }
+}
+
+@Composable
+private fun GameRowContent(game: GameSummary) {
+    Row(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                Formatting.opponent(game.opponent.handle, game.opponent.rank),
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
+                    (
+                        when {
+                            // A board this app cannot draw: say where it can be seen.
+                            game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+
+                            // A server that does not say how long a finished game ran
+                            // (OGS's game list) gets no count rather than "0 moves".
+                            game.isFinished && game.moveNumber == 0 -> stringResource(R.string.games_finished)
+
+                            // A game that is over is not at a move, it had that many.
+                            game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
+
+                            // A game being counted is not waiting for a move either, and
+                            // saying "move 22" would send the user looking for one.
+                            game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                            else -> stringResource(R.string.games_move, game.moveNumber)
+                        }
+                    ) + ", ${Formatting.relative(game.lastMoveAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Spacer(Modifier.width(12.dp))
+        // A finished game has no clock to show; what it has instead is how it went.
+        if (game.isFinished) {
+            OutcomeLabel(game.result, game.myColor, game.ratingChange)
+        } else {
+            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+        }
     }
 }

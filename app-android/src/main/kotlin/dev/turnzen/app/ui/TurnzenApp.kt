@@ -35,10 +35,10 @@ import dev.turnzen.app.ui.games.GamesViewModel
 import dev.turnzen.app.ui.settings.SettingsScreen
 import dev.turnzen.app.ui.settings.SettingsViewModel
 import dev.turnzen.app.ui.signin.SignInScreen
-import dev.turnzen.app.ui.signin.SignInViewModel
 import dev.turnzen.app.ui.theme.TurnzenTheme
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.ServerId
 
 /**
  * Root composable: decides between sign-in and the signed-in shell, and hosts the
@@ -47,11 +47,19 @@ import dev.turnzen.goserver.GameId
  */
 @Composable
 fun TurnzenApp(container: AppContainer) {
-    val auth by container.session.state.collectAsStateWithLifecycle()
+    val accounts = container.accounts
+    val auth by accounts.states.collectAsStateWithLifecycle(accounts.sessions.map { it.state.value })
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
-    LaunchedEffect(Unit) {
-        if (container.session.state.value is AuthState.Unknown) container.session.restore()
+    LaunchedEffect(Unit) { accounts.restore() }
+
+    val anySignedIn = auth.any { it is AuthState.SignedIn }
+    // The sign-in screen stays up after the first sign-in until the user continues, so they
+    // can sign in to the second server too. Signing out of every server brings it back; one
+    // server signing the user out while the other stays does not (the games list says so).
+    var onSignIn by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(anySignedIn, auth.none { it is AuthState.Unknown }) {
+        if (!anySignedIn && auth.none { it is AuthState.Unknown }) onSignIn = true
     }
 
     val darkTheme =
@@ -63,17 +71,24 @@ fun TurnzenApp(container: AppContainer) {
 
     TurnzenTheme(darkTheme = darkTheme) {
         Surface(Modifier.fillMaxSize(), color = colors.surface) {
-            when (val a = auth) {
-                AuthState.Unknown -> {
+            when {
+                // Not yet known whether a stored session still works: nothing to decide on.
+                auth.any { it is AuthState.Unknown } -> {
                     Box(Modifier.fillMaxSize().background(colors.surface))
                 }
 
-                is AuthState.SignedOut -> {
-                    val vm = viewModel(key = "signin-${a.reason}") { SignInViewModel(container.session, a.reason) }
-                    SignInScreen(vm)
+                !anySignedIn || onSignIn -> {
+                    SignInScreen(
+                        accounts = accounts,
+                        games = container.games,
+                        browserSignInAvailable = container.ogsAvailable,
+                        keepAwake = container.keepAwake,
+                        canContinue = anySignedIn,
+                        onContinue = { onSignIn = false },
+                    )
                 }
 
-                is AuthState.SignedIn -> {
+                else -> {
                     SignedInShell(container)
                 }
             }
@@ -105,6 +120,12 @@ private val openGameSaver =
         restore = { saved -> mutableStateOf(saved.takeIf { it.firstOrNull() == processId }?.get(1) as String?) },
     )
 
+/** The open game as a Bundle can hold it: "server:id". */
+private fun encodeGameId(id: GameId): String = "${id.server.value}:${id.value}"
+
+private fun decodeGameId(saved: String): GameId =
+    GameId(ServerId(saved.substringBefore(':')), saved.substringAfter(':'))
+
 @Composable
 private fun SignedInShell(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(MainTab.GAMES) }
@@ -117,7 +138,7 @@ private fun SignedInShell(container: AppContainer) {
     // what a Bundle can carry — and tagged with the process that opened it, see
     // [openGameSaver].
     var openGameId by rememberSaveable(saver = openGameSaver) { mutableStateOf<String?>(null) }
-    val openGame = openGameId?.let(::GameId)
+    val openGame = openGameId?.let(::decodeGameId)
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
     // The archive is a list to look things up in, not a queue to work through, so nothing
@@ -126,7 +147,7 @@ private fun SignedInShell(container: AppContainer) {
         if (gamesTab == GamesTab.FINISHED) null else container.games.nextAfter(id, all = gamesTab == GamesTab.ALL)
 
     fun advanceFrom(id: GameId) {
-        openGameId = nextInQueue(id)?.value
+        openGameId = nextInQueue(id)?.let(::encodeGameId)
     }
 
     BackHandler(enabled = openGame != null) { openGameId = null }
@@ -137,10 +158,10 @@ private fun SignedInShell(container: AppContainer) {
             when {
                 game != null && tab == MainTab.GAMES -> {
                     val vm =
-                        viewModel(key = "board-${game.value}") {
+                        viewModel(key = "board-${encodeGameId(game)}") {
                             BoardViewModel(
                                 gameId = game,
-                                session = container.session,
+                                session = container.accounts.session(game.server),
                                 games = container.games,
                                 ladders = container.ladders,
                                 // The queue's next game, warmed while this one is on screen.
@@ -162,18 +183,19 @@ private fun SignedInShell(container: AppContainer) {
                 }
 
                 tab == MainTab.GAMES -> {
-                    val vm = viewModel { GamesViewModel(container.session, container.games) }
+                    val vm = viewModel { GamesViewModel(container.accounts, container.games) }
                     GamesScreen(
                         vm,
                         tab = gamesTab,
                         onTabChange = { gamesTab = it },
-                        onOpenGame = { openGameId = it.value },
+                        onOpenGame = { openGameId = encodeGameId(it) },
+                        onSignInAgain = { tab = MainTab.SETTINGS },
                     )
                 }
 
                 else -> {
-                    val vm = viewModel { SettingsViewModel(container.session, container.settings, container.games) }
-                    SettingsScreen(vm)
+                    val vm = viewModel { SettingsViewModel(container.settings) }
+                    SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
                 }
             }
         }

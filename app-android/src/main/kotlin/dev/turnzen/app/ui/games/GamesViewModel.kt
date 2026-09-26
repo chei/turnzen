@@ -2,18 +2,23 @@ package dev.turnzen.app.ui.games
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.Arrivals
+import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.GamesStore
-import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -35,9 +40,23 @@ data class GamesUiState(
     /** The rows the last refresh brought in, for the screen to highlight once. */
     val arrivals: Arrivals = Arrivals(),
     val refreshing: Boolean = false,
-    /** The last refresh's failure, if it failed. Null while the list is trusted. */
-    val problem: ServerProblem? = null,
+    /**
+     * What went wrong in the last refresh, one entry per server that failed, plus one per
+     * server whose session ended and needs the user to sign in again. Empty while every list
+     * is trusted.
+     */
+    val problems: List<ServerProblem> = emptyList(),
+    /** Sign-in problems of individual servers, kept apart from [problems] because they outlive a refresh. */
+    val signedOut: List<ServerProblem> = emptyList(),
 ) {
+    /** The first problem: the one a screen with nothing else to show puts in the middle. */
+    val problem: ServerProblem?
+        get() = (problems + signedOut).firstOrNull()
+
+    /** Every problem, for the quiet lines above a list that is on screen. */
+    val allProblems: List<ServerProblem>
+        get() = problems + signedOut
+
     fun listFor(tab: GamesTab): List<GameSummary>? =
         when (tab) {
             GamesTab.YOUR_TURN -> yourTurn
@@ -58,24 +77,24 @@ data class GamesUiState(
 }
 
 class GamesViewModel(
-    private val session: SessionManager,
+    private val accounts: Accounts,
     private val store: GamesStore,
 ) : ViewModel() {
     private val transient = MutableStateFlow(GamesUiState())
 
     val state: StateFlow<GamesUiState> =
         combine(
-            store.yourTurn,
-            store.allRunning,
-            store.finished,
+            combine(store.yourTurn, store.allRunning, store.finished, ::Triple),
             store.arrivals,
+            accounts.states,
             transient,
-        ) { yourTurn, allRunning, finished, arrivals, t ->
+        ) { (yourTurn, allRunning, finished), arrivals, auth, t ->
             t.copy(
                 yourTurn = yourTurn,
                 allRunning = allRunning,
                 finished = finished,
                 arrivals = arrivals,
+                signedOut = signedOutLines(auth),
             )
         }.stateIn(
             viewModelScope,
@@ -92,6 +111,28 @@ class GamesViewModel(
     private var lastRefreshAt = 0L
     private var finishedInFlight = false
 
+    init {
+        // A server signed in or out (from Settings, say) changes what the lists should hold:
+        // fetch at once rather than wait for the next time the list is shown.
+        viewModelScope.launch {
+            accounts.states
+                .map { states ->
+                    accounts.sessions
+                        .zip(
+                            states,
+                        ).filter { it.second is AuthState.SignedIn }
+                        .map { it.first.serverId }
+                        .toSet()
+                }.distinctUntilChanged()
+                .drop(1)
+                .collect {
+                    lastRefreshAt = 0L
+                    start(silent = true)
+                    if (store.finished.value != null) loadFinished(silent = true)
+                }
+        }
+    }
+
     /**
      * Pull to refresh: the user asked, so the spinner shows. On the archive that means the
      * archive only — the running lists are refreshed whenever the screen is shown, and the
@@ -103,6 +144,25 @@ class GamesViewModel(
 
     /** A row has finished its highlight, so it is no longer new. */
     fun onArrivalShown(id: GameId) = store.onArrivalShown(id)
+
+    /** The name of the server [id] is on, for what the screen says about it. */
+    fun serverName(id: GameId): String = accounts.session(id.server).serverName
+
+    /** The web page of a game Turnzen lists but cannot show ([GameSummary.onlyOnWeb]). */
+    fun gameUrl(id: GameId): String? = accounts.session(id.server).gameUrl(id)
+
+    /**
+     * A server that signed the user out while another one stays signed in: one line in the
+     * list, not a trip back to the sign-in screen (the other server's games are still here).
+     */
+    private fun signedOutLines(states: List<AuthState>): List<ServerProblem> =
+        accounts.sessions.zip(states).mapNotNull { (session, state) ->
+            val reason = (state as? AuthState.SignedOut)?.reason ?: return@mapNotNull null
+            ServerProblem(title = "Signed out", message = reason, transient = false, server = session.serverId)
+        }
+
+    private fun problemsFor(failures: Map<ServerId, GoServerException>): List<ServerProblem> =
+        failures.map { (server, e) -> problemFor(e, accounts.session(server).serverName).copy(server = server) }
 
     /**
      * The user switched to a tab. Only the archive has anything to do here: it is fetched
@@ -117,13 +177,11 @@ class GamesViewModel(
     private fun loadFinished(silent: Boolean) {
         if (finishedInFlight) return
         finishedInFlight = true
-        if (!silent) transient.update { it.copy(refreshing = true, problem = null) }
+        if (!silent) transient.update { it.copy(refreshing = true, problems = emptyList()) }
         viewModelScope.launch {
             try {
-                store.refreshFinished()
-                transient.update { it.copy(refreshing = false, problem = null) }
-            } catch (e: GoServerException) {
-                transient.update { it.copy(refreshing = false, problem = problemFor(e, session.serverName)) }
+                val failures = store.refreshFinished()
+                transient.update { it.copy(refreshing = false, problems = problemsFor(failures)) }
             } finally {
                 finishedInFlight = false
             }
@@ -146,16 +204,15 @@ class GamesViewModel(
     private fun start(silent: Boolean) {
         if (inFlight) return
         inFlight = true
-        if (!silent) transient.update { it.copy(refreshing = true, problem = null) }
+        if (!silent) transient.update { it.copy(refreshing = true, problems = emptyList()) }
         viewModelScope.launch {
             try {
-                store.refresh()
-                lastRefreshAt = System.nanoTime()
-                transient.update { it.copy(refreshing = false, problem = null) }
+                // Failures are shown for a silent refresh too: they explain why the list, or
+                // one server's part of it, looks unchanged.
+                val failures = store.refresh()
+                if (failures.size < accounts.signedIn.size) lastRefreshAt = System.nanoTime()
+                transient.update { it.copy(refreshing = false, problems = problemsFor(failures)) }
                 warmFirstGame()
-            } catch (e: GoServerException) {
-                // Shown for a silent refresh too: it explains why the list looks unchanged.
-                transient.update { it.copy(refreshing = false, problem = problemFor(e, session.serverName)) }
             } finally {
                 inFlight = false
             }

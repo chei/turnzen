@@ -24,6 +24,10 @@ data class TurnzenColors(
     val stoneBlack: Color,
     val stoneWhite: Color,
     val onAccent: Color,
+    /** Online Go Server's mark: its light blue. Only ever a thin bar or a dot, never a fill. */
+    val serverOgs: Color,
+    /** Dragon Go Server's mark: the sand of its web pages. Same rule. */
+    val serverDgs: Color,
 )
 
 val LightColors =
@@ -40,6 +44,8 @@ val LightColors =
         stoneBlack = Color(0xFF15171A),
         stoneWhite = Color(0xFFF7F5F0),
         onAccent = Color(0xFFFFFFFF),
+        serverOgs = Color(0xFF5E9FD6),
+        serverDgs = Color(0xFFC2A66E),
     )
 
 val DarkColors =
@@ -58,6 +64,8 @@ val DarkColors =
         stoneBlack = Color(0xFF15171A),
         stoneWhite = Color(0xFFF7F5F0),
         onAccent = Color(0xFF14181A),
+        serverOgs = Color(0xFF6F9FC8),
+        serverDgs = Color(0xFFA99368),
     )
 
 val LocalTurnzenColors = staticCompositionLocalOf { LightColors }

@@ -31,4 +31,5 @@ rootProject.name = "turnzen"
 include(":core-game")
 include(":core-goserver")
 include(":core-dgs")
+include(":core-ogs")
 include(":app-android")

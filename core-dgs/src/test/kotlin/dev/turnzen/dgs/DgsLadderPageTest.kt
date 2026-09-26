@@ -18,7 +18,7 @@ class DgsLadderPageTest {
 
         assertEquals(4, standings.size)
         // The one the user started: they are ranked 153 and called out 108 above them.
-        val outgoing = standings.getValue(GameId("1503981"))
+        val outgoing = standings.getValue(GameId(DgsClient.SERVER_ID, "1503981"))
         assertEquals(153, outgoing.yourRank)
         assertEquals(108, outgoing.opponentRank)
         assertTrue(outgoing.youAreChallenger)
@@ -40,7 +40,7 @@ class DgsLadderPageTest {
     fun `the challenger is not the worse-placed player`() {
         // Game 1501653: the challenger sits at 149, *above* the defender at 153, having climbed
         // past them while the game ran. Reading direction off the two ranks would invert this.
-        val defended = DgsLadderPage.standings(page).getValue(GameId("1501653"))
+        val defended = DgsLadderPage.standings(page).getValue(GameId(DgsClient.SERVER_ID, "1501653"))
         assertEquals(153, defended.yourRank)
         assertEquals(149, defended.opponentRank)
         assertTrue(!defended.youAreChallenger)
@@ -69,7 +69,11 @@ class DgsLadderPageTest {
         // Worth stating on its own: Challenges-In is never hideable, and every challenge
         // appears in the defender's row. So the game the user started is still found -- from
         // the other player's row -- and still known to be theirs.
-        val outgoing = DgsLadderPage.standings(withoutChallengesOut(page)).getValue(GameId("1503981"))
+        val outgoing =
+            DgsLadderPage
+                .standings(
+                    withoutChallengesOut(page),
+                ).getValue(GameId(DgsClient.SERVER_ID, "1503981"))
         assertEquals(153, outgoing.yourRank)
         assertEquals(108, outgoing.opponentRank)
         assertTrue(outgoing.youAreChallenger)

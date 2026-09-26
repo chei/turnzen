@@ -1,5 +1,6 @@
 package dev.turnzen.app
 
+import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.goserver.Credentials
@@ -20,7 +21,7 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
 
             assertEquals(
@@ -39,15 +40,15 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
 
             // your-turn order: demo-19, demo-scoring, demo-13, demo-9
-            assertEquals(GameId("demo-scoring"), store.nextAfter(GameId("demo-19")))
-            assertEquals(GameId("demo-13"), store.nextAfter(GameId("demo-scoring")))
-            assertEquals(GameId("demo-9"), store.nextAfter(GameId("demo-13")))
+            assertEquals(GameId(DEMO_SERVER, "demo-scoring"), store.nextAfter(GameId(DEMO_SERVER, "demo-19")))
+            assertEquals(GameId(DEMO_SERVER, "demo-13"), store.nextAfter(GameId(DEMO_SERVER, "demo-scoring")))
+            assertEquals(GameId(DEMO_SERVER, "demo-9"), store.nextAfter(GameId(DEMO_SERVER, "demo-13")))
             // The last game does not wrap around to the first: null means "back to the list".
-            assertNull(store.nextAfter(GameId("demo-9")))
+            assertNull(store.nextAfter(GameId(DEMO_SERVER, "demo-9")))
         }
 
     @Test
@@ -55,7 +56,7 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
 
             // Refreshing the running lists costs nothing in the archive: it stays unfetched.
@@ -67,7 +68,7 @@ class GamesStoreTest {
             assertTrue(finished.all { it.isFinished })
             assertTrue(finished.none { it.isMyTurn })
             // The board opens a finished game from the list like any other.
-            assertNotNull(store.summary(GameId("demo-done-win")))
+            assertNotNull(store.summary(GameId(DEMO_SERVER, "demo-done-win")))
         }
 
     @Test
@@ -75,11 +76,11 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
             store.refreshFinished()
 
-            store.onGameEnded(GameId("demo-19"))
+            store.onGameEnded(GameId(DEMO_SERVER, "demo-19"))
             assertNull(store.finished.value)
         }
 
@@ -88,9 +89,9 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
-            store.onMovePlayed(GameId("demo-19"))
+            store.onMovePlayed(GameId(DEMO_SERVER, "demo-19"))
 
             // Gone from the "Your turn" queue.
             assertTrue(store.yourTurn.value!!.none { it.id.value == "demo-19" })
@@ -106,7 +107,7 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
 
             // Every row is new on the first load; lighting them all up would say nothing.
             store.refresh()
@@ -135,17 +136,17 @@ class GamesStoreTest {
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
 
             // Stand in for the opponent moving: the game leaves the queue, then the next
             // refresh finds it waiting on the user again.
-            store.onMovePlayed(GameId("demo-19"))
+            store.onMovePlayed(GameId(DEMO_SERVER, "demo-19"))
             store.refresh()
-            assertEquals(setOf(GameId("demo-19")), store.arrivals.value.yourTurn)
+            assertEquals(setOf(GameId(DEMO_SERVER, "demo-19")), store.arrivals.value.yourTurn)
 
             // The highlight plays once: having been shown, it is not pending any more.
-            store.onArrivalShown(GameId("demo-19"))
+            store.onArrivalShown(GameId(DEMO_SERVER, "demo-19"))
             assertTrue(
                 store.arrivals.value.yourTurn
                     .isEmpty(),
@@ -176,11 +177,11 @@ class GamesStoreTest {
                 }
             val session = sessionFor(client)
             session.signIn(Credentials("demo", "pw"))
-            val store = GamesStore(session)
+            val store = GamesStore(Accounts(listOf(session)))
 
             store.refresh()
             store.refresh()
 
-            assertEquals(setOf(GameId("demo-9")), store.arrivals.value.allRunning)
+            assertEquals(setOf(GameId(DEMO_SERVER, "demo-9")), store.arrivals.value.allRunning)
         }
 }

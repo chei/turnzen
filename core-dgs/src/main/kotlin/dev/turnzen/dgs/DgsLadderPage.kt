@@ -92,7 +92,7 @@ internal object DgsLadderPage {
                         defender -> LadderStanding(myRank, challenger, youAreChallenger = false)
                         else -> null // somebody else's challenge; the page lists every one of them
                     }
-                if (standing != null) put(GameId(gid), standing)
+                if (standing != null) put(GameId(DgsClient.SERVER_ID, gid), standing)
             }
         }
     }

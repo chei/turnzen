@@ -7,6 +7,7 @@ import dev.turnzen.app.data.ServerSelection
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.goserver.Credentials
+import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.Dispatchers
@@ -169,3 +170,6 @@ class FakeSharedPreferences(
         }
     }
 }
+
+/** The server the demo client stands in for by default; every test game id is on it. */
+val DEMO_SERVER = ServerId("dgs")

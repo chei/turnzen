@@ -1,5 +1,6 @@
 package dev.turnzen.app
 
+import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.games.GamesTab
@@ -61,7 +62,7 @@ class GamesViewModelTest : MainDispatcherTest() {
             val client = CountingClient()
             val session = sessionFor(client)
             session.signIn(Credentials("demo", "pw"))
-            val vm = GamesViewModel(session, GamesStore(session))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
             backgroundScope.launch { vm.state.collect {} }
 
             // The running lists are on screen; the archive has not been asked for.
@@ -97,7 +98,7 @@ class GamesViewModelTest : MainDispatcherTest() {
             val client = FlakyClient()
             val session = sessionFor(client)
             session.signIn(Credentials("demo", "pw"))
-            val vm = GamesViewModel(session, GamesStore(session))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
             // The state flow only runs while something collects it.
             backgroundScope.launch { vm.state.collect {} }
 
@@ -118,7 +119,7 @@ class GamesViewModelTest : MainDispatcherTest() {
             val client = FlakyClient()
             val session = sessionFor(client)
             session.signIn(Credentials("demo", "pw"))
-            val vm = GamesViewModel(session, GamesStore(session))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
             backgroundScope.launch { vm.state.collect {} }
 
             vm.refresh()

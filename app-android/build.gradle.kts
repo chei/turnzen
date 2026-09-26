@@ -9,6 +9,11 @@ plugins {
 // talks to the in-memory demo server instead of DGS (useful on an emulator without an account).
 val useFakeServer = providers.gradleProperty("turnzen.fakeServer").orNull == "true"
 
+// The OGS OAuth application's client id, registered under the maintainer's OGS account.
+// Public by design: the sign-in uses PKCE, so there is no secret to keep. A fork registering
+// its own application can override it with `-Pturnzen.ogsClientId=...`.
+val ogsClientId = providers.gradleProperty("turnzen.ogsClientId").orNull ?: "yK58MvJ9o8FP75ri6Z6sv1PS8jLBIODWIKAXXmpz"
+
 android {
     namespace = "dev.turnzen.app"
     compileSdk = 37
@@ -22,6 +27,7 @@ android {
 
         // Public project links shown on the Settings screen.
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/chei/turnzen\"")
+        buildConfigField("String", "OGS_CLIENT_ID", "\"$ogsClientId\"")
     }
 
     buildTypes {
@@ -55,11 +61,12 @@ android {
 }
 
 dependencies {
-    // The UI depends on the server-agnostic interfaces. The concrete DGS client is only
-    // referenced from the app's composition root (AppContainer), never from screens.
+    // The UI depends on the server-agnostic interfaces. The concrete DGS and OGS clients are
+    // only referenced from the app's composition root (AppContainer), never from screens.
     implementation(project(":core-goserver"))
     implementation(project(":core-game"))
     implementation(project(":core-dgs"))
+    implementation(project(":core-ogs"))
 
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.core.ktx)

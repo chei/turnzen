@@ -1,6 +1,7 @@
 package dev.turnzen.app.ui.common
 
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
 
 /**
  * A failed server call, in the words the screen shows.
@@ -17,6 +18,8 @@ data class ServerProblem(
     /** What happened and what to do about it. */
     val message: String,
     val transient: Boolean,
+    /** The server it is about, where it is about one; the screen marks the line with its colour. */
+    val server: ServerId? = null,
 )
 
 /**

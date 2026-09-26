@@ -13,9 +13,23 @@ data class Credentials(
     val password: String,
 )
 
-/** Identifies a game on one server. Opaque to the UI. */
+/**
+ * Which server something belongs to ("dgs", "ogs"). Opaque: the UI may use it to tell
+ * servers apart (a colour, a name), never to decide how to talk to one. Each server module
+ * defines its own.
+ */
 @JvmInline
-value class GameId(
+value class ServerId(
+    val value: String,
+)
+
+/**
+ * Identifies a game: the server it is played on, and that server's own id for it. Carrying
+ * the server keeps ids from different servers apart (both DGS and OGS number their games),
+ * and tells the UI which server a game belongs to. [value] is opaque to the UI.
+ */
+data class GameId(
+    val server: ServerId,
     val value: String,
 )
 
@@ -98,6 +112,16 @@ data class GameSummary(
      * games. Null for an unrated game and for a server that reports no such thing.
      */
     val ratingChange: Double? = null,
+    /**
+     * Rows of the board when it is not square (OGS allows 19×9); equal to [boardSize] for
+     * every board this client draws.
+     */
+    val boardHeight: Int = boardSize,
+    /**
+     * True for a game this client lists but cannot show — a board shape it does not draw, a
+     * team game. The UI sends the user to [TurnBasedGoServerClient.gameUrl] instead.
+     */
+    val onlyOnWeb: Boolean = false,
 )
 
 /**

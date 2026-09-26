@@ -1,5 +1,6 @@
 package dev.turnzen.app
 
+import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStandings
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
@@ -18,8 +19,8 @@ import kotlin.test.assertTrue
 /** The board's side of the ladder standing: when it is asked for, and when it is not. */
 class LadderStandingTest : MainDispatcherTest() {
     /** The demo server's ladder game, and one that belongs to no tournament. */
-    private val ladderGame = GameId("demo-13")
-    private val casualGame = GameId("demo-9")
+    private val ladderGame = GameId(DEMO_SERVER, "demo-13")
+    private val casualGame = GameId(DEMO_SERVER, "demo-9")
 
     private class RecordingLadders(
         private val answer: LadderStanding? = LadderStanding(12, 7, youAreChallenger = true),
@@ -45,7 +46,7 @@ class LadderStandingTest : MainDispatcherTest() {
         ladders: LadderStandings,
     ): BoardViewModel {
         val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0), InMemoryCredentialStore())
-        val games = GamesStore(session)
+        val games = GamesStore(Accounts(listOf(session)))
         session.signIn(Credentials("demo", "pw"))
         games.refresh()
         val vm = BoardViewModel(id, session, games, ladders, onMoveSent = {})

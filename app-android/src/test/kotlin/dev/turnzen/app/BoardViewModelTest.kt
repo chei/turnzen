@@ -1,5 +1,6 @@
 package dev.turnzen.app
 
+import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardEventKind
@@ -33,12 +34,12 @@ import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BoardViewModelTest : MainDispatcherTest() {
-    private val game = GameId("demo-9")
-    private val scoringGame = GameId("demo-scoring")
+    private val game = GameId(DEMO_SERVER, "demo-9")
+    private val scoringGame = GameId(DEMO_SERVER, "demo-scoring")
 
     /** The demo archive: a counted game ending in two passes, and one that was resigned. */
-    private val countedGame = GameId("demo-done-win")
-    private val resignedGame = GameId("demo-done-loss")
+    private val countedGame = GameId(DEMO_SERVER, "demo-done-win")
+    private val resignedGame = GameId(DEMO_SERVER, "demo-done-loss")
 
     /** The white stone stranded in black's area in the demo server's scoring game (D8). */
     private val strandedStone = checkNotNull(Coordinates.parse("D8", 9))
@@ -48,7 +49,7 @@ class BoardViewModelTest : MainDispatcherTest() {
     ) {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
-        val games = GamesStore(session)
+        val games = GamesStore(Accounts(listOf(session)))
         val sent = ArrayList<GameId>()
         var ended = 0
         lateinit var vm: BoardViewModel
@@ -144,7 +145,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
 
             // Warmed in the background, the way the queue's next game is.
-            val warmed = GameId("demo-13")
+            val warmed = GameId(DEMO_SERVER, "demo-13")
             h.games.prefetch(warmed)
             advanceUntilIdle()
             assertEquals(1, downloads)
@@ -193,7 +194,7 @@ class BoardViewModelTest : MainDispatcherTest() {
     fun `on the opponent's turn the board explores their move and cannot send`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
-            h.start(GameId("demo-waiting"))
+            h.start(GameId(DEMO_SERVER, "demo-waiting"))
             advanceUntilIdle()
 
             val loaded = h.vm.state.value

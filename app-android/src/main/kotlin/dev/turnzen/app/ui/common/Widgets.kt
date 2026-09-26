@@ -138,15 +138,24 @@ fun ProblemMessage(
     problem: ServerProblem,
     modifier: Modifier = Modifier,
     onRetry: (() -> Unit)? = null,
+    /** What [onRetry] is called on screen; "Try again" unless the way out is something else. */
+    retryLabel: String? = null,
 ) {
     Column(modifier) {
-        Text(
-            if (problem.transient) "${problem.title}. ${problem.message}" else problem.message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (problem.transient) colors.ink2 else colors.urgent,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // A problem about one server of several carries that server's mark.
+            problem.server?.let {
+                ServerDot(it)
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(
+                if (problem.transient) "${problem.title}. ${problem.message}" else problem.message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (problem.transient) colors.ink2 else colors.urgent,
+            )
+        }
         if (onRetry != null) {
-            TextAction(stringResource(R.string.action_retry), onRetry, color = colors.accent)
+            TextAction(retryLabel ?: stringResource(R.string.action_retry), onRetry, color = colors.accent)
         }
     }
 }

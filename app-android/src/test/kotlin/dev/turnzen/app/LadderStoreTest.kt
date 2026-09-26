@@ -20,8 +20,8 @@ import kotlin.test.assertNull
 class LadderStoreTest {
     private val ladder = TournamentRef(id = "3", isLadder = true)
     private val roundRobin = TournamentRef(id = "365", isLadder = false)
-    private val mine = GameId("1503981")
-    private val alsoMine = GameId("1501653")
+    private val mine = GameId(DEMO_SERVER, "1503981")
+    private val alsoMine = GameId(DEMO_SERVER, "1501653")
 
     private val answer =
         mapOf(
@@ -131,7 +131,7 @@ class LadderStoreTest {
             val session = sessionFor(client, InMemoryCredentialStore())
             session.signIn(Credentials("demo", "pw"))
             val store = LadderStore(FakeSharedPreferences(), session, 24L * 60 * 60 * 1000) { clock.millis }
-            val unknown = GameId("9999999")
+            val unknown = GameId(DEMO_SERVER, "9999999")
 
             assertNull(store.standing(ladder, unknown))
             repeat(5) { store.standing(ladder, unknown) }

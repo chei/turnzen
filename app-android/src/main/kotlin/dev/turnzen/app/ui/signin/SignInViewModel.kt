@@ -6,6 +6,7 @@ import dev.turnzen.app.data.SessionManager
 import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,12 +23,16 @@ data class SignInUiState(
         get() = username.isNotBlank() && password.isNotEmpty() && !loading
 }
 
+/** The username-and-password sign-in of one server (DGS): its panel on the sign-in screen and in Settings. */
 class SignInViewModel(
     private val session: SessionManager,
     initialError: String? = null,
 ) : ViewModel() {
     private val _state = MutableStateFlow(SignInUiState(error = initialError))
     val state: StateFlow<SignInUiState> = _state.asStateFlow()
+
+    val serverId: ServerId
+        get() = session.serverId
 
     val serverName: String
         get() = session.serverName

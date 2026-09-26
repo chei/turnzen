@@ -169,7 +169,7 @@ class DgsClientTest {
             val transport = transportWithHappyPath()
             val client = DgsClient(transport, "https://dgs.example.test")
             client.signIn(Credentials("fakeuser", "secret"))
-            val detail = client.game(GameId("1000000"))
+            val detail = client.game(GameId(DgsClient.SERVER_ID, "1000000"))
             assertEquals("264", detail.summary.moveToken.value)
             assertEquals(19, detail.record.boardSize)
             assertEquals(5, detail.record.setupBlack.size)
@@ -198,7 +198,7 @@ class DgsClientTest {
             )
             val client = DgsClient(transport, "https://dgs.example.test")
             client.signIn(Credentials("fakeuser", "secret"))
-            val tournament = client.game(GameId("1000000")).info?.tournament
+            val tournament = client.game(GameId(DgsClient.SERVER_ID, "1000000")).info?.tournament
             assertEquals("3", tournament?.id)
             assertEquals("DGS Ladder (19x19)", tournament?.name)
             assertEquals(true, tournament?.isLadder)
@@ -220,8 +220,8 @@ class DgsClientTest {
             val standings = client.ladderStandings(TournamentRef(id = "3", isLadder = true))
 
             assertEquals(4, standings.size)
-            assertEquals(108, standings.getValue(GameId("1503981")).opponentRank)
-            assertTrue(standings.getValue(GameId("1503981")).youAreChallenger)
+            assertEquals(108, standings.getValue(GameId(DgsClient.SERVER_ID, "1503981")).opponentRank)
+            assertTrue(standings.getValue(GameId(DgsClient.SERVER_ID, "1503981")).youAreChallenger)
             assertTrue(
                 transport.requests
                     .last()
@@ -275,7 +275,7 @@ class DgsClientTest {
             val client = DgsClient(transport, "https://dgs.example.test")
             client.signIn(Credentials("fakeuser", "secret"))
 
-            client.sendMove(GameId("1000000"), MoveToken("264"), Move.Play(Point(16, 3)))
+            client.sendMove(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"), Move.Play(Point(16, 3)))
             val play = transport.requests.last()
             assertEquals(HttpMethod.POST, play.method)
             assertEquals("qd", play.form["move"])
@@ -283,7 +283,7 @@ class DgsClientTest {
             assertEquals("264", play.form["move_id"])
             assertEquals("move", play.form["cmd"])
 
-            client.sendMove(GameId("1000000"), MoveToken("264"), Move.Pass)
+            client.sendMove(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"), Move.Pass)
             assertEquals("pass", transport.requests.last().form["move"])
         }
 
@@ -293,7 +293,7 @@ class DgsClientTest {
             val transport = transportWithHappyPath()
             val client = DgsClient(transport, "https://dgs.example.test")
             client.signIn(Credentials("fakeuser", "secret"))
-            val game = GameId("1000000")
+            val game = GameId(DgsClient.SERVER_ID, "1000000")
             val token = MoveToken("264")
             val group = Point(2, 3) // "cd"
 
@@ -337,7 +337,7 @@ class DgsClientTest {
             val client = DgsClient(transport, "https://dgs.example.test")
             client.signIn(Credentials("fakeuser", "secret"))
             assertFailsWith<GoServerException.StaleGame> {
-                client.sendMove(GameId("1000000"), MoveToken("263"), Move.Play(Point(0, 0)))
+                client.sendMove(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("263"), Move.Play(Point(0, 0)))
             }
         }
 

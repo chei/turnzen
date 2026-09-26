@@ -150,6 +150,11 @@ data class BoardUiState(
     /** Non-null once the game has reached its scoring phase. */
     val scoring: ScoringUiState? = null,
     /**
+     * The game is being counted on a server whose scoring Turnzen does not do (OGS, for now):
+     * nothing can be sent from here, and the problem line points to the web.
+     */
+    val scoringOnTheWeb: Boolean = false,
+    /**
      * Where the two players stand on the ladder, once it has been fetched. Arrives after the
      * info sheet is already on screen, and stays null for every game that is not a ladder
      * challenge — or whose standing could not be read, which is not worth telling anyone.
@@ -192,7 +197,7 @@ data class BoardUiState(
     /** False when the game is open only to explore the opponent's move; no move can be sent.
      *  Uses the preview while loading so the Send button takes its final place from the start. */
     val isMyTurn: Boolean
-        get() = headerSummary?.isMyTurn ?: false
+        get() = !scoringOnTheWeb && headerSummary?.isMyTurn ?: false
 
     /**
      * The game is over and open for reading: the board replays it and trial stones still
@@ -461,6 +466,22 @@ class BoardViewModel(
         val s = _state.value
         val summary = s.detail?.summary ?: return
         if (summary.pendingAction != PendingAction.SCORE) return
+        if (!session.scoresInApp) {
+            _state.update {
+                it.copy(
+                    scoringOnTheWeb = true,
+                    problem =
+                        ServerProblem(
+                            title = "Counting on the web",
+                            message =
+                                "This game is being counted. Turnzen can't count ${session.serverName} games " +
+                                    "yet; open it on the web to agree on the dead stones.",
+                            transient = true,
+                        ),
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             try {
                 val state = session.call { it.scoreState(gameId, summary.moveToken) }

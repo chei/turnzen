@@ -2,27 +2,22 @@ package dev.turnzen.app.ui.settings
 
 import android.os.Build
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.BuildConfig
 import dev.turnzen.app.data.AppSettings
 import dev.turnzen.app.data.BoardSettings
-import dev.turnzen.app.data.GamesStore
-import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.data.ThemeMode
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
+/**
+ * Settings other than the accounts: those are the account panels, shared with the sign-in
+ * screen (see `AccountPanels`).
+ */
 class SettingsViewModel(
-    private val session: SessionManager,
     private val settingsStore: SettingsStore,
-    private val games: GamesStore,
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsStore.settings
-
-    val userHandle: String
-        get() = session.signedInUser?.handle ?: "–"
 
     val sourceUrl: String = BuildConfig.SOURCE_URL
 
@@ -50,11 +45,4 @@ class SettingsViewModel(
         }
 
     fun setTheme(mode: ThemeMode) = settingsStore.update { it.copy(theme = mode) }
-
-    fun signOut() {
-        viewModelScope.launch {
-            games.clear()
-            session.signOut()
-        }
-    }
 }

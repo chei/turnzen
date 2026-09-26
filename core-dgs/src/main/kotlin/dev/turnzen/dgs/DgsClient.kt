@@ -18,6 +18,7 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.ScoreState
+import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
@@ -33,12 +34,16 @@ class DgsClient(
 ) : TurnBasedGoServerClient {
     companion object {
         const val DEFAULT_BASE_URL = "https://www.dragongoserver.net/"
+
+        /** DGS's [ServerId], carried by every [GameId] this client hands out. */
+        val SERVER_ID = ServerId("dgs")
     }
 
     private val baseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
     private var cookies = SessionCookies()
     private var userId: String? = null
 
+    override val serverId: ServerId = SERVER_ID
     override val serverName: String = "Dragon Go Server"
     override val registrationUrl: String = this.baseUrl + "register.php"
 

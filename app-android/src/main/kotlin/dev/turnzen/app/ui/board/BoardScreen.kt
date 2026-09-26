@@ -70,6 +70,7 @@ import dev.turnzen.app.ui.common.OutcomeLabel
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
@@ -79,6 +80,7 @@ import dev.turnzen.game.ScoreCount
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.RemainingTime
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -109,6 +111,7 @@ fun BoardScreen(
         if (summary != null) {
             val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
             Header(
+                server = summary.id.server,
                 opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
                 subtitle =
                     if (state.isFinished) {
@@ -1003,6 +1006,7 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
  */
 @Composable
 private fun Header(
+    server: ServerId,
     opponent: String,
     subtitle: String,
     remaining: RemainingTime?,
@@ -1030,6 +1034,8 @@ private fun Header(
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
+                // Which server the game is on, in the mark the games list uses.
+                ServerDot(server, Modifier.padding(end = 8.dp))
                 Text(opponent, style = MaterialTheme.typography.titleMedium)
                 if (onOpenInfo != null) Chevron(Modifier.padding(start = 6.dp))
             }

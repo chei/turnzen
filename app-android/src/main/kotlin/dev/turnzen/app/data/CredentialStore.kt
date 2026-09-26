@@ -7,7 +7,10 @@ import androidx.security.crypto.MasterKey
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.SignedInUser
 
-/** Username, password, the server session blob and the last confirmed user. */
+/**
+ * One server's secrets: username and password (a password server only), the server session
+ * blob and the last confirmed user.
+ */
 interface CredentialStore {
     var credentials: Credentials?
     var session: String?
@@ -25,7 +28,8 @@ interface CredentialStore {
 class EncryptedCredentialStore internal constructor(
     private val prefs: SharedPreferences,
 ) : CredentialStore {
-    constructor(context: Context) : this(encryptedPrefs(context))
+    /** [fileName] keeps each server's secrets apart; DGS keeps the original file. */
+    constructor(context: Context, fileName: String = "turnzen_secrets") : this(encryptedPrefs(context, fileName))
 
     override var credentials: Credentials?
         get() {
@@ -89,10 +93,13 @@ class EncryptedCredentialStore internal constructor(
 
 /** The encrypted file [EncryptedCredentialStore] normally sits on. */
 @Suppress("DEPRECATION")
-private fun encryptedPrefs(context: Context): SharedPreferences =
+private fun encryptedPrefs(
+    context: Context,
+    fileName: String,
+): SharedPreferences =
     EncryptedSharedPreferences.create(
         context,
-        "turnzen_secrets",
+        fileName,
         MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build(),
         EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
         EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,

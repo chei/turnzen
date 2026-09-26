@@ -4,7 +4,9 @@ import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +34,7 @@ data class Arrivals(
  *   refresh would spend the server's quota on an answer that is already known.
  */
 class GamesStore(
-    private val session: SessionManager,
+    private val accounts: Accounts,
 ) {
     private val _yourTurn = MutableStateFlow<List<GameSummary>?>(null)
     private val _allRunning = MutableStateFlow<List<GameSummary>?>(null)
@@ -56,25 +58,75 @@ class GamesStore(
     /** What the last [refresh] changed, for the screen to highlight. See [Arrivals]. */
     val arrivals: StateFlow<Arrivals> = _arrivals.asStateFlow()
 
-    /** Fetches both lists. The two server calls run concurrently. */
-    suspend fun refresh() {
-        coroutineScope {
-            val turn = async { session.call { it.gamesAwaitingMe() } }
-            val running = async { session.call { it.myRunningGames() } }
-            val turnList = turn.await().sortedByDescending { it.lastMoveAt }
-            val runningList = running.await().sortedByDescending { it.lastMoveAt }
-            // Worked out before the lists are replaced: what is new is only knowable
-            // against what was there. Replaces the previous arrivals rather than adding to
-            // them, so an old highlight never plays several refreshes late.
-            _arrivals.value =
-                Arrivals(
-                    yourTurn = arrivalsIn(_yourTurn.value, turnList),
-                    allRunning = arrivalsIn(_allRunning.value, runningList),
-                )
-            _yourTurn.value = turnList
-            _allRunning.value = runningList
-        }
+    /**
+     * Fetches both lists from every signed-in server, all calls at once, and merges them into
+     * one list per tab — the question the list answers is "what do I have to play", not
+     * "what is on DGS".
+     *
+     * One server failing does not cost the other's games: a server that did not answer keeps
+     * the games it had in the lists. Failures are returned, by server, for the screen to name;
+     * nothing is thrown.
+     */
+    suspend fun refresh(): Map<ServerId, GoServerException> {
+        val sessions = accounts.signedIn
+        val answers =
+            coroutineScope {
+                sessions
+                    .map { session ->
+                        async {
+                            session.serverId to
+                                attempt {
+                                    coroutineScope {
+                                        val turn = async { session.call { it.gamesAwaitingMe() } }
+                                        val running = async { session.call { it.myRunningGames() } }
+                                        turn.await() to running.await()
+                                    }
+                                }
+                        }
+                    }.awaitAll()
+            }
+        val failures =
+            answers
+                .mapNotNull { (server, answer) ->
+                    answer.exceptionOrNull()?.let {
+                        server to
+                            it as GoServerException
+                    }
+                }.toMap()
+        // Nothing answered: the lists stay exactly as they were, unloaded ones included, so a
+        // first load that failed still reads as "nothing to show" rather than "no games".
+        if (sessions.isNotEmpty() && failures.size == sessions.size) return failures
+        val fresh = answers.mapNotNull { (server, answer) -> answer.getOrNull()?.let { server to it } }.toMap()
+        // Games of a server that is signed in but did not answer stay as they were.
+        val stale = failures.keys
+        val turnList = merge(_yourTurn.value, stale, fresh.values.flatMap { it.first })
+        val runningList = merge(_allRunning.value, stale, fresh.values.flatMap { it.second })
+        // Worked out before the lists are replaced: what is new is only knowable
+        // against what was there. Replaces the previous arrivals rather than adding to
+        // them, so an old highlight never plays several refreshes late.
+        _arrivals.value =
+            Arrivals(
+                yourTurn = arrivalsIn(_yourTurn.value, turnList),
+                allRunning = arrivalsIn(_allRunning.value, runningList),
+            )
+        _yourTurn.value = turnList
+        _allRunning.value = runningList
+        return failures
     }
+
+    /** The fresh games plus the held ones of the servers in [keep], newest move first. */
+    private fun merge(
+        held: List<GameSummary>?,
+        keep: Set<ServerId>,
+        fresh: List<GameSummary>,
+    ): List<GameSummary> = (held.orEmpty().filter { it.id.server in keep } + fresh).sortedByDescending { it.lastMoveAt }
+
+    private suspend fun <T> attempt(block: suspend () -> T): Result<T> =
+        try {
+            Result.success(block())
+        } catch (e: GoServerException) {
+            Result.failure(e)
+        }
 
     /**
      * Which of [now] are news since [before]: a game the list did not have, or one that has
@@ -108,11 +160,29 @@ class GamesStore(
      * Fetches the last few finished games. Deliberately not part of [refresh]: it is a
      * request the user pays for only when they look at the archive.
      */
-    suspend fun refreshFinished() {
+    suspend fun refreshFinished(): Map<ServerId, GoServerException> {
+        val sessions = accounts.signedIn
+        val answers =
+            coroutineScope {
+                sessions
+                    .map { session ->
+                        async { session.serverId to attempt { session.call { it.myFinishedGames(FINISHED_LIMIT) } } }
+                    }.awaitAll()
+            }
+        val failures =
+            answers
+                .mapNotNull { (server, answer) ->
+                    answer.exceptionOrNull()?.let {
+                        server to
+                            it as GoServerException
+                    }
+                }.toMap()
+        if (sessions.isNotEmpty() && failures.size == sessions.size) return failures
+        // The fifteen most recent across servers: the limit is the tab's, not each server's.
         _finished.value =
-            session
-                .call { it.myFinishedGames(FINISHED_LIMIT) }
-                .sortedByDescending { it.lastMoveAt }
+            merge(_finished.value, failures.keys, answers.flatMap { it.second.getOrNull().orEmpty() })
+                .take(FINISHED_LIMIT)
+        return failures
     }
 
     /** The record already held for [id], if one was fetched or prefetched earlier. */
@@ -143,7 +213,7 @@ class GamesStore(
         val summary = summary(id)
         if (known != null && (summary == null || summary.moveNumber <= known.summary.moveNumber)) return
         try {
-            cache(session.call { it.game(id) })
+            cache(accounts.session(id.server).call { it.game(id) })
         } catch (e: GoServerException) {
             // Never surfaced: the game is fetched for real when it is opened.
         }
@@ -200,6 +270,24 @@ class GamesStore(
         val index = list.indexOfFirst { it.id == id }
         if (index < 0) return null
         return list.drop(index + 1).firstOrNull()?.id
+    }
+
+    /**
+     * Signs [session] out and takes its games out of every list; the other servers' games
+     * stay. Otherwise the next account to sign in on this phone would briefly see the
+     * previous one's games.
+     */
+    suspend fun signOut(session: SessionManager) {
+        forget(session.serverId)
+        session.signOut()
+    }
+
+    /** A server was signed out: its games leave every list, the others stay. */
+    fun forget(server: ServerId) {
+        details.keys.removeAll { it.server == server }
+        _yourTurn.update { list -> list?.filterNot { it.id.server == server } }
+        _allRunning.update { list -> list?.filterNot { it.id.server == server } }
+        _finished.update { list -> list?.filterNot { it.id.server == server } }
     }
 
     fun clear() {

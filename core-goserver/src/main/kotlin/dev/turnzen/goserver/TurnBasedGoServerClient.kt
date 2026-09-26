@@ -12,13 +12,30 @@ import dev.turnzen.game.Point
  * every launch.
  */
 interface TurnBasedGoServerClient {
+    /** Which server this is. Every [GameId] this client hands out carries it. */
+    val serverId: ServerId
+
     /** Human-readable server name for the UI ("Dragon Go Server"). */
     val serverName: String
 
     /** Registration page for users without an account, opened in the browser. */
     val registrationUrl: String
 
+    /** How this server wants the user to sign in; decides which of the two sign-ins applies. */
+    val signInMethod: SignInMethod
+        get() = SignInMethod.PASSWORD
+
+    /** For [SignInMethod.PASSWORD]. */
     suspend fun signIn(credentials: Credentials): SignedInUser
+
+    /**
+     * For [SignInMethod.BROWSER]: the user signs in on the server's own web page, so this
+     * client never sees a password. [openPage] is called once with the page to show; the
+     * call then waits until the server hands the sign-in back, and is cancelled like any
+     * other coroutine when the user gives up.
+     */
+    suspend fun signInInBrowser(openPage: (url: String) -> Unit): SignedInUser =
+        throw UnsupportedOperationException("$serverName signs in with a password")
 
     suspend fun signOut()
 
@@ -65,6 +82,13 @@ interface TurnBasedGoServerClient {
         id: GameId,
         token: MoveToken,
     )
+
+    /**
+     * False when this client cannot take part in the scoring phase, so the UI sends the user
+     * to [gameUrl] for it instead of calling [scoreState] and friends.
+     */
+    val scoresInApp: Boolean
+        get() = true
 
     /**
      * The scoring phase's current state: the dead stones both players are working from, the
@@ -117,8 +141,24 @@ interface TurnBasedGoServerClient {
      */
     fun gameUrl(id: GameId): String?
 
-    /** Opaque session state to persist, or null when signed out. */
+    /** The user's own page on the server's website, or null when there is none worth linking. */
+    fun accountUrl(user: SignedInUser): String? = null
+
+    /**
+     * Opaque session state to persist, or null when signed out. It can change on any call —
+     * a server whose tokens are renewed as they age hands out a new pair — so a caller that
+     * persists it should do so again after calls, not only after [signIn].
+     */
     fun exportSession(): String?
 
     fun restoreSession(session: String)
+}
+
+/** How a server signs its users in. */
+enum class SignInMethod {
+    /** Username and password, typed into the app. */
+    PASSWORD,
+
+    /** On the server's own web page, in the browser; the app never sees the password. */
+    BROWSER,
 }

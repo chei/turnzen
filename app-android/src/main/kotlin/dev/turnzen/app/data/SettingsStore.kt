@@ -29,6 +29,13 @@ interface ServerSelection {
     fun selectServer(url: String)
 }
 
+/** A server whose address is not a setting (OGS): the selection is fixed. */
+class FixedServer(
+    override val serverUrl: String,
+) : ServerSelection {
+    override fun selectServer(url: String) = Unit
+}
+
 /** Non-secret preferences, exposed as a StateFlow so screens recompose on change. */
 class SettingsStore internal constructor(
     private val prefs: SharedPreferences,

@@ -1,6 +1,5 @@
 package dev.turnzen.app.ui.signin
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,40 +11,37 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
-import dev.turnzen.app.ui.common.ErrorMessage
+import dev.turnzen.app.data.Accounts
+import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 
+/**
+ * The first screen: one panel per server, and Continue once at least one is signed in. The
+ * user may sign in to both before continuing, or to one and add the other later from
+ * Settings, which shows the same panels.
+ */
 @Composable
-fun SignInScreen(viewModel: SignInViewModel) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val uriHandler = LocalUriHandler.current
-
+fun SignInScreen(
+    accounts: Accounts,
+    games: GamesStore,
+    browserSignInAvailable: Boolean,
+    keepAwake: KeepAwake,
+    canContinue: Boolean,
+    onContinue: () -> Unit,
+) {
     Column(
         Modifier
             .fillMaxSize()
@@ -53,101 +49,36 @@ fun SignInScreen(viewModel: SignInViewModel) {
             .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.height(120.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
-            StoneIcon(StoneColor.BLACK, 32.dp)
-            StoneIcon(StoneColor.WHITE, 32.dp)
+        Spacer(Modifier.height(40.dp))
+        Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy((-8).dp)) {
+            StoneIcon(StoneColor.BLACK, 28.dp)
+            StoneIcon(StoneColor.WHITE, 28.dp)
         }
-        Spacer(Modifier.height(28.dp))
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineLarge)
-        Spacer(Modifier.height(44.dp))
-
-        UnderlinedField(
-            label = stringResource(R.string.signin_username),
-            value = state.username,
-            onChange = viewModel::onUsername,
-            keyboardOptions =
-                KeyboardOptions(
-                    capitalization = KeyboardCapitalization.None,
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Next,
-                ),
-        )
         Spacer(Modifier.height(20.dp))
-        UnderlinedField(
-            label = stringResource(R.string.signin_password),
-            value = state.password,
-            onChange = viewModel::onPassword,
-            password = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-            onDone = viewModel::submit,
-        )
-        Spacer(Modifier.height(28.dp))
-        state.error?.let {
-            ErrorMessage(it, Modifier.fillMaxWidth())
-            Spacer(Modifier.height(12.dp))
-        }
-        PillButton(
-            text = if (state.loading) "Signing in…" else stringResource(R.string.signin_action),
-            onClick = viewModel::submit,
-            primary = true,
-            enabled = state.canSubmit,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(28.dp))
         Text(
-            stringResource(R.string.signin_note_1),
-            style = MaterialTheme.typography.bodySmall,
+            stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineLarge,
+            modifier = Modifier.align(Alignment.CenterHorizontally),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(R.string.signin_note_servers),
+            style = MaterialTheme.typography.bodyMedium,
             color = colors.ink2,
             textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(40.dp))
-        Text(
-            stringResource(R.string.signin_register),
-            style = MaterialTheme.typography.titleSmall,
-            color = colors.accent,
-            modifier = Modifier.clickable { uriHandler.openUri(viewModel.registrationUrl) }.padding(8.dp),
-        )
-        Spacer(Modifier.height(40.dp))
-    }
-}
-
-@Composable
-private fun UnderlinedField(
-    label: String,
-    value: String,
-    onChange: (String) -> Unit,
-    keyboardOptions: KeyboardOptions,
-    password: Boolean = false,
-    onDone: (() -> Unit)? = null,
-) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
-        TextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle =
-                MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                ),
-            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = colors.accent,
-                    unfocusedIndicatorColor = colors.line,
-                    cursorColor = colors.accent,
-                    focusedTextColor = colors.ink,
-                    unfocusedTextColor = colors.ink,
-                ),
             modifier = Modifier.fillMaxWidth(),
         )
+        Spacer(Modifier.height(36.dp))
+        AccountPanels(accounts, games, browserSignInAvailable, keepAwake = keepAwake)
+        Spacer(Modifier.height(8.dp))
+        PillButton(
+            text = stringResource(R.string.signin_continue),
+            onClick = onContinue,
+            primary = true,
+            enabled = canContinue,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(24.dp))
     }
 }

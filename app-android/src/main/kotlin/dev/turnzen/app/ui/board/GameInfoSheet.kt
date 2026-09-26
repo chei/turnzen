@@ -35,6 +35,7 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.outcomeDetail
 import dev.turnzen.app.ui.theme.colors
@@ -108,6 +109,15 @@ fun GameInfoSheet(
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
+                // The one place on the board screen where the server is named, not only marked.
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ServerDot(summary.id.server, Modifier.padding(end = 8.dp))
+                    Text(
+                        stringResource(R.string.info_server_game, serverName, summary.id.value),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.ink2,
+                    )
+                }
                 Spacer(Modifier.height(16.dp))
 
                 // Both players, each with their own clock — the board header can only show the

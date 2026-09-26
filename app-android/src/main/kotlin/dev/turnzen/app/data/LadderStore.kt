@@ -105,7 +105,7 @@ class LadderStore internal constructor(
                     if (parts.size != 4) return@mapNotNull null
                     val your = parts[1].toIntOrNull() ?: return@mapNotNull null
                     val opponent = parts[2].toIntOrNull() ?: return@mapNotNull null
-                    GameId(parts[0]) to LadderStanding(your, opponent, parts[3] == "C")
+                    GameId(session.serverId, parts[0]) to LadderStanding(your, opponent, parts[3] == "C")
                 }.toMap()
         return Entry(standings, age)
     }
