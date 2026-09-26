@@ -7,6 +7,7 @@ import dev.turnzen.ogs.net.OgsTransportException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -30,14 +31,21 @@ internal class OgsRealtime(
     private val url: String,
     private val clientVersion: String,
     private val timeoutMillis: Long = 20_000,
+    /** How long the line has to stay quiet before a chat history replay counts as complete. */
+    private val chatQuietMillis: Long = 1_000,
 ) {
     /**
      * Connects, authenticates with [jwt], joins [gameId] and runs [block] with the game data
      * the server sends on joining; leaves and disconnects whatever happens.
+     *
+     * With [chat] the connection also receives the game's chat: its history first, as a
+     * replay of chat events, then whatever is said while it stays open. Every chat event is
+     * collected in [GameConnection.chat], whichever event the block happens to be waiting for.
      */
     suspend fun <T> inGame(
         jwt: String,
         gameId: Long,
+        chat: Boolean = false,
         block: suspend GameConnection.(gamedata: JsonObject) -> T,
     ): T {
         val socket =
@@ -53,7 +61,7 @@ internal class OgsRealtime(
                 "game/connect",
                 buildJsonObject {
                     put("game_id", gameId)
-                    put("chat", false)
+                    put("chat", chat)
                 },
             )
             val gamedata =
@@ -73,6 +81,14 @@ internal class OgsRealtime(
         val gameId: Long,
     ) {
         private var lastRequestId = 0
+        private val chatLines = LinkedHashMap<String, JsonObject>()
+
+        /**
+         * The chat events received so far, oldest first, one per line: a line the server
+         * sends twice (a replay after a reconnect) is kept once, by its `chat_id`.
+         */
+        val chat: List<JsonObject>
+            get() = chatLines.values.toList()
 
         fun send(
             command: String,
@@ -125,6 +141,29 @@ internal class OgsRealtime(
             }
         }
 
+        /**
+         * Reads on until the server has been quiet for a moment, or [maxMillis] have passed,
+         * and returns [chat] as it then stands.
+         *
+         * This is how the chat history is known to be complete. The server replays it as
+         * ordinary chat events, with nothing to say where the replay ends — and nothing
+         * guarantees it comes before or after the game data. What does hold is that it is
+         * sent at once, as the connection joins, so a silence after it is the end of it. A
+         * correspondence game has no clock ticking over the socket to break that silence.
+         */
+        suspend fun settleChat(maxMillis: Long = timeoutMillis): List<JsonObject> {
+            val deadline = System.nanoTime() + maxMillis * 1_000_000
+            while (System.nanoTime() < deadline) {
+                val quiet = minOf(chatQuietMillis, (deadline - System.nanoTime()) / 1_000_000).coerceAtLeast(1)
+                // Not nextFrame(): its own timeout means "the server is gone", and here a
+                // timeout is the answer being waited for.
+                val received = withTimeoutOrNull(quiet) { socket.incoming.receiveCatching() } ?: break
+                val text = received.getOrNull() ?: break
+                parse(text)
+            }
+            return chat
+        }
+
         private suspend fun awaitReply(id: Int): Pair<JsonElement?, JsonElement?> {
             while (true) {
                 val frame = nextFrame()
@@ -145,8 +184,36 @@ internal class OgsRealtime(
                 } catch (e: OgsTransportException) {
                     throw GoServerException.Unreachable("Lost the connection to Online Go Server", e)
                 }
-            return runCatching { OgsJson.json.parseToJsonElement(text) as? JsonArray }.getOrNull()
-                ?: JsonArray(emptyList())
+            return parse(text)
+        }
+
+        private fun parse(text: String): JsonArray {
+            val frame =
+                runCatching { OgsJson.json.parseToJsonElement(text) as? JsonArray }.getOrNull()
+                    ?: JsonArray(emptyList())
+            collectChat(frame)
+            return frame
+        }
+
+        private fun collectChat(frame: JsonArray) {
+            val command = (frame.getOrNull(0) as? JsonPrimitive)?.takeIf { it.isString }?.content ?: return
+            when (command) {
+                "game/$gameId/chat" -> {
+                    val event = frame.getOrNull(1) as? JsonObject ?: return
+                    val line = event.obj("line") ?: return
+                    val key = line.str("chat_id") ?: "${line.str("date")}/${line.str("player_id")}/${line["body"]}"
+                    chatLines[key] = event
+                }
+
+                // Sent before the history is replayed again: what came before is superseded.
+                "game/$gameId/reset-chats" -> {
+                    chatLines.clear()
+                }
+
+                else -> {
+                    Unit
+                }
+            }
         }
     }
 }

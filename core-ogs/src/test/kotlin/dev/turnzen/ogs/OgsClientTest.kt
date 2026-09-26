@@ -2,6 +2,9 @@ package dev.turnzen.ogs
 
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
+import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.CommentVisibility
+import dev.turnzen.goserver.GameComment
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
@@ -184,6 +187,9 @@ class OgsClientTest {
 
     private fun gameServer(
         moves: Int,
+        /** The chat history, replayed when a connection joins with chat on. */
+        history: List<String> = emptyList(),
+        onChat: (JsonObject) -> List<String> = { emptyList() },
         onMove: (
             JsonObject,
         ) -> List<String> = {
@@ -199,11 +205,21 @@ class OgsClientTest {
 
             "game/connect" -> {
                 val list = (0 until moves).joinToString(",") { "[0,0,1]" }
-                listOf("""["game/7000001/gamedata",{"game_id":7000001,"phase":"play","moves":[$list]}]""")
+                val gamedata =
+                    """["game/7000001/gamedata",{"game_id":7000001,"phase":"play","moves":[$list],""" +
+                        """"black_player_id":1001,"white_player_id":2007}]"""
+                // Part of the history ahead of the game data and part after it: nothing says
+                // which comes first, so the client must not depend on it.
+                val chat = if (data["chat"].toString() == "true") history else emptyList()
+                chat.take(1) + gamedata + chat.drop(1)
             }
 
             "game/move", "game/resign" -> {
                 onMove(data)
+            }
+
+            "game/chat" -> {
+                onChat(data)
             }
 
             else -> {
@@ -211,6 +227,133 @@ class OgsClientTest {
             }
         }
     }
+
+    private fun chatLine(
+        id: String,
+        player: Long,
+        moveNumber: Int,
+        body: String,
+        channel: String = "main",
+    ) = """["game/7000001/chat",{"channel":"$channel","line":{"chat_id":"$id","body":$body,""" +
+        """"date":${1790500000 + moveNumber},"move_number":$moveNumber,"player_id":$player,"username":"u$player"}}]"""
+
+    @Test
+    fun `comments are the players' chat, replayed when joining with chat on`() =
+        runTest {
+            val socket =
+                gameServer(
+                    moves = 72,
+                    history =
+                        listOf(
+                            chatLine("c1", 2007, 0, "\"Hi, have a good game\""),
+                            chatLine("c2", 1001, 1, "\"you too\""),
+                            // Replayed twice: kept once.
+                            chatLine("c2", 1001, 1, "\"you too\""),
+                            chatLine("c3", 3333, 40, "\"an observer in the main channel\""),
+                            chatLine("c4", 3333, 41, "\"observers talking\"", channel = "spectator"),
+                            chatLine("c5", 1001, 41, "\"I think I'm ahead\"", channel = "malkovich"),
+                            chatLine("c6", 1001, 42, "\"watch the ko\"", channel = "personal"),
+                            chatLine("c7", 2007, 50, """{"type":"analysis","name":"a variation","from":49}"""),
+                            chatLine("c8", 2007, 72, """{"type":"translated","en":"Thanks!","fr":"Merci !"}"""),
+                            // A number past the end of the game still belongs to it.
+                            chatLine("c9", 2007, 99, "\"late\""),
+                        ),
+                )
+            val comments = signedIn(realtimeHttp(), socket).comments(GameId(OgsClient.SERVER_ID, "7000001"))
+            assertEquals(
+                listOf(
+                    GameComment(0, StoneColor.WHITE, "Hi, have a good game", CommentVisibility.EVERYONE),
+                    GameComment(1, StoneColor.BLACK, "you too", CommentVisibility.EVERYONE),
+                    GameComment(41, StoneColor.BLACK, "I think I'm ahead", CommentVisibility.HIDDEN_UNTIL_END),
+                    GameComment(42, StoneColor.BLACK, "watch the ko", CommentVisibility.WRITER_ONLY),
+                    GameComment(72, StoneColor.WHITE, "Thanks!", CommentVisibility.EVERYONE),
+                    GameComment(72, StoneColor.WHITE, "late", CommentVisibility.EVERYONE),
+                ),
+                comments,
+            )
+            assertTrue(socket.sent[1].contains("\"chat\":true"))
+            assertTrue(socket.sent.last().contains("game/disconnect"))
+        }
+
+    @Test
+    fun `a history the server starts over replaces what came before`() =
+        runTest {
+            val socket =
+                gameServer(
+                    moves = 10,
+                    history =
+                        listOf(
+                            chatLine("c1", 2007, 3, "\"first go\""),
+                            """["game/7000001/reset-chats",{}]""",
+                            chatLine("c2", 2007, 4, "\"second go\""),
+                        ),
+                )
+            val comments = signedIn(realtimeHttp(), socket).comments(GameId(OgsClient.SERVER_ID, "7000001"))
+            assertEquals(listOf("second go"), comments.map { it.text })
+        }
+
+    @Test
+    fun `a comment follows the move into the chat, pinned to that move`() =
+        runTest {
+            val socket =
+                gameServer(moves = 72, onChat = { data ->
+                    val body = data["body"].toString()
+                    listOf(
+                        """["game/7000001/chat",{"channel":"main","line":{"chat_id":"new","body":$body,""" +
+                            """"date":1790500100,"move_number":73,"player_id":1001,"username":"turnzen-test"}}]""",
+                    )
+                })
+            signedIn(realtimeHttp(), socket).sendMove(
+                GameId(OgsClient.SERVER_ID, "7000001"),
+                MoveToken("72"),
+                Move.Play(Point(3, 15)),
+                comment = " Nice game so far ",
+            )
+            val commands = socket.sent.map { (OgsJson.json.parseToJsonElement(it) as JsonArray)[0].toString() }
+            assertEquals(
+                listOf(
+                    "\"authenticate\"",
+                    "\"game/connect\"",
+                    "\"game/move\"",
+                    "\"game/chat\"",
+                    "\"game/disconnect\"",
+                ),
+                commands,
+            )
+            val chat = OgsJson.json.parseToJsonElement(socket.sent[3]) as JsonArray
+            val data = chat[1] as JsonObject
+            assertEquals("\"Nice game so far\"", data["body"].toString())
+            assertEquals("73", data["move_number"].toString())
+            assertEquals("\"main\"", data["type"].toString())
+            assertTrue(socket.sent[1].contains("\"chat\":true"))
+        }
+
+    @Test
+    fun `a comment that never comes back does not undo the move`() =
+        runTest {
+            val socket = gameServer(moves = 72)
+            signedIn(realtimeHttp(), socket).sendMove(
+                GameId(OgsClient.SERVER_ID, "7000001"),
+                MoveToken("72"),
+                Move.Pass,
+                comment = "gg",
+            )
+            assertTrue(socket.sent.any { it.contains("game/chat") })
+        }
+
+    @Test
+    fun `a move without a comment joins without chat and says nothing`() =
+        runTest {
+            val socket = gameServer(moves = 72)
+            signedIn(realtimeHttp(), socket).sendMove(
+                GameId(OgsClient.SERVER_ID, "7000001"),
+                MoveToken("72"),
+                Move.Pass,
+                comment = "  ",
+            )
+            assertTrue(socket.sent[1].contains("\"chat\":false"))
+            assertTrue(socket.sent.none { it.contains("game/chat") })
+        }
 
     @Test
     fun `a move goes over the realtime connection and waits for the server to echo it`() =
