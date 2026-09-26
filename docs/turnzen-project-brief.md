@@ -513,6 +513,72 @@ notes block and tag handling; on OGS, that a replay really arrives within the qu
 the exact `move_number` convention in handicap games, and that a player's own `main` line is
 echoed back to them.
 
+## Notifications (September 2026)
+
+Correspondence play means waiting days for a move, so the app says when one has arrived. It
+is the one exception to "no network unless the user asked": the user asks by switching a
+notification on, and both switches start off. Specified in a design interview on
+26 September 2026.
+
+### What is shown
+
+- **Your move**: one summary notification for every game on both servers, never one per
+  game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
+  game has *newly* become the user's move since the last check; otherwise it changes
+  silently. Title "Your move in N games" (one game: "Your move against X"); one line per game
+  — opponent, the user's remaining time only when under a day, server; the games that caused
+  the latest alerts come first, marked "new" unless every game is. Plain text: Android drops
+  colour and weight from the text of an ordinary notification, so the server is named rather
+  than shown in its colour, and "new" is a word rather than bold. Tapping opens that game's board
+  when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
+  (Pixel shows only a dot; the count is in the long-press menu); Android has no badge-number
+  API of its own.
+- **Time running low**: one notification per game, on its own channel at high importance
+  (sound and a pop-up), when the user's own remaining main time is at most **24 hours**
+  (hardcoded: urgent in correspondence terms, still actionable after a night's sleep). The
+  text names opponent, time left and server. Once per game; it can fire again only after the
+  user has moved in that game. Tapping opens the board. The opponent's clock is never
+  watched.
+- **Signed out**: when a check finds a server signed the user out and the app cannot sign in
+  again by itself, one "Turnzen can't check X — sign in again" notification, once per
+  sign-out.
+- **Opening the app clears everything** on any screen coming to the foreground, and every
+  game that is the user's move then counts as seen: it does not alert again. A game that
+  stops being the user's move (played on the website, ended) is removed silently; at zero
+  games the notification goes.
+- Not notified: finished games, messages, comments (messages later, with the messages
+  feature). No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
+  silences everything alike; Android offers no way to read the user's bedtime.
+
+### How it checks
+
+- Neither server pushes to third-party apps, so a WorkManager periodic job asks every
+  signed-in server for the games awaiting the user (the same call as the Games screen),
+  with a network constraint (any network — a check is a few kilobytes). Interval in Settings:
+  15 min, 30 min (default), 1 h or 3 h; it runs while either switch is on.
+- The low-time moment is not polled for. The user's clock runs only on their turn, so a
+  check that sees "3 d left" knows the crossing is two days away and schedules a one-off job
+  for it (at least 15 minutes out, so a paused clock does not spin). That job is a full check
+  like any other, so a clock paused for the weekend or a move made on the website simply
+  reschedules or drops it. Deep sleep can delay it by up to about an hour; on a 24-hour
+  warning that is fine. DGS rounds remaining time up to the hour, so its value is an upper
+  bound and "at most 24 h" is the test. A game that becomes the user's move with less than a
+  day already left is caught by the next periodic check.
+- A check while the app is in the foreground posts nothing and records what it saw as seen;
+  so does every Games-screen refresh.
+- What the notification logic decides is plain Kotlin (`TurnWatch`), tested on the JVM; the
+  worker only gathers the games and posts what it is told.
+
+### Settings and permissions
+
+- A Notifications group: "Your move" and "Time running low" switches, and "Check every"
+  (hidden while both are off). Turning a switch on asks for POST_NOTIFICATIONS (Android 13+)
+  there and then — never at first launch. If notifications are blocked (denied, revoked, or
+  switched off for the app), the group says so and links to Android's notification settings.
+- Permissions grow by POST_NOTIFICATIONS, plus what WorkManager declares for itself:
+  ACCESS_NETWORK_STATE, WAKE_LOCK and RECEIVE_BOOT_COMPLETED (scheduled checks survive a
+  restart). All for notifications only.
+
 ## Licensing
 
 - **Chosen license: MIT.**
@@ -1003,7 +1069,8 @@ Decisions taken while building the MVP that refine or amend the sections above.
 - **Failures are shown in two tones** (`ServerProblem`): unreachable and rate-limited are
   states to wait out, shown quietly with a retry; signed-out, rejected moves and protocol
   errors are errors and keep the urgent colour. Connectivity is not probed — that would
-  need ACCESS_NETWORK_STATE, and the app ships with INTERNET only (plus FOREGROUND_SERVICE for the OGS sign-in).
+  need ACCESS_NETWORK_STATE, and the app ships with INTERNET only (plus FOREGROUND_SERVICE for the OGS sign-in, and the
+  notification permissions in "Notifications").
 - **Package and ids**: Kotlin packages `dev.turnzen.*` (code identity, one per module:
   `.game`, `.dgs`, `.goserver`, `.app`); application id `io.github.chei.turnzen` (the
   distribution identity, reverse-DNS of the `chei.github.io` Pages subdomain the source

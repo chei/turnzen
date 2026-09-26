@@ -51,7 +51,9 @@ Rules that follow from this:
 - **No network in unit tests.** Record real DGS responses once into `:core-dgs` test
   fixtures (with credentials/session ids scrubbed) and test the parsers against those.
 - No analytics, no tracking, no ads, minimal permissions: INTERNET, plus FOREGROUND_SERVICE
-  only while an OGS sign-in waits for the browser (see the brief).
+  only while an OGS sign-in waits for the browser, plus POST_NOTIFICATIONS and WorkManager's
+  own (ACCESS_NETWORK_STATE, WAKE_LOCK, RECEIVE_BOOT_COMPLETED) for notifications only
+  (see the brief).
 
 ## Conventions
 
