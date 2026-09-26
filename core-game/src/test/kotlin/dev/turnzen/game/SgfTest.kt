@@ -64,6 +64,13 @@ class SgfTest {
     }
 
     @Test
+    fun `comments are keyed by the moves played at their node`() {
+        val text = "(;SZ[9]C[before anything];AB[cc]C[setup];B[aa]C[first];W[bb];B[]C[a pass\\] too])"
+        val comments = SgfGameRecords.read(text).comments
+        assertEquals(mapOf(0 to "before anything\n\nsetup", 1 to "first", 3 to "a pass] too"), comments)
+    }
+
+    @Test
     fun `main line follows the first variation`() {
         val text = "(;SZ[9];B[aa](;W[bb];B[cc])(;W[dd]))"
         val record = SgfGameRecords.read(text).record
