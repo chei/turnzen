@@ -403,7 +403,10 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
 - **Redirect port 8735**, path `/ogs/signed-in`. The page it serves has a "Back to Turnzen"
   link to `turnzen://signed-in`, which MainActivity accepts as a BROWSABLE link (a
   launcher-style intent URL is refused by browsers and ends up in the Play Store). MainActivity
-  is `singleTask`, so returning closes the browser page left in Turnzen's task.
+  is `singleTask`, so returning closes the browser page left in Turnzen's task. That needs the
+  page to be *in* Turnzen's task, so the sign-in page opens in a Custom Tab (`androidx.browser`),
+  not the browser app: the first release used a plain `ACTION_VIEW`, and the finished sign-in
+  page stayed open among the browser's tabs.
 - **The app is kept out of Android's freezer while the browser is in front.** Seconds after
   going to the background the process is frozen, and the loopback listener cannot answer the
   redirect — the browser hangs on it. `SignInKeepAwakeService`, a foreground service of the

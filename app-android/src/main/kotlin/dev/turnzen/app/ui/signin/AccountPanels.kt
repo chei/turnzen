@@ -1,5 +1,7 @@
 package dev.turnzen.app.ui.signin
 
+import android.net.Uri
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -22,6 +24,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -199,10 +202,17 @@ private fun PasswordForm(viewModel: SignInViewModel) {
 private fun BrowserForm(viewModel: BrowserSignInViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
-    // The page is opened from here, where there is a UriHandler; the view model only asks.
+    val context = LocalContext.current
+    // The page is opened from here, where there is an activity; the view model only asks.
+    //
+    // In a Custom Tab rather than the browser itself: the tab runs in Turnzen's own task, so
+    // when the page's "Back to Turnzen" link brings the app forward, MainActivity (singleTask)
+    // clears it away, and Back closes it too. Opened as an ordinary browser tab, the finished
+    // sign-in page stayed behind among the user's tabs. A browser without Custom Tabs simply
+    // opens the page as before.
     LaunchedEffect(state.page) {
         state.page?.let {
-            uriHandler.openUri(it)
+            CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(it))
             viewModel.onPageOpened()
         }
     }
