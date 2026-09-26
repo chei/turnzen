@@ -175,7 +175,26 @@ class DgsClientTest {
             assertEquals(5, detail.record.setupBlack.size)
             val sgfRequest = transport.requests.last()
             assertTrue(sgfRequest.url.contains("sgf.php?gid=1000000"))
-            assertTrue(sgfRequest.has("owned_comments=N"))
+            // As a player, not an observer: only then does DGS include the players' messages.
+            assertTrue(sgfRequest.has("owned_comments=1"))
+            // The fixture is a finished game with no messages, only the server's count.
+            assertEquals(emptyList(), detail.comments)
+        }
+
+    @Test
+    fun `game detail carries the players' messages`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.routes.add(
+                0,
+                { it: HttpRequest -> it.url.contains("sgf.php") } to
+                    { _: HttpRequest -> ok(Fixtures.text("game_1000001_comments.sgf")) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val comments = client.game(GameId(DgsClient.SERVER_ID, "1000001")).comments.orEmpty()
+            assertEquals("Onegaishimasu!", comments.first().text)
+            assertTrue(comments.none { "ko at e3" in it.text })
         }
 
     @Test
@@ -283,8 +302,32 @@ class DgsClientTest {
             assertEquals("264", play.form["move_id"])
             assertEquals("move", play.form["cmd"])
 
+            assertNull(play.form["msg"])
+
             client.sendMove(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"), Move.Pass)
             assertEquals("pass", transport.requests.last().form["move"])
+        }
+
+    @Test
+    fun `a comment travels with the move as its message`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            client.sendMove(
+                GameId(DgsClient.SERVER_ID, "1000000"),
+                MoveToken("264"),
+                Move.Play(Point(16, 3)),
+                comment = "  Nice game so far  ",
+            )
+            val play = transport.requests.last()
+            assertEquals("Nice game so far", play.form["msg"])
+            assertEquals("qd", play.form["move"])
+
+            // A blank comment is no comment.
+            client.sendMove(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"), Move.Pass, comment = " ")
+            assertNull(transport.requests.last().form["msg"])
         }
 
     @Test
