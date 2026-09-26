@@ -239,6 +239,7 @@ class OgsClient(
         id: GameId,
         token: MoveToken,
         move: Move,
+        comment: String?,
     ) {
         val encoded =
             when (move) {

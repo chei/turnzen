@@ -233,9 +233,55 @@ data class ScoreState(
     val dame: Set<Point> = emptySet(),
 )
 
+/**
+ * Who can read a comment. Servers draw these lines differently, so this names the reader's
+ * situation rather than any one server's feature; each server maps its own kinds onto it.
+ */
+enum class CommentVisibility {
+    /** Anyone who can see the game, observers included. */
+    EVERYONE,
+
+    /** The two players only. */
+    PLAYERS,
+
+    /** Only its writer while the game runs; everyone once it is over. */
+    HIDDEN_UNTIL_END,
+
+    /** Only its writer while the game runs; the two players, never observers, once it is over. */
+    SECRET_UNTIL_END,
+
+    /** Only its writer, ever: a note to self. */
+    WRITER_ONLY,
+}
+
+/**
+ * Something a player wrote in a game, pinned to the position it was written at.
+ *
+ * Only the players' own words: text a server adds by itself (a result, a scoring summary)
+ * is not a comment, and neither are observers' remarks, which this client leaves out.
+ */
+data class GameComment(
+    /**
+     * How many of [GameRecord.moves] had been played when it was written: 0 for a comment
+     * made before the first move (DGS attaches the handicap setup's message there), `n` for
+     * one sent with, or right after, the n-th move.
+     */
+    val afterMove: Int,
+    /** The player who wrote it. */
+    val by: StoneColor,
+    val text: String,
+    val visibility: CommentVisibility = CommentVisibility.PLAYERS,
+)
+
 data class GameDetail(
     val summary: GameSummary,
     val record: GameRecord,
     /** Null when the server told us nothing beyond the summary. */
     val info: GameInfo? = null,
+    /**
+     * The players' comments, oldest first, when the server hands them over with the game at
+     * no extra cost. Null when it does not, and [TurnBasedGoServerClient.comments] has to be
+     * asked separately — an empty list means the game really has none.
+     */
+    val comments: List<GameComment>? = null,
 )
