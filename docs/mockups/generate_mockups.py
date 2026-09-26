@@ -21,6 +21,22 @@ WHITE = "#F7F5F0"
 BLACK = "#15171A"
 FONT = "'IBM Plex Sans', 'Segoe UI', Roboto, sans-serif"
 
+# Server marks: each server's colour, from its own web presence (OGS light blue, DGS sand).
+# Only ever a 4dp bar or a small dot, never a fill — see DESIGN.md, "Telling servers apart".
+OGS = "#5E9FD6"
+DGS = "#C2A66E"
+
+LIGHT = dict(BG=BG, INK=INK, INK2=INK2, LINE=LINE, ACCENT="#2E54C0", ACCENT_SOFT=ACCENT_SOFT,
+             URGENT=URGENT, OGS=OGS, DGS=DGS, ON_ACCENT="#FFFFFF")
+DARK = dict(BG="#1C2124", INK="#E9ECE8", INK2="#97A09C", LINE="#333A38", ACCENT="#93A9D6",
+            ACCENT_SOFT="#243049", URGENT="#DB7B70", OGS="#6F9FC8", DGS="#A99368", ON_ACCENT="#14181A")
+ON_ACCENT = "#FFFFFF"
+
+
+def use_palette(palette):
+    """Swap the colour tokens the drawing functions read (they are module globals)."""
+    globals().update(palette)
+
 STATUS_H = 44
 NAV_H = 80
 NAV_Y = H - NAV_H
@@ -73,7 +89,7 @@ def bottom_nav(active):
 def button(x, y, w, h, label, primary=False, disabled=False):
     if primary:
         fill = ACCENT if not disabled else LINE
-        col = "#FFFFFF" if not disabled else INK2
+        col = ON_ACCENT if not disabled else INK2
         return (f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="{h/2}" fill="{fill}"/>' +
                 text(x + w / 2, y + h / 2 + 5, label, 15, 500, col, "middle"))
     col = INK if not disabled else INK2
@@ -299,6 +315,133 @@ def screen_settings():
     return s + bottom_nav("Settings") + "</svg>"
 
 
+# ---- two servers (OGS support, designed September 2026) -------------------
+def server_bar(x, y, h, color):
+    """The server mark on a list row: a 4dp rounded bar at the row's leading edge."""
+    return f'<rect x="{x}" y="{y}" width="4" height="{h}" rx="2" fill="{color}"/>'
+
+
+def server_dot(cx, cy, color, r=4):
+    return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{color}"/>'
+
+
+def games_tabs(y, counts=("3", "7")):
+    s = ""
+    tabs = [("Your turn", counts[0]), ("All games", counts[1]), ("Finished", None)]
+    tw = (W - 40) / 3
+    for i, (label, count) in enumerate(tabs):
+        cx = 20 + tw * i + tw / 2
+        col = ACCENT if i == 0 else INK2
+        s += text(cx - (6 if count else 0), y, label, 14, 500 if i == 0 else 400, col, "middle")
+        if count:
+            s += text(cx + 38, y, count, 13, 400, col, "middle")
+        s += (f'<rect x="{20 + tw * i}" y="{y + 12}" width="{tw}" height="2" '
+              f'fill="{ACCENT if i == 0 else LINE}"/>')
+    return s
+
+
+def screen_games_two_servers():
+    s = frame_open() + status_bar()
+    s += text(20, 92, "Turnzen", 26, 600)
+    s += games_tabs(136)
+    rows = [
+        (OGS, "hana_go", "4k", "13x13, move 34, 18 min ago", "6 h", True),
+        (DGS, "mkvtl", "7k", "19x19, move 87, 2 h ago", "3 d 4 h", False),
+        (OGS, "kaya_r", "?", "9x9, move 12, yesterday", "2 d 20 h", True),
+    ]
+    y = 160
+    for color, opp, rank, line, left, urgent in rows:
+        s += server_bar(8, y + 16, 40, color)
+        s += text(20, y + 30, f"{opp} ({rank})", 16, 600)
+        s += text(20, y + 51, line, 13, 400, INK2)
+        s += text(W - 20, y + 41, left, 15, 600, URGENT if urgent else INK, "end")
+        y += 72
+        s += hairline(y)
+    # One server did not answer: one quiet line, the other server's games stay.
+    s += text(20, y + 34, "Online Go Server didn't answer · Try again", 13, 400, INK2)
+    return s + bottom_nav("Games") + "</svg>"
+
+
+def signin_panel(y, color, name, state, form=False, handle=None):
+    """One server's half of the sign-in screen. state: out | in."""
+    s = server_bar(20, y, 22, color)
+    s += text(34, y + 17, name, 17, 600)
+    if state == "in":
+        s += text(20, y + 50, f"Signed in as {handle}", 15, 400, INK)
+        s += text(W - 20, y + 50, "Sign out", 15, 500, ACCENT, "end")
+        return s, y + 80
+    if form:
+        for i, (label, val) in enumerate([("Username", ""), ("Password", "")]):
+            yy = y + 56 + i * 66
+            s += text(20, yy, label, 13, 400, INK2)
+            s += hairline(yy + 34)
+        s += button(20, y + 196, W - 40, 48, "Sign in to DGS")
+        s += text(20, y + 276, "Register a Dragon Go Server account", 13, 500, ACCENT)
+        return s, y + 300
+    s += text(20, y + 50, "Signs in on the server's own page; Turnzen never", 13, 400, INK2)
+    s += text(20, y + 68, "sees your password.", 13, 400, INK2)
+    s += button(20, y + 86, W - 40, 48, "Sign in with Online Go Server")
+    s += text(20, y + 162, "Register an Online Go Server account", 13, 500, ACCENT)
+    return s, y + 186
+
+
+def screen_signin_two_servers(ogs_in=False, dgs_in=False):
+    s = frame_open() + status_bar()
+    s += stone_icon(W / 2 - 12, 92, 14, BLACK) + stone_icon(W / 2 + 12, 92, 14, WHITE)
+    s += text(W / 2, 142, "Turnzen", 28, 600, INK, "middle")
+    s += text(W / 2, 168, "Sign in to one server or both.", 14, 400, INK2, "middle")
+    y = 206
+    part, y = signin_panel(y, OGS, "Online Go Server", "in" if ogs_in else "out", handle="kiseido")
+    s += part + hairline(y)
+    part, y = signin_panel(y + 24, DGS, "Dragon Go Server", "in" if dgs_in else "out", form=True, handle="csaba")
+    s += part
+    s += button(20, H - 84, W - 40, 50, "Continue", primary=True, disabled=not (ogs_in or dgs_in))
+    return s + "</svg>"
+
+
+def screen_settings_two_servers():
+    s = frame_open() + status_bar()
+    s += text(20, 88, "Settings", 26, 600)
+    y = 120
+    sections = [
+        (OGS, "Online Go Server", [("Signed in as", "kiseido"), ("Open on the web", None), ("Sign out", None)]),
+        (DGS, "Dragon Go Server", [("Signed in as", "csaba"), ("Server", "dragongoserver.net"), ("Sign out", None)]),
+        (None, "Board", [("Coordinates", "On"), ("Mark last move", "On")]),
+        (None, "Appearance", [("Theme", "System")]),
+    ]
+    for color, title, rows in sections:
+        if color:
+            s += server_dot(24, y - 4, color)
+            s += text(36, y, title, 13, 500, INK2)
+        else:
+            s += text(20, y, title, 13, 500, INK2)
+        y += 14
+        for label, val in rows:
+            y += 40
+            col = ACCENT if val is None else INK
+            s += text(20, y, label, 16, 400, col)
+            if val:
+                s += text(W - 20, y, val, 15, 400, INK2, "end")
+            s += hairline(y + 14)
+        y += 44
+    return s + bottom_nav("Settings") + "</svg>"
+
+
+def screen_board_header_two_servers():
+    """Top of the board screen: the server dot beside the opponent's name."""
+    s = frame_open() + status_bar()
+    s += server_dot(24, 61, OGS)
+    s += text(36, 66, "hana_go (4k)", 16, 600)
+    s += text(20, 86, "You play white, move 34", 13, 400, INK2)
+    s += text(W - 20, 66, "6 h", 15, 600, URGENT, "end")
+    s += text(W - 20, 86, "to move", 13, 400, INK2, "end")
+    b, yend = board(13, 104, [("D4", "B"), ("K10", "W"), ("K4", "B"), ("D10", "W"), ("G7", "B")],
+                    ("G7", "B"), coords=False)
+    s += b
+    s += text(20, yend + 40, "Game info · Online Go Server · game 7000001", 13, 400, INK2)
+    return s + bottom_nav("Games") + "</svg>"
+
+
 screens = {
     "01-signin": screen_signin(),
     "02-games-your-move": screen_games(),
@@ -309,6 +452,21 @@ screens = {
     "03c-board-server-position-9": screen_board(9, STONES_9, LAST_9),
     "04-settings": screen_settings(),
 }
+use_palette(LIGHT)
+screens.update({
+    "05-games-two-servers": screen_games_two_servers(),
+    "06-signin-two-servers": screen_signin_two_servers(),
+    "06b-signin-ogs-signed-in": screen_signin_two_servers(ogs_in=True),
+    "06c-signin-both-signed-in": screen_signin_two_servers(ogs_in=True, dgs_in=True),
+    "07-settings-two-servers": screen_settings_two_servers(),
+    "08-board-server-dot": screen_board_header_two_servers(),
+})
+use_palette(DARK)
+screens.update({
+    "05d-games-two-servers-dark": screen_games_two_servers(),
+    "06d-signin-two-servers-dark": screen_signin_two_servers(ogs_in=True),
+    "07d-settings-two-servers-dark": screen_settings_two_servers(),
+})
 for name, svg in screens.items():
     with open(os.path.join(OUT, f"{name}.svg"), "w") as f:
         f.write(svg)

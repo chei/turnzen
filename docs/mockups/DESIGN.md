@@ -23,6 +23,10 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `03b-board-trial-19.svg` | Board, 19×19, trial variation in progress (4 trial stones) |
 | `03c-board-server-position-9.svg` | Board, 9×9 — shows how the layout adapts below a small board |
 | `04-settings.svg` | Settings |
+| `05-games-two-servers.svg`, `05d-…-dark.svg` | Games list with DGS and OGS games mixed, one server not answering |
+| `06-signin-two-servers.svg`, `06b-…`, `06c-…`, `06d-…-dark.svg` | Two-panel sign-in: nothing signed in, OGS signed in, both, dark |
+| `07-settings-two-servers.svg`, `07d-…-dark.svg` | Settings with one account panel per server |
+| `08-board-server-dot.svg` | Board header with the server dot |
 
 ## Principles
 
@@ -55,6 +59,23 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `boardLine` | `#5A4A2E` | Grid lines, hoshi, coordinates |
 | `stoneBlack` | `#15171A` | Black stones |
 | `stoneWhite` | `#F7F5F0` | White stones (0.6px `stoneBlack` outline) |
+
+### Server marks (OGS support, September 2026)
+
+Each server has a colour taken from its own web presence. It is only ever a **4dp rounded
+bar** at a list row's leading edge (in the 20dp margin, 8dp in, so the text column never
+moves) or a **small dot** (8dp) beside a name or a heading — never a fill, so it competes
+neither with the `accentSoft` refresh wash nor with the board. The marks show even when only
+one server is signed in; with one server they are a quiet accent.
+
+| Token | Light | Dark |
+|---|---|---|
+| `serverOgs` | `#5E9FD6` (light blue) | `#6F9FC8` |
+| `serverDgs` | `#C2A66E` (sand) | `#A99368` |
+
+Colour is never the only carrier: the server is named in the sign-in and Settings panels
+and under the game-info sheet's title ("Online Go Server · game 7000001"), and every list
+row tells TalkBack "on Online Go Server".
 
 ### Dark theme
 
@@ -204,9 +225,14 @@ Use tabular figures for time and move counts so columns don't jitter.
   accent. With trial-stone numbering on, the move number is their only marking; with it
   off, only the most recently played trial stone is marked, using the same last-move dot
   the real board uses.
-- **Sign-in**: content centered vertically; two underlined text fields; one primary
-  button; the explanation that this is the DGS account sits below the button; the "I don't
-  have a DGS account" link is the only accent text on the screen.
+- **Sign-in**: one panel per server, OGS on top (its panel is a single "Sign in with Online
+  Go Server" button, so it stays visible above the DGS form when the keyboard opens). Each
+  panel starts with its server mark and name and shows that server's own state: signed in as
+  someone with Sign out, or its way of signing in (DGS: two underlined fields and an outlined
+  "Sign in to Dragon Go Server"; OGS: one line saying the sign-in happens on OGS's own page
+  and an outlined button), then "No account? Register on …". The one primary button is
+  Continue at the bottom, enabled once any server is signed in. Settings shows the same panels
+  in place of its old Account group.
 - **Empty state**: one white stone, "No games waiting for you", "Pull down to check
   again." — this is a good state, not an error.
 - **Server problems** come in two tones. The ones the user waits out — the server cannot be
