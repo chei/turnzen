@@ -237,6 +237,199 @@ would need, but it avoids the realistic failure mode of a "turn-based-shaped" in
 being awkwardly stretched to fit live play later (e.g. polling hacks standing in for a
 proper subscription model).
 
+## Online Go Server (OGS) support — design (September 2026)
+
+Agreed in a design session on 2026-09-26 and implemented the same day (see "Implementation
+notes" at the end of this section). It turns Turnzen
+from "a DGS client" into a client for correspondence Go on DGS and OGS, with both servers
+treated as equals. A client for more than one server is unusual, so most of the decisions
+below are about letting the user tell the two apart without making a one-server user pay
+for it.
+
+### Scope
+
+- **Correspondence only.** OGS live games (`time_control.speed` of `blitz`, `rapid` or
+  `live`) are ignored: not listed, not counted. Playing a live game with Turnzen open is not
+  a use case.
+- **Parity with what DGS already has**, as far as OGS allows: running and finished games,
+  board and replay, send move, resign, rating change of a finished game. Ladder standings
+  stay DGS-only (OGS has no equivalent in this form).
+- **Scoring opens on the web in the first release.** OGS's stone-removal phase is
+  concurrent (both players mark at once) rather than DGS's alternating proposals, runs only
+  over the websocket, and the server auto-scores for a player who is not connected — so it
+  does not fit `scoreState` / `disputeScore` as they stand, and gets its own design round.
+- **Non-square boards** (OGS allows e.g. 19×9) are not supported: such a game is listed,
+  but its row opens the game on the web instead of the board.
+- Conditional moves and game chat exist on OGS (websocket `game/conditional_moves/set`,
+  `game/chat`); both are future work, like DGS move comments.
+
+### Accounts and sign-in
+
+- **At most one account per server.** DGS keeps its advanced server-URL override (the
+  dev/test instance); OGS gets none until one is needed (beta.online-go.com exists).
+- **OGS sign-in never touches a password**: OAuth2 authorization code with PKCE, as a
+  public client (no secret). The browser (Custom Tab) shows OGS's own login page, which also
+  covers users who signed up with Google/GitHub/Apple and have no OGS password. The redirect
+  is a **loopback address** — the app listens on `http://127.0.0.1:<fixed port>` while the
+  browser is open — because OGS rejects custom URI schemes, and the alternative (an https
+  App Link) would need a hosted `assetlinks.json` listing the fingerprint of every signing
+  key, F-Droid's included. If OGS turns out to refuse the loopback redirect in practice, the
+  fallback is that App Link on `chei.github.io`; a password form is not. Access and refresh
+  tokens last 30 days each; the token pair is the OGS session that `exportSession` persists.
+- The OAuth application is registered under the maintainer's own OGS account (Chei); its
+  client id is public in the repository, which PKCE makes harmless.
+- DGS still signs in with username and password — it offers nothing else.
+- **Sign-in screen**: two panels, both servers equal. **OGS on top** — its panel is a single
+  "Sign in with Online Go Server" button, so it stays visible above the DGS form when the
+  keyboard opens; the DGS panel below keeps its form. Each panel shows its own state
+  (signed out / signing in / signed in as X, with sign out) and its registration link. A
+  "Continue" action becomes available once at least one server is signed in; the user signs
+  in to both, or to one and continues. The screen appears only when no server is signed in;
+  Settings reuses the same two panels to add or remove the other server later.
+- **An expired session on one server does not bounce the user to sign-in.** The games list
+  keeps the other server's games and shows one quiet line: "Online Go Server signed you out ·
+  Sign in again".
+
+### Telling the servers apart
+
+- **Each server has a colour**, taken from its own web presence: OGS a light blue, DGS the
+  light sand of its web pages. Both need muted dark-theme variants. Values are to be chosen
+  in `DESIGN.md` against the existing tokens, because both sit close to something already
+  there: the light blue next to `accentSoft` (the refresh wash), the sand next to `board`.
+- **The colour is a 4dp rounded bar at the leading edge of every game row**, in the server's
+  colour — never a row background, so it competes neither with the refresh wash nor with the
+  board. It is shown **always**, even when only one server is signed in; with a single server
+  it reads as a design accent rather than a label.
+- **The same bar or dot marks a server everywhere** a game or account appears: the Running
+  and Finished tabs, the board screen (a dot beside the opponent's name), the game info sheet,
+  the sign-in panels, the Settings account sections, and error lines.
+- **Colour is never the only carrier**: the server's name is written out once per screen
+  where it fits naturally — the sign-in panels, the Settings sections, the board's info line
+  ("Online Go Server · game 1234567") — so the mapping is learnt there; list rows carry the
+  colour only, plus a content description ("on Online Go Server") for TalkBack.
+
+### Games list
+
+- **One merged list per tab**, sorted by last move across servers as today — the question
+  the list answers is "what do I have to play", not "what is on DGS". No per-server
+  sections, no server filter.
+- **One server failing does not hide the other**: the games that loaded are shown, with a
+  quiet line naming the server that did not answer ("Online Go Server didn't answer · Try
+  again"). The full-screen unreachable state appears only when every signed-in server fails.
+
+### Formatting
+
+- **Remaining time is in the app's language for both servers**, through the same formatter
+  (`Formatting.remaining`, "3 d 20 h"). DGS sends it localised and the DGS client parses it
+  back into a duration; OGS sends raw clocks (epoch-ms `last_move` / `expiration`, per-player
+  seconds per time system: fischer, byoyomi, canadian, simple, absolute, none), from which
+  the OGS client computes the duration. The byo-yomi / increment part ("+ 1 d × 10") needs
+  the same treatment — today it is still DGS's own text. Paused games (`pause_control`:
+  vacation, weekend) must not look like running clocks.
+- **Ranks are shown each server's own way**: OGS as its website shows them — whole ranks
+  ("7k", "2d") computed from the rating, "?" when provisional — and DGS as the server sends
+  them. The two styles differ slightly; neither is rewritten to match the other.
+
+### Settings
+
+- One section per signed-in-or-not server, each with its colour mark and name: signed in as
+  X / sign out (or sign in).
+  - DGS: plus the server URL.
+  - OGS: plus "Open on the web" for the account; vacation and everything else stays on the
+    web.
+
+### Architecture
+
+- **The UI knows *which* server, never *how* to talk to it.** `TurnBasedGoServerClient`
+  gains an opaque `serverId` ("dgs", "ogs"); the app maps it to a colour token and a display
+  name. The colour is a design token and lives in `DESIGN.md` / the app, not in the
+  interface. (This amends the "UI never knows which server it talks to" rule in CLAUDE.md.)
+- **Games are keyed by (server, game id)** — OGS game ids are integers and can collide with
+  DGS ids. The app holds **one client per signed-in server**; the games ViewModel fans out to
+  each and merges, and the board screen is handed the game's own client. A combined client
+  hiding both servers behind one `TurnBasedGoServerClient` was rejected: it would hide which
+  server failed, and the UI needs the server for the colour anyway.
+- **`:core-ogs`**, a new pure-Kotlin module implementing `TurnBasedGoServerClient`, depending
+  on `:core-goserver` only — same shape as `:core-dgs`.
+- **OGS needs its websocket even for correspondence.** Resign (and stone removal) exist only
+  there; moves have a REST endpoint (`POST /api/v1/games/{id}/move/`) that appeared recently
+  and whose request body is unverified. `:core-ogs` therefore opens a short-lived connection
+  for an action — fetch a `user_jwt` from `/api/v1/ui/config/`, `authenticate`,
+  `game/connect`, `game/move` or `game/resign`, `game/disconnect` — behind the existing
+  suspend functions. Pull-based stays true above the module boundary. Holding a connection
+  for the scoring phase is part of the scoring design round.
+- Useful endpoints found so far: `/api/v1/ui/overview/` (active games with full game data;
+  whose turn it is from `clock.current_player`), `/api/v1/players/{id}/game_history/`
+  (finished games), and `/termination-api/player/{id}/v5-rating-history` (TSV of rating per
+  game, from which a per-game rating change is the difference of consecutive rows —
+  undocumented, so a failure there simply leaves the rating change out). No published rate
+  limits; the `authenticate` message carries `client` / `client_version`, which Turnzen fills
+  in as it does its DGS User-Agent.
+- **Test fixtures** are recorded from the maintainer's OGS account (registered September
+  2026): currently one game won on time and several running games, none awaiting a move — a
+  "my turn" capture waits until an opponent moves. Same scrubbing rules as for DGS.
+- The demo server (`-Pturnzen.fakeServer=true`) gets a fake OGS alongside the fake DGS, so
+  mixed lists can be seen without accounts.
+
+### Distribution consequence
+
+F-Droid will probably add the **NonFreeNet** anti-feature label, because OGS's backend is
+not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rejection.
+
+### Implementation notes (26 September 2026)
+
+- **`GameId` carries its server**: `GameId(server: ServerId, value)`. This is the "(server,
+  game id)" key; it keeps every existing `GameId` signature in the app, and a saved open game
+  is stored as `"server:id"`.
+- **Interface additions** in `TurnBasedGoServerClient`: `serverId`, `signInMethod`
+  (`PASSWORD` / `BROWSER`) with `signInInBrowser(openPage)`, `scoresInApp`, `accountUrl()`;
+  `GameSummary` gains `boardHeight` and `onlyOnWeb`.
+- **App**: `Accounts` holds one `SessionManager` per server (OGS first). The DGS session keeps
+  the original secrets file, so an existing sign-in survives the update; OGS has its own.
+  `SessionManager` re-persists the session after every call, because OGS renews its tokens
+  during ordinary calls. A lapsed OGS session signs that server out with a reason instead of
+  retrying (there is no password to retry with). `GamesStore` fans out over the signed-in
+  sessions, merges, and returns failures per server instead of throwing.
+- **OGS client**: overview for running games (live speeds dropped), the public game list for
+  finished ones (live ones dropped, then the tab's fifteen across both servers), rating
+  changes from the rating-history TSV in ranks. Moves and resignations go over a realtime
+  connection opened for the one action; a move whose game has moved on since (move count ≠
+  token) is refused as `StaleGame` before it is sent. An **annulled** OGS game keeps its
+  winner — OGS annuls early timeouts, which only makes them unrated.
+- **Redirect port 8735**, path `/ogs/signed-in`. The page it serves has a "Back to Turnzen"
+  link to `turnzen://signed-in`, which MainActivity accepts as a BROWSABLE link (a
+  launcher-style intent URL is refused by browsers and ends up in the Play Store). MainActivity
+  is `singleTask`, so returning closes the browser page left in Turnzen's task.
+- **The app is kept out of Android's freezer while the browser is in front.** Seconds after
+  going to the background the process is frozen, and the loopback listener cannot answer the
+  redirect — the browser hangs on it. `SignInKeepAwakeService`, a foreground service of the
+  "short service" type (at most three minutes), runs for exactly as long as the sign-in waits.
+  This adds `FOREGROUND_SERVICE` to the permissions (granted without a prompt), which the user
+  accepted over the alternative of switching back to the app by hand.
+- **Client id**: `BuildConfig.OGS_CLIENT_ID`, the application registered under Chei and
+  committed in `app-android/build.gradle.kts` (public; `-Pturnzen.ogsClientId=…` overrides
+  it for a fork). A build with an empty id shows the OGS panel with the button disabled and a
+  line saying this build cannot sign in.
+- **Fixtures** in `core-ogs/src/test/resources/ogs/` are Chei's public games with players,
+  ids and icons scrubbed (`turnzen-test` is id 1001). `overview.json` is assembled from real
+  game data in the documented overview shape, because the overview needs a token to record;
+  replace it with a real capture after the first sign-in.
+- **Not verified against the live server yet**: the OAuth flow itself,
+  loopback acceptance, the overview's exact shape, the realtime `authenticate` reply, and the
+  rating-history columns.
+- The mockup review before UI code was skipped: the user asked for the work to continue
+  without waiting. The UI follows the mockups in `docs/mockups/05–08`.
+
+### Order of work
+
+1. Mockups first (`generate_mockups.py`, light and dark): the games list with mixed rows,
+   the sign-in screen in its states (nothing signed in / one / both), Settings with both
+   servers — plus proposed values for the two server colours. Reviewed before any UI code.
+2. In parallel, `:core-ogs` protocol work that does not depend on the look: OAuth with
+   loopback, overview parsing, clock-to-duration, rank formatting, websocket send/resign.
+3. App wiring (multi-client ViewModels, server-keyed games), then the UI to the approved
+   mockups.
+
 ## Licensing
 
 - **Chosen license: MIT.**
@@ -347,7 +540,8 @@ Recommended order, cheapest/lowest-risk first:
    implementing both `TurnBasedGoServerClient` and `LiveGoServerClient`. Sente – Online GO
    (GPL-3.0, see Prior art) is worth studying — under the same "read for understanding,
    don't copy code" rule as DragonGoApp — for how it structures live vs. correspondence
-   handling in one app.
+   handling in one app. OGS correspondence support is now designed; see "Online Go Server
+   (OGS) support" above.
 4. **iOS** — do this last. Kotlin Multiplatform (KMP) can share the `:core-goserver` /
    `:core-dgs` / `:core-game` business logic as genuinely native compiled code on both
    platforms (Kotlin/Native, not an interpreted bridge). Compose Multiplatform can also
@@ -386,6 +580,7 @@ Recommended order, cheapest/lowest-risk first:
 ### MVP screens
 
 **1. Sign-in**
+(Superseded once OGS lands by the two-panel sign-in in "Online Go Server (OGS) support".)
 - Fields: DGS username, password. Primary action: Sign in.
 - One line explaining that this is the user's DGS account ("Turnzen signs you in with your
   Dragon Go Server account."), plus a "Register a Dragon Go Server account on the web" link
@@ -544,7 +739,8 @@ Recommended order, cheapest/lowest-risk first:
   and Resign.
 
 **4. Settings**
-- Signed-in DGS account, sign out.
+- Signed-in DGS account, sign out. (With OGS: one section per server — see "Online Go
+  Server (OGS) support".)
 - Server URL.
 - Board display options: coordinates on/off, last-move marker, trial-stone numbering.
 - Appearance: theme (Light / Dark / System), defaulting to System. See `docs/mockups/DESIGN.md`.
@@ -723,7 +919,7 @@ Decisions taken while building the MVP that refine or amend the sections above.
 - **Failures are shown in two tones** (`ServerProblem`): unreachable and rate-limited are
   states to wait out, shown quietly with a retry; signed-out, rejected moves and protocol
   errors are errors and keep the urgent colour. Connectivity is not probed — that would
-  need ACCESS_NETWORK_STATE, and the app ships with INTERNET only.
+  need ACCESS_NETWORK_STATE, and the app ships with INTERNET only (plus FOREGROUND_SERVICE for the OGS sign-in).
 - **Package and ids**: Kotlin packages `dev.turnzen.*` (code identity, one per module:
   `.game`, `.dgs`, `.goserver`, `.app`); application id `io.github.chei.turnzen` (the
   distribution identity, reverse-DNS of the `chei.github.io` Pages subdomain the source

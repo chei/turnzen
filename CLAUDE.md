@@ -21,16 +21,22 @@ rather than assuming familiarity with the platform.
                  :core-game for the shared value types (Point, StoneColor, GameRecord).
 :core-dgs        DGS implementation of TurnBasedGoServerClient (QuickSuite + HTML-form
                  clients). Pure Kotlin. Depends on :core-goserver only.
+:core-ogs        OGS implementation of TurnBasedGoServerClient (REST + OAuth/PKCE with a
+                 loopback redirect + a short-lived realtime socket). Pure Kotlin.
+                 Depends on :core-goserver only.
 :core-game       Go rules, board state, trial-variation model, SGF. Pure Kotlin.
                  No dependency on any server module.
 :app-android     Compose UI. The only module that may depend on the Android SDK.
-                 Depends on :core-goserver interfaces, not on :core-dgs types; the one
-                 exception is AppContainer (the composition root), which instantiates DgsClient.
+                 Depends on :core-goserver interfaces, not on :core-dgs / :core-ogs types;
+                 the one exception is AppContainer (the composition root), which
+                 instantiates DgsClient and OgsClient.
 ```
 
 Rules that follow from this:
-- Anything DGS-specific (URLs, response quirks, cookie handling) stays in `:core-dgs`.
-- UI never parses server responses and never knows which server it talks to.
+- Anything DGS-specific (URLs, response quirks, cookie handling) stays in `:core-dgs`;
+  anything OGS-specific in `:core-ogs`.
+- UI never parses server responses. It may know *which* server a game is on (an opaque
+  `serverId`, for colour and name), never *how* to talk to it.
 - `:core-*` modules must build and test on the JVM without an emulator.
 
 ## Non-negotiables
@@ -44,7 +50,8 @@ Rules that follow from this:
   (or equivalent) at runtime only. Test fixtures use fake accounts.
 - **No network in unit tests.** Record real DGS responses once into `:core-dgs` test
   fixtures (with credentials/session ids scrubbed) and test the parsers against those.
-- No analytics, no tracking, no ads, minimal permissions (INTERNET only for the MVP).
+- No analytics, no tracking, no ads, minimal permissions: INTERNET, plus FOREGROUND_SERVICE
+  only while an OGS sign-in waits for the browser (see the brief).
 
 ## Conventions
 
@@ -60,10 +67,10 @@ Rules that follow from this:
 ## Build & test
 
 ```
-./gradlew :core-game:test :core-dgs:test :core-goserver:test   # fast, JVM only
+./gradlew :core-game:test :core-dgs:test :core-ogs:test :core-goserver:test   # fast, JVM only
 ./gradlew :app-android:testDebugUnitTest                        # view-model tests, JVM only
 ./gradlew :app-android:assembleDebug                            # APK
-./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK using the in-memory demo server
+./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK using the in-memory demo servers (DGS + OGS)
 ./gradlew ktlintCheck                                           # ktlintFormat fixes most findings
 ```
 
