@@ -10,6 +10,14 @@ import dev.turnzen.game.StoneColor
 data class SgfGame(
     val record: GameRecord,
     val rootProperties: Map<String, List<String>>,
+    /**
+     * The main line's comments (`C`), keyed by how many of [GameRecord.moves] had been played
+     * at the node carrying them: 0 for the root and any setup nodes before the first move, 1
+     * for the node of the first move, and so on. Verbatim — what a comment *means* (who wrote
+     * it, whether part of it is private) is the server's convention, not SGF's. Several
+     * comments landing on one key (setup nodes) are joined by a blank line.
+     */
+    val comments: Map<Int, String> = emptyMap(),
 )
 
 /** Converts between [GameRecord] and SGF text. Only the main line is read. */
@@ -24,6 +32,7 @@ object SgfGameRecords {
         val setupWhite = ArrayList<dev.turnzen.game.Point>()
         val moves = ArrayList<ColoredMove>()
         var firstToMove: StoneColor? = root.first("PL")?.let { parseColor(it) }
+        val comments = LinkedHashMap<Int, String>()
 
         for (node in nodes) {
             if (moves.isEmpty()) {
@@ -33,6 +42,9 @@ object SgfGameRecords {
             }
             node.first("B")?.let { moves += ColoredMove(StoneColor.BLACK, toMove(it, size)) }
             node.first("W")?.let { moves += ColoredMove(StoneColor.WHITE, toMove(it, size)) }
+            node.first("C")?.takeIf { it.isNotBlank() }?.let { comment ->
+                comments.merge(moves.size, comment) { earlier, later -> "$earlier\n\n$later" }
+            }
         }
 
         val record =
@@ -48,7 +60,7 @@ object SgfGameRecords {
                 result = root.first("RE"),
                 firstToMove = firstToMove,
             )
-        return SgfGame(record, root.properties)
+        return SgfGame(record, root.properties, comments)
     }
 
     fun write(record: GameRecord): String =
