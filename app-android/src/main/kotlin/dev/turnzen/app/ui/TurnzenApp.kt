@@ -25,6 +25,7 @@ import dev.turnzen.app.AppContainer
 import dev.turnzen.app.R
 import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.ThemeMode
+import dev.turnzen.app.notify.OpenRequest
 import dev.turnzen.app.ui.board.BoardScreen
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.common.MainTab
@@ -78,6 +79,9 @@ fun TurnzenApp(container: AppContainer) {
                 }
 
                 !anySignedIn || onSignIn -> {
+                    // A tapped notification has nowhere to go until the user is past sign-in,
+                    // and should not jump anywhere later on its own.
+                    LaunchedEffect(Unit) { container.openRequests.value = null }
                     SignInScreen(
                         accounts = accounts,
                         games = container.games,
@@ -152,6 +156,30 @@ private fun SignedInShell(container: AppContainer) {
 
     BackHandler(enabled = openGame != null) { openGameId = null }
 
+    // A tapped notification: the game it names, the "Your turn" list, or the accounts.
+    val openRequest by container.openRequests.collectAsStateWithLifecycle()
+    LaunchedEffect(openRequest) {
+        when (val request = openRequest ?: return@LaunchedEffect) {
+            is OpenRequest.Game -> {
+                tab = MainTab.GAMES
+                gamesTab = GamesTab.YOUR_TURN
+                openGameId = encodeGameId(request.id)
+            }
+
+            OpenRequest.YourTurn -> {
+                tab = MainTab.GAMES
+                gamesTab = GamesTab.YOUR_TURN
+                openGameId = null
+            }
+
+            OpenRequest.Settings -> {
+                tab = MainTab.SETTINGS
+                openGameId = null
+            }
+        }
+        container.openRequests.value = null
+    }
+
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
             val game = openGame
@@ -194,7 +222,7 @@ private fun SignedInShell(container: AppContainer) {
                 }
 
                 else -> {
-                    val vm = viewModel { SettingsViewModel(container.settings) }
+                    val vm = viewModel { SettingsViewModel(container.settings) { container.notifier.allowed } }
                     SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
                 }
             }

@@ -10,6 +10,12 @@ import dev.turnzen.app.data.LadderStore
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.app.notify.CheckSchedule
+import dev.turnzen.app.notify.Notifier
+import dev.turnzen.app.notify.OpenRequest
+import dev.turnzen.app.notify.TurnCheck
+import dev.turnzen.app.notify.TurnWatch
+import dev.turnzen.app.notify.WatchStateStore
 import dev.turnzen.app.signin.ServiceKeepAwake
 import dev.turnzen.dgs.DgsClient
 import dev.turnzen.dgs.http.OkHttpTransport
@@ -17,6 +23,7 @@ import dev.turnzen.dgs.http.TurnzenUserAgent
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import dev.turnzen.ogs.OgsClient
 import dev.turnzen.ogs.net.OkHttpOgs
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
  * Composition root. The only place in the UI module that knows the concrete server
@@ -89,7 +96,36 @@ class AppContainer(
         ) { ogsClient() }
 
     val accounts = Accounts(listOf(ogs, dgs))
-    val games = GamesStore(accounts)
+
+    val notifier = Notifier(appContext)
+    val checkSchedule = CheckSchedule(appContext)
+    private val watchState = WatchStateStore(appContext)
+
+    val games = GamesStore(accounts) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
+
+    val turnCheck =
+        TurnCheck(
+            accounts = accounts,
+            settings = { settings.settings.value.notifications },
+            store = watchState,
+            notifier = notifier,
+            schedule = checkSchedule,
+            inForeground = { inForeground },
+        )
+
+    /** Whether the app is on screen; kept by [TurnzenApplication]. */
+    @Volatile
+    var inForeground = false
+
+    /** The app has come to the foreground: its notifications have been seen. */
+    fun onForeground() {
+        inForeground = true
+        notifier.cancelAll()
+        watchState.update { TurnWatch.seen(it) }
+    }
+
+    /** Where a tapped notification asked to go; consumed by the screen that goes there. */
+    val openRequests = MutableStateFlow<OpenRequest?>(null)
 
     // Ladder standings are a DGS feature.
     val ladders = LadderStore(appContext, dgs)

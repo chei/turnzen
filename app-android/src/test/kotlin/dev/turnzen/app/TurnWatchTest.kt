@@ -1,0 +1,206 @@
+package dev.turnzen.app
+
+import dev.turnzen.app.notify.CheckInput
+import dev.turnzen.app.notify.SummaryAction
+import dev.turnzen.app.notify.TurnWatch
+import dev.turnzen.app.notify.WatchState
+import dev.turnzen.game.StoneColor
+import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.Opponent
+import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.RemainingTime
+import dev.turnzen.goserver.ServerId
+import java.time.Duration
+import java.time.Instant
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+class TurnWatchTest {
+    private val dgs = ServerId("dgs")
+    private val ogs = ServerId("ogs")
+    private val now = Instant.parse("2026-09-26T12:00:00Z")
+
+    private fun game(
+        id: String,
+        move: Int = 10,
+        server: ServerId = dgs,
+        left: Duration? = Duration.ofDays(5),
+        lastMove: Instant = now.minusSeconds(60),
+    ) = GameSummary(
+        id = GameId(server, id),
+        opponent = Opponent("opp$id", null, null),
+        myColor = StoneColor.BLACK,
+        boardSize = 19,
+        handicap = 0,
+        moveNumber = move,
+        lastMoveAt = lastMove,
+        remainingTime = RemainingTime("x", left),
+        pendingAction = PendingAction.PLAY_MOVE,
+        isMyTurn = true,
+        moveToken = MoveToken("t"),
+    )
+
+    private fun input(
+        dgsGames: List<GameSummary>? = emptyList(),
+        ogsGames: List<GameSummary>? = null,
+        failed: Set<ServerId> = emptySet(),
+        signedOut: Set<ServerId> = emptySet(),
+        yourMove: Boolean = true,
+        lowTime: Boolean = true,
+        foreground: Boolean = false,
+        shown: Boolean = false,
+    ) = CheckInput(
+        answered =
+            buildMap {
+                dgsGames?.let { put(dgs, it) }
+                ogsGames?.let { put(ogs, it) }
+            },
+        failed = failed,
+        signedOut = signedOut,
+        yourMoveOn = yourMove,
+        lowTimeOn = lowTime,
+        inForeground = foreground,
+        summaryShown = shown,
+        now = now,
+    )
+
+    @Test
+    fun `a game newly waiting on the user alerts, listing every waiting game with the new one first`() {
+        val a = game("1", lastMove = now.minusSeconds(10))
+        val b = game("2", lastMove = now.minusSeconds(3600))
+        val state = WatchState(known = mapOf(a.id to 10))
+        val out = TurnWatch.check(state, input(listOf(a, b)))
+        val post = assertIs<SummaryAction.Post>(out.summary)
+        assertTrue(post.alert)
+        assertEquals(listOf(b.id, a.id), post.games.map { it.id })
+        assertEquals(setOf(b.id), post.flagged)
+        assertEquals(mapOf(a.id to 10, b.id to 10), out.state.known)
+    }
+
+    @Test
+    fun `nothing new does not alert, and a hidden summary stays hidden`() {
+        val a = game("1")
+        val state = WatchState(known = mapOf(a.id to 10))
+        assertEquals(SummaryAction.Keep, TurnWatch.check(state, input(listOf(a))).summary)
+    }
+
+    @Test
+    fun `nothing new updates a summary that is up without a sound`() {
+        val a = game("1")
+        val b = game("2")
+        val state = WatchState(known = mapOf(a.id to 10, b.id to 10), flagged = setOf(b.id))
+        val post = assertIs<SummaryAction.Post>(TurnWatch.check(state, input(listOf(b), shown = true)).summary)
+        assertEquals(false, post.alert)
+        assertEquals(listOf(b.id), post.games.map { it.id })
+        assertEquals(setOf(b.id), post.flagged)
+    }
+
+    @Test
+    fun `the same game coming round again after more moves is new`() {
+        val a = game("1", move = 12)
+        val out = TurnWatch.check(WatchState(known = mapOf(a.id to 10)), input(listOf(a)))
+        assertTrue(assertIs<SummaryAction.Post>(out.summary).alert)
+    }
+
+    @Test
+    fun `no games left takes the summary down`() {
+        val state = WatchState(known = mapOf(GameId(dgs, "1") to 10))
+        assertEquals(SummaryAction.Cancel, TurnWatch.check(state, input(emptyList(), shown = true)).summary)
+    }
+
+    @Test
+    fun `a server that did not answer keeps its games known and the summary untouched`() {
+        val a = GameId(ogs, "9")
+        val state = WatchState(known = mapOf(a to 3))
+        val out = TurnWatch.check(state, input(emptyList(), failed = setOf(ogs), shown = true))
+        assertEquals(SummaryAction.Keep, out.summary)
+        assertEquals(mapOf(a to 3), out.state.known)
+    }
+
+    @Test
+    fun `in the foreground nothing is posted and what was seen does not alert later`() {
+        val a = game("1")
+        val out = TurnWatch.check(WatchState(), input(listOf(a), foreground = true))
+        assertEquals(SummaryAction.Cancel, out.summary)
+        val later = TurnWatch.check(out.state, input(listOf(a)))
+        assertEquals(SummaryAction.Keep, later.summary)
+    }
+
+    @Test
+    fun `with the switch off the summary is taken down but games are still recorded`() {
+        val a = game("1")
+        val out = TurnWatch.check(WatchState(), input(listOf(a), yourMove = false))
+        assertEquals(SummaryAction.Cancel, out.summary)
+        assertEquals(mapOf(a.id to 10), out.state.known)
+    }
+
+    @Test
+    fun `opening the app clears the flags and marks the fetched games as seen`() {
+        val a = game("1")
+        val seen = TurnWatch.seen(WatchState(flagged = setOf(a.id)), mapOf(dgs to listOf(a)))
+        assertEquals(emptySet(), seen.flagged)
+        assertEquals(mapOf(a.id to 10), seen.known)
+    }
+
+    @Test
+    fun `low time warns once per move, at 24 hours or less`() {
+        val low = game("1", left = Duration.ofHours(24))
+        val fine = game("2", left = Duration.ofHours(25))
+        val out = TurnWatch.check(WatchState(), input(listOf(low, fine)))
+        assertEquals(listOf(low.id), out.lowTimeAlerts.map { it.id })
+        val again = TurnWatch.check(out.state, input(listOf(low, fine)))
+        assertEquals(emptyList(), again.lowTimeAlerts)
+        val nextMove = TurnWatch.check(again.state, input(listOf(low.copy(moveNumber = 12))))
+        assertEquals(listOf(low.id), nextMove.lowTimeAlerts.map { it.id })
+    }
+
+    @Test
+    fun `a clock the app could not read is never low`() {
+        val out = TurnWatch.check(WatchState(), input(listOf(game("1", left = null))))
+        assertEquals(emptyList(), out.lowTimeAlerts)
+        assertNull(out.nextLowTimeCheck)
+    }
+
+    @Test
+    fun `the next low-time check is when the soonest clock crosses the line, never sooner than 15 minutes`() {
+        val out =
+            TurnWatch.check(
+                WatchState(),
+                input(listOf(game("1", left = Duration.ofDays(3)), game("2", left = Duration.ofDays(2)))),
+            )
+        assertEquals(now + Duration.ofDays(1), out.nextLowTimeCheck)
+        val close = TurnWatch.check(WatchState(), input(listOf(game("3", left = Duration.ofHours(24).plusMinutes(1)))))
+        assertEquals(now + Duration.ofMinutes(15), close.nextLowTimeCheck)
+    }
+
+    @Test
+    fun `a low-time notice goes when the game is no longer the user's move`() {
+        val id = GameId(dgs, "1")
+        val out = TurnWatch.check(WatchState(lowAlerted = mapOf(id to 10)), input(emptyList()))
+        assertEquals(setOf(id), out.lowTimeCancels)
+        assertEquals(emptyMap(), out.state.lowAlerted)
+    }
+
+    @Test
+    fun `low time is silent while its switch is off`() {
+        val out = TurnWatch.check(WatchState(), input(listOf(game("1", left = Duration.ofHours(3))), lowTime = false))
+        assertEquals(emptyList(), out.lowTimeAlerts)
+        assertNull(out.nextLowTimeCheck)
+    }
+
+    @Test
+    fun `a sign-out is said once, and again only after signing in and out again`() {
+        val first = TurnWatch.check(WatchState(), input(emptyList(), signedOut = setOf(ogs)))
+        assertEquals(setOf(ogs), first.signedOutAlerts)
+        val second = TurnWatch.check(first.state, input(emptyList(), signedOut = setOf(ogs)))
+        assertEquals(emptySet(), second.signedOutAlerts)
+        val back = TurnWatch.check(second.state, input(emptyList(), ogsGames = emptyList()))
+        val third = TurnWatch.check(back.state, input(emptyList(), signedOut = setOf(ogs)))
+        assertEquals(setOf(ogs), third.signedOutAlerts)
+    }
+}

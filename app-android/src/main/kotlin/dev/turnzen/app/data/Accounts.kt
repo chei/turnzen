@@ -5,6 +5,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * The servers the app can sign in to, one [SessionManager] each, in the order every screen
@@ -32,11 +34,18 @@ class Accounts(
     /** Every session's state, in [sessions] order. */
     val states: Flow<List<AuthState>> = combine(sessions.map { it.state }) { it.toList() }
 
-    /** Restores every stored session, all at once. */
+    private val restoring = Mutex()
+
+    /**
+     * Restores every stored session, all at once. The app and a background check can both
+     * ask at startup; the second waits for the first and then finds nothing left to do.
+     */
     suspend fun restore() =
-        coroutineScope {
-            sessions.forEach { session ->
-                if (session.state.value is AuthState.Unknown) launch { session.restore() }
+        restoring.withLock {
+            coroutineScope {
+                sessions.forEach { session ->
+                    if (session.state.value is AuthState.Unknown) launch { session.restore() }
+                }
             }
         }
 }

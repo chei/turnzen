@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.security.crypto)
+    // Notifications: the background check, and knowing whether the app is on screen.
+    implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.lifecycle.process)
 
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)

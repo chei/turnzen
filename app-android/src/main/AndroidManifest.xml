@@ -6,6 +6,10 @@
          while its loopback listener is supposed to answer the redirect. Granted without a
          prompt; see SignInKeepAwakeService. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- "Your move" and "Time running low", only once the user switches them on in Settings
+         (asked for there, Android 13+). WorkManager adds ACCESS_NETWORK_STATE, WAKE_LOCK and
+         RECEIVE_BOOT_COMPLETED for the background check itself. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".TurnzenApplication"

@@ -169,4 +169,25 @@
     <string name="settings_report">Report a problem</string>
     <string name="settings_on">On</string>
     <string name="settings_off">Off</string>
+    <string name="settings_group_notifications">Notifications</string>
+    <string name="settings_notify_your_move">Your move</string>
+    <string name="settings_notify_low_time">Time running low</string>
+    <string name="settings_check_every">Check every</string>
+    <string name="settings_notifications_blocked">Android is blocking Turnzen\'s notifications.</string>
+    <string name="settings_notifications_allow">Allow in Android settings</string>
+    <string name="interval_15_min">15 min</string>
+    <string name="interval_30_min">30 min</string>
+    <string name="interval_1_h">1 h</string>
+    <string name="interval_3_h">3 h</string>
+
+    <string name="notify_channel_your_move">Your move</string>
+    <string name="notify_channel_low_time">Time running low</string>
+    <string name="notify_channel_signed_out">Signed out</string>
+    <string name="notify_your_move_one">Your move against %1$s</string>
+    <string name="notify_your_move_many">Your move in %1$d games</string>
+    <string name="notify_new">new</string>
+    <string name="notify_time_left">%1$s left</string>
+    <string name="notify_low_time">Low on time vs. %1$s: %2$s left</string>
+    <string name="notify_signed_out">Turnzen can\'t check %1$s</string>
+    <string name="notify_signed_out_text">Sign in again</string>
 </resources>

@@ -1,5 +1,7 @@
 package dev.turnzen.app
 
+import dev.turnzen.app.data.CheckInterval
+import dev.turnzen.app.data.NotificationSettings
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.data.ThemeMode
 import dev.turnzen.dgs.DgsClient
@@ -67,5 +69,22 @@ class SettingsStoreTest {
         // not mutated in place.
         assertFalse(first === store.settings.value)
         assertEquals(ThemeMode.SYSTEM, first.theme)
+    }
+
+    @Test
+    fun `notifications start off and keep what the user chose`() {
+        val prefs = FakeSharedPreferences()
+        val store = SettingsStore(prefs)
+        assertEquals(NotificationSettings(), store.settings.value.notifications)
+        assertFalse(store.settings.value.notifications.anyOn)
+
+        store.update {
+            it.copy(
+                notifications = NotificationSettings(lowTime = true, checkEvery = CheckInterval.HOUR_3),
+            )
+        }
+
+        val afterRestart = SettingsStore(prefs).settings.value.notifications
+        assertEquals(NotificationSettings(lowTime = true, checkEvery = CheckInterval.HOUR_3), afterRestart)
     }
 }

@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import dev.turnzen.app.BuildConfig
 import dev.turnzen.app.data.AppSettings
 import dev.turnzen.app.data.BoardSettings
+import dev.turnzen.app.data.CheckInterval
+import dev.turnzen.app.data.NotificationSettings
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.data.ThemeMode
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +18,8 @@ import java.net.URLEncoder
  */
 class SettingsViewModel(
     private val settingsStore: SettingsStore,
+    /** Whether Android lets the app post notifications right now (permission, app not blocked). */
+    private val notificationsAllowed: () -> Boolean = { true },
 ) : ViewModel() {
     val settings: StateFlow<AppSettings> = settingsStore.settings
 
@@ -45,4 +49,11 @@ class SettingsViewModel(
         }
 
     fun setTheme(mode: ThemeMode) = settingsStore.update { it.copy(theme = mode) }
+
+    fun updateNotifications(transform: (NotificationSettings) -> NotificationSettings) =
+        settingsStore.update { it.copy(notifications = transform(it.notifications)) }
+
+    fun setCheckEvery(interval: CheckInterval) = updateNotifications { it.copy(checkEvery = interval) }
+
+    fun notificationsAllowed(): Boolean = notificationsAllowed.invoke()
 }

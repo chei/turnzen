@@ -35,6 +35,11 @@ data class Arrivals(
  */
 class GamesStore(
     private val accounts: Accounts,
+    /**
+     * Told what each answering server said is awaiting the user, after every [refresh]: the
+     * user has now seen those games, so the notifications need not announce them.
+     */
+    private val onYourTurnSeen: (Map<ServerId, List<GameSummary>>) -> Unit = {},
 ) {
     private val _yourTurn = MutableStateFlow<List<GameSummary>?>(null)
     private val _allRunning = MutableStateFlow<List<GameSummary>?>(null)
@@ -97,6 +102,7 @@ class GamesStore(
         // first load that failed still reads as "nothing to show" rather than "no games".
         if (sessions.isNotEmpty() && failures.size == sessions.size) return failures
         val fresh = answers.mapNotNull { (server, answer) -> answer.getOrNull()?.let { server to it } }.toMap()
+        onYourTurnSeen(fresh.mapValues { it.value.first })
         // Games of a server that is signed in but did not answer stay as they were.
         val stale = failures.keys
         val turnList = merge(_yourTurn.value, stale, fresh.values.flatMap { it.first })
