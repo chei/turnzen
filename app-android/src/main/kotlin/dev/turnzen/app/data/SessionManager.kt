@@ -69,6 +69,9 @@ class SessionManager(
     val registrationUrl: String
         get() = client.registrationUrl
 
+    val passwordDomain: String?
+        get() = client.passwordDomain
+
     /** The current server's web page for a game, for the "open on the web" escape hatch. */
     fun gameUrl(id: GameId): String? = client.gameUrl(id)
 

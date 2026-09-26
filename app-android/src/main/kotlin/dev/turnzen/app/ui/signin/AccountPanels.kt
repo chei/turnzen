@@ -156,20 +156,16 @@ private fun PasswordForm(viewModel: SignInViewModel) {
         label = stringResource(R.string.signin_username),
         value = state.username,
         onChange = viewModel::onUsername,
-        keyboardOptions =
-            KeyboardOptions(
-                capitalization = KeyboardCapitalization.None,
-                autoCorrectEnabled = false,
-                imeAction = ImeAction.Next,
-            ),
+        kind = CredentialKind.USERNAME,
+        webDomain = viewModel.passwordDomain,
     )
     Spacer(Modifier.height(16.dp))
     UnderlinedField(
         label = stringResource(R.string.signin_password),
         value = state.password,
         onChange = viewModel::onPassword,
-        password = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+        kind = CredentialKind.PASSWORD,
+        webDomain = viewModel.passwordDomain,
         onDone = viewModel::submit,
     )
     Spacer(Modifier.height(20.dp))
@@ -260,35 +256,12 @@ private fun UnderlinedField(
     label: String,
     value: String,
     onChange: (String) -> Unit,
-    keyboardOptions: KeyboardOptions,
-    password: Boolean = false,
+    kind: CredentialKind,
+    webDomain: String?,
     onDone: (() -> Unit)? = null,
 ) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
-        TextField(
-            value = value,
-            onValueChange = onChange,
-            singleLine = true,
-            textStyle =
-                MaterialTheme.typography.bodyLarge.copy(
-                    fontSize = MaterialTheme.typography.titleMedium.fontSize,
-                ),
-            visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
-            keyboardOptions = keyboardOptions,
-            keyboardActions = KeyboardActions(onDone = { onDone?.invoke() }),
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = colors.accent,
-                    unfocusedIndicatorColor = colors.line,
-                    cursorColor = colors.accent,
-                    focusedTextColor = colors.ink,
-                    unfocusedTextColor = colors.ink,
-                ),
-            modifier = Modifier.fillMaxWidth(),
-        )
+        CredentialField(value, onChange, kind, webDomain, onDone)
     }
 }

@@ -98,6 +98,12 @@ class DgsClientTest {
     }
 
     @Test
+    fun `password managers look the password up under the website's domain`() {
+        assertEquals("www.dragongoserver.net", DgsClient(FakeTransport()).passwordDomain)
+        assertEquals("dgs.example", DgsClient(FakeTransport(), "https://dgs.example/sub").passwordDomain)
+    }
+
+    @Test
     fun `sign in posts the form, stores cookies and resolves the user`() =
         runTest {
             val transport = transportWithHappyPath()

@@ -40,6 +40,9 @@ class SignInViewModel(
     val registrationUrl: String
         get() = session.registrationUrl
 
+    val passwordDomain: String?
+        get() = session.passwordDomain
+
     fun onUsername(value: String) = _state.update { it.copy(username = value, error = null) }
 
     fun onPassword(value: String) = _state.update { it.copy(password = value, error = null) }

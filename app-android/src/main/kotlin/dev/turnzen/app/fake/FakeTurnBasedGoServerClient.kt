@@ -57,6 +57,7 @@ class FakeTurnBasedGoServerClient(
     private val shareGames: Boolean = false,
 ) : TurnBasedGoServerClient {
     override val registrationUrl = "https://www.dragongoserver.net/register.php"
+    override val passwordDomain = if (browserSignIn) null else "www.dragongoserver.net"
     override val signInMethod: SignInMethod = if (browserSignIn) SignInMethod.BROWSER else SignInMethod.PASSWORD
 
     // Like OGS, the browser-signed-in demo server leaves scoring to the web.

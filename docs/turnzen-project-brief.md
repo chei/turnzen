@@ -283,6 +283,13 @@ for it.
 - The OAuth application is registered under the maintainer's own OGS account (Chei); its
   client id is public in the repository, which PKCE makes harmless.
 - DGS still signs in with username and password — it offers nothing else.
+- **The DGS fields autofill with the password saved for the website.** Password managers
+  look an app's fields up under its package name unless a field names a web domain, so the
+  two fields report the server's `passwordDomain` (`www.dragongoserver.net`) and are marked
+  as username and password. Compose cannot attach a web domain to its fields, and Bitwarden
+  reads it only from the field or its direct parent, so these two are classic `EditText`s
+  styled like the rest (`CredentialField`). Verified with Bitwarden; Google's autofill
+  insists on Digital Asset Links, which DGS does not publish, so it keeps using the package.
 - **Sign-in screen**: two panels, both servers equal. **OGS on top** — its panel is a single
   "Sign in with Online Go Server" button, so it stays visible above the DGS form when the
   keyboard opens; the DGS panel below keeps its form. Each panel shows its own state

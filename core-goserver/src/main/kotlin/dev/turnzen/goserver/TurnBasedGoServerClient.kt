@@ -21,6 +21,15 @@ interface TurnBasedGoServerClient {
     /** Registration page for users without an account, opened in the browser. */
     val registrationUrl: String
 
+    /**
+     * The web domain of the server's own sign-in page ("www.dragongoserver.net"), for
+     * [SignInMethod.PASSWORD]. The sign-in fields report it to the device's password manager,
+     * so a password the user saved on the website is offered in the app too. Null when there
+     * is no such page.
+     */
+    val passwordDomain: String?
+        get() = null
+
     /** How this server wants the user to sign in; decides which of the two sign-ins applies. */
     val signInMethod: SignInMethod
         get() = SignInMethod.PASSWORD

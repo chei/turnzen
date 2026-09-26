@@ -22,6 +22,7 @@ import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
+import java.net.URI
 import java.net.URLEncoder
 
 /**
@@ -46,6 +47,7 @@ class DgsClient(
     override val serverId: ServerId = SERVER_ID
     override val serverName: String = "Dragon Go Server"
     override val registrationUrl: String = this.baseUrl + "register.php"
+    override val passwordDomain: String? = URI(this.baseUrl).host
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
         cookies = SessionCookies()
