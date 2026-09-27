@@ -322,8 +322,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   must not mistake it for said; the line goes once the game is over. Public and players-only
   parts carry nothing: the difference is real but not worth a label on every message.
 - **A comment is written in place**, between the move navigation and the action row: an
-  "Add a comment" text action (`accent`) that opens an underlined field like the sign-in
-  ones, labelled "Comment, sent with your move", focused as it opens. Above the buttons rather than under them, so Send is
+  "Add a comment" text action (`accent`) that opens a one-row underlined field whose
+  placeholder, in `ink2`, says "Comment, sent with your next move", focused as it opens. Above the buttons rather than under them, so Send is
   never the neighbour of the forward buttons and a slip off those lands on the comment, not
   on a move. The row is there from the moment the game opens on the user's turn, so it never
   pushes Send down under a finger; opening the field does move the action row, deliberately

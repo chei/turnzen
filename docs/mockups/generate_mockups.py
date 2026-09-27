@@ -465,10 +465,9 @@ def screen_board_comment(writing=False):
     # The comment for the next move: a text action, or the field it opens, between the move
     # navigation and the action row, so a slip off the forward buttons never lands on Send.
     if writing:
-        s += text(20, y + 26, "Comment, sent with your move", 14, 400, INK2)
-        s += text(20, y + 56, "Thanks, I think it holds", 16)
-        s += f'<rect x="20" y="{y + 68}" width="{W - 40}" height="2" fill="{ACCENT}"/>'
-        y += 78
+        s += text(36, y + 34, "Thanks, I think it holds", 16)
+        s += f'<rect x="20" y="{y + 50}" width="{W - 40}" height="2" fill="{ACCENT}"/>'
+        y += 60
     else:
         s += text(24, y + 30, "Add a comment", 14, 500, ACCENT)
         y += 46

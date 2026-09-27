@@ -1238,7 +1238,7 @@ private fun Confirmation(
     )
 }
 
-/** An underlined field like the sign-in ones, growing to a few lines for a longer message. */
+/** An underlined one-line field, growing to a few lines for a longer message. */
 @Composable
 private fun CommentField(
     value: String,
@@ -1252,17 +1252,21 @@ private fun CommentField(
     // Only a real loss of focus counts: the field reports "unfocused" once as it appears,
     // before the request above has landed.
     var hadFocus by remember { mutableStateOf(false) }
+    // The label is the placeholder, on the field's own line: one row instead of two, and
+    // once there is text the text says what the field is.
     Column(modifier.fillMaxWidth()) {
-        Text(
-            stringResource(R.string.board_comment_label),
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.ink2,
-        )
         TextField(
             value = value,
             onValueChange = onChange,
             maxLines = 4,
             textStyle = MaterialTheme.typography.bodyLarge,
+            placeholder = {
+                Text(
+                    stringResource(R.string.board_comment_label),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.ink2,
+                )
+            },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
             colors =
                 TextFieldDefaults.colors(

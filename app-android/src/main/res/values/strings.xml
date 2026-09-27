@@ -80,7 +80,7 @@
     <string name="board_resign_question">Resign?</string>
     <string name="board_resign_explain">You give the game up. This can\'t be undone.</string>
     <string name="board_sending">Sending…</string>
-    <string name="board_comment_label">Comment, sent with your move</string>
+    <string name="board_comment_label">Comment, sent with your next move</string>
     <string name="board_add_comment">Add a comment</string>
     <string name="outbox_sending">Sending %1$s to %2$s</string>
     <string name="outbox_sending_pass">Sending a pass to %1$s</string>
