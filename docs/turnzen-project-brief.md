@@ -841,6 +841,12 @@ Recommended order, cheapest/lowest-risk first:
   the summary is parsed from: both players (rank, rank at the start, captures, and each
   side's own clock), board size, handicap, how long the game has been running, and what it
   is being played for.
+- **A player's display name** sits under their handle, quieter, when the server has one and it
+  is more than the handle again (blank, or the same letters in another case, is dropped). DGS
+  keeps a free-text name beside the login handle; OGS has only `username`, so an OGS sheet shows
+  the handle alone. The handle stays the title and stays the only name everywhere else (list,
+  board header, notifications): it is what identifies a player on the server, and the name is
+  something looked up once.
 - **Only what a player would look up, not everything parsed.** Komi, ruleset, rated, the time
   system and the weekend clock were all shown at first and were all removed (September 2026):
   every one of them is fixed when the game is created, so the sheet answered a question nobody

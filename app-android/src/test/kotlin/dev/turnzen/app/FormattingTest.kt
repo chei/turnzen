@@ -12,6 +12,14 @@ import kotlin.test.assertTrue
 
 class FormattingTest {
     @Test
+    fun `a display name is shown only when it says something the handle does not`() {
+        assertEquals("Bernd Weber", Formatting.displayName("BerndW", " Bernd Weber "))
+        assertEquals(null, Formatting.displayName("BerndW", null))
+        assertEquals(null, Formatting.displayName("BerndW", "  "))
+        assertEquals(null, Formatting.displayName("BerndW", "berndw"))
+    }
+
+    @Test
     fun `a rating move keeps its hundredths, which is all a game is worth`() {
         // DGS counts in ranks: one game moves a player by a fraction of a stone, and that
         // fraction is the whole of what there is to report.

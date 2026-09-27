@@ -161,4 +161,13 @@ object Formatting {
         handle: String,
         rank: String?,
     ): String = if (rank.isNullOrBlank()) handle else "$handle ($rank)"
+
+    /**
+     * The name a player gave themselves beside their handle (DGS keeps both), or null when it
+     * would add nothing: missing, blank, or the handle again in another case.
+     */
+    fun displayName(
+        handle: String,
+        name: String?,
+    ): String? = name?.trim()?.takeIf { it.isNotEmpty() && !it.equals(handle.trim(), ignoreCase = true) }
 }

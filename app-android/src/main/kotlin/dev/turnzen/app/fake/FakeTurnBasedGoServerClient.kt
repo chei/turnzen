@@ -361,7 +361,7 @@ class FakeTurnBasedGoServerClient(
             val mine = color == myColor
             return PlayerDetail(
                 handle = if (mine) user.handle else opponent.handle,
-                displayName = player.name,
+                displayName = if (mine) user.displayName else opponent.displayName,
                 rank = player.rank,
                 country = if (mine) "ch" else "de",
                 rankAtStart = player.rank,

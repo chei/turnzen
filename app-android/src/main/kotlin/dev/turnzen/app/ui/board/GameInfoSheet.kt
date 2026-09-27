@@ -229,6 +229,7 @@ private fun PlayerLine(
     isFinished: Boolean = false,
 ) {
     val name = player?.handle ?: fallbackName
+    val displayName = player?.let { Formatting.displayName(it.handle, it.displayName) }
     val details =
         buildList {
             if (isYou) add(stringResource(R.string.info_you))
@@ -249,6 +250,10 @@ private fun PlayerLine(
                 Formatting.opponent(name, player?.rank),
                 style = MaterialTheme.typography.titleMedium,
             )
+            // Secondary to the handle, which is what identifies a player on the server.
+            displayName?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            }
             if (details.isNotEmpty()) {
                 Text(details, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
             }
