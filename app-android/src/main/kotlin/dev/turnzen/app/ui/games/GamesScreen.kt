@@ -375,9 +375,11 @@ private fun GameRowContent(game: GameSummary) {
                 Formatting.opponent(game.opponent.handle, game.opponent.rank),
                 style = MaterialTheme.typography.titleMedium,
             )
-            Text(
-                "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
-                    (
+            // The date is the part a glance at the list is for, so when a long outcome on the
+            // right squeezes this line it is the board and move count that give way, not it.
+            Row {
+                Text(
+                    "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
                         when {
                             // A board this app cannot draw: say where it can be seen.
                             game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
@@ -394,13 +396,21 @@ private fun GameRowContent(game: GameSummary) {
                             game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
 
                             else -> stringResource(R.string.games_move, game.moveNumber)
-                        }
-                    ) + ", ${Formatting.relative(game.lastMoveAt)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink2,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+                        },
+                    Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    ", ${Formatting.relative(game.lastMoveAt)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
         }
         Spacer(Modifier.width(12.dp))
         // A finished game has no clock to show; what it has instead is how it went.
