@@ -214,7 +214,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   is outlined, not filled — passing is an available answer, not the recommended one — and an
   armed Send outranks it, so trying a stone puts "Send D10" back and stepping off it brings
   Pass back. Everywhere else passing lives in the game-info sheet, costing the board
-  nothing. Both go through the same confirmation any move does.
+  nothing. Send goes in one tap, with an undo line after it; Pass is confirmed first (see
+  "Undo, not confirm").
 - **Tapping**: the newest stone on the board is a back button — tapping it steps behind
   that move, whether it is the newest trial stone or the last played one. Tapping the point
   the game played next is its mirror and steps forward through the record, so a rewound move
@@ -320,10 +321,19 @@ Use tabular figures for time and move counts so columns don't jitter.
   game ends", "only you can see this"), because its writer is the one person who sees it and
   must not mistake it for said; the line goes once the game is over. Public and players-only
   parts carry nothing: the difference is real but not worth a label on every message.
-- **A comment is written in the move's confirmation**, as an underlined field like the
-  sign-in ones, labelled "Comment (optional)", under the explanation. Both Send and Pass
-  offer it; resigning does not. What is typed survives a failed send (Send is the retry) and
-  is cleared once the move is sent. See `09-board-comment.svg` and `09b-send-with-comment.svg`.
+- **A comment is written in place**, under the action row: an "Add a comment" text action
+  (`accent`) that opens an underlined field like the sign-in ones, labelled "Comment, sent
+  with your move", focused as it opens. Under the buttons, so opening it never moves one.
+  It goes with whichever move is sent next, Send or Pass; resigning takes none. It is cleared
+  once the move leaves and comes back with a move that is undone or fails. See
+  `09-board-comment.svg` and `09b-send-with-comment.svg`.
+- **Undo, not confirm.** Send has no dialog: the button already names the move. The board
+  steps on to the next game at once, and one line above the bottom bar says what left —
+  "Sending E6 to mkvtl" in `ink`, "Undo" in `accent` — for four seconds before the move goes
+  to the server. Flat: a hairline above, the surface below, no card or shadow, and in the
+  layout rather than over it, so it never covers the next game's Send. A move that fails
+  turns the same line into "E6 to mkvtl wasn't sent · Open", which stays until that game is
+  opened. See `09c-sent-undo.svg`.
 - **Say what the app cannot do, before the move rather than after it.** Passing when the
   opponent has already passed ends the game and starts scoring, which Turnzen has no screen
   for; the confirmation says so and names the server where it can be finished.
@@ -335,7 +345,7 @@ Use tabular figures for time and move counts so columns don't jitter.
 ## Copy
 
 Plain verbs, sentence case, actions keep the same name through a flow: the button says
-"Send O15", the confirmation says "Send O15?", the result says "Sent". Failures say what
+"Send O15", the line after it says "Sending O15 to …", a failure "O15 to … wasn't sent". Failures say what
 happened and what to do ("Can't reach Dragon Go Server" / "Check your connection and try
 again."), never apologize, never stay vague, and never blame the user for a connection —
 the title names what we observed, the line below it says what to try.

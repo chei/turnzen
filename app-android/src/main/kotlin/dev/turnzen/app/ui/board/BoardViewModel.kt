@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStandings
+import dev.turnzen.app.data.MoveOutbox
+import dev.turnzen.app.data.OutgoingMove
+import dev.turnzen.app.data.ReturnedMove
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
@@ -37,7 +40,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-enum class PendingConfirmation { SEND, PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
+enum class PendingConfirmation { PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
 
 /** Something that happened in the game and left no stone on the board to show for it. */
 enum class BoardEventKind { PASS, RESIGNATION, TIMEOUT, FORFEIT }
@@ -111,9 +114,6 @@ data class ScoringUiState(
         }
 }
 
-/** DGS's code for a move sent when it is the opponent's turn. */
-private const val CODE_NOT_YOUR_TURN = "not_your_turn"
-
 /**
  * The board state is navigated by a single [cursor] over one timeline:
  *
@@ -169,6 +169,8 @@ data class BoardUiState(
     val comments: List<GameComment>? = null,
     /** What the user has typed to go with their next move. Kept when a send fails. */
     val commentDraft: String = "",
+    /** The comment field is open under the action row. */
+    val writingComment: Boolean = false,
 ) {
     /** The game is being counted, so the board marks dead stones instead of trying moves. */
     val isScoring: Boolean
@@ -295,6 +297,14 @@ data class BoardUiState(
     val canPass: Boolean
         get() = isMyTurn && detail != null && !sending && !loading
 
+    /** A comment goes with a move, so it can be written exactly when a move can be made. */
+    val canComment: Boolean
+        get() = isMyTurn && !isFinished && !isScoring && detail != null
+
+    /** The field shows once opened, and stays while it holds something. */
+    val showCommentField: Boolean
+        get() = canComment && (writingComment || commentDraft.isNotEmpty())
+
     /**
      * The pass or the ending act at the cursor, if the position on show came about by one.
      *
@@ -357,6 +367,8 @@ class BoardViewModel(
     private val gameId: GameId,
     private val session: SessionManager,
     private val games: GamesStore,
+    /** Where a sent move waits out its undo window; see [MoveOutbox]. */
+    private val outbox: MoveOutbox,
     /** Ladder standings for the info sheet; absent in tests that do not care about them. */
     private val ladders: LadderStandings? = null,
     /** The game the queue moves to after this one; its record is warmed in the background. */
@@ -398,7 +410,20 @@ class BoardViewModel(
      */
     fun load(force: Boolean = false) {
         val preview = games.summary(gameId)
-        val known = if (force) null else _state.value.detail ?: games.cachedDetail(gameId)
+        // A move in this game is still on its way: whether it lands decides what the board
+        // should show, so wait for it (sending it now if it was waiting out its undo window).
+        if (outbox.isOutgoing(gameId)) {
+            _state.update { it.copy(loading = true, preview = preview ?: it.preview) }
+            viewModelScope.launch {
+                outbox.awaitDelivery(gameId)
+                load(force = true)
+            }
+            return
+        }
+        // A move that came back — undone, or not delivered — goes back on the board.
+        val back = outbox.claim(gameId)
+        val refetch = force || back?.movedOn == true
+        val known = if (refetch) null else _state.value.detail ?: games.cachedDetail(gameId)
         if (known != null && (preview == null || preview.moveNumber <= known.summary.moveNumber)) {
             val replay = Replay(known.record)
             _state.update {
@@ -413,8 +438,10 @@ class BoardViewModel(
                     cursor = openingCursor(replay, known.summary),
                     scoring = null,
                     comments = known.comments ?: it.comments,
+                    writingComment = false,
                 )
             }
+            restore(back)
             loadScoreIfCounting()
             loadCommentsIfSeparate(known)
             warmNext()
@@ -448,14 +475,40 @@ class BoardViewModel(
                         cursor = openingCursor(replay, detail.summary),
                         scoring = null,
                         comments = detail.comments ?: current.comments,
+                        writingComment = false,
                     )
                 }
+                restore(back)
                 loadScoreIfCounting()
                 loadCommentsIfSeparate(detail)
                 warmNext()
             } catch (e: GoServerException) {
                 _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
             }
+        }
+    }
+
+    /**
+     * Puts a move that came back where it was: the line it was sent from with its first stone
+     * armed, and the comment that went with it, so Send is the retry. Only while the game is
+     * still waiting on that very move — once it has moved on, the line answers a position that
+     * no longer exists, and the board just says what happened.
+     */
+    private fun restore(back: ReturnedMove?) {
+        back ?: return
+        _state.update { s ->
+            val detail = s.detail ?: return@update s
+            if (back.movedOn || detail.summary.moveToken != back.move.token) {
+                return@update s.copy(notice = MOVED_ON)
+            }
+            val trial = back.move.trial
+            s.copy(
+                trial = trial ?: s.trial,
+                trialStart = s.moveCount,
+                cursor = if (trial != null) s.moveCount + 1 else s.cursor,
+                commentDraft = back.move.comment.orEmpty(),
+                problem = back.error?.let { problemFor(it, session.serverName) },
+            )
         }
     }
 
@@ -756,11 +809,21 @@ class BoardViewModel(
 
     fun toEnd() = _state.update { it.copy(cursor = it.total) }
 
-    fun askSend() {
-        if (_state.value.canSend) _state.update { it.copy(confirmation = PendingConfirmation.SEND) }
+    /**
+     * Sends the armed stone. No confirmation: the button already names the move, and the
+     * outbox holds it for a few seconds with an Undo while the board steps on to the next game.
+     */
+    fun send() {
+        val s = _state.value
+        if (!s.canSend) return
+        s.moveToSend?.move?.let { submit(it) }
     }
 
-    /** Passing and resigning both go through a confirmation; neither can be undone locally. */
+    /**
+     * Passing and resigning both go through a confirmation. A pass still gets the undo window
+     * after it, like any move; the dialog is there for what passing means, which a stone
+     * does not need explaining.
+     */
     fun askPass() {
         if (_state.value.canPass) _state.update { it.copy(confirmation = PendingConfirmation.PASS) }
     }
@@ -773,14 +836,16 @@ class BoardViewModel(
 
     fun cancelConfirmation() = _state.update { it.copy(confirmation = null) }
 
-    /** The comment field in the send and pass confirmations. */
+    /** Opens the comment field under the action row. */
+    fun startComment() = _state.update { it.copy(writingComment = true) }
+
+    /** The comment field under the action row; what is typed goes with the next move. */
     fun onCommentChange(text: String) = _state.update { it.copy(commentDraft = text) }
 
     fun confirm() {
         val s = _state.value
         when (s.confirmation) {
-            PendingConfirmation.SEND -> s.moveToSend?.move?.let { send(it) }
-            PendingConfirmation.PASS -> send(Move.Pass)
+            PendingConfirmation.PASS -> submit(Move.Pass)
             PendingConfirmation.RESIGN -> resign()
             PendingConfirmation.SEND_MARKS -> settleScore(accept = false)
             PendingConfirmation.ACCEPT_SCORE -> settleScore(accept = true)
@@ -835,41 +900,30 @@ class BoardViewModel(
         }
     }
 
-    private fun send(move: Move) {
-        val detail = _state.value.detail ?: return
-        val comment =
-            _state.value.commentDraft
-                .trim()
-                .ifEmpty { null }
-        _state.update { it.copy(confirmation = null, sending = true, notice = null) }
-        viewModelScope.launch {
-            try {
-                session.call { it.sendMove(gameId, detail.summary.moveToken, move, comment) }
-                // Said and gone with the move; a failed send keeps it for the retry instead.
-                _state.update { it.copy(sending = false, commentDraft = "") }
-                // A short beat before auto-advancing to the next game, so the send does
-                // not feel like an instant, unexplained jump.
-                delay(600)
-                // Advance first (nextAfter still sees this game, so the queue steps to the
-                // one after it, or back to the list if it was the last), then drop it.
-                onMoveSent(gameId)
-                games.onMovePlayed(gameId)
-            } catch (e: GoServerException.StaleGame) {
-                onGameMovedOn()
-            } catch (e: GoServerException.MoveRejected) {
-                // "Not your turn" is not a bad move, it means the game moved on without us
-                // (the opponent played, or this player moved in another client). Treat it
-                // like a stale game rather than showing a rejection the user cannot act on.
-                if (e.code == CODE_NOT_YOUR_TURN) {
-                    onGameMovedOn()
-                } else {
-                    _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
-                }
-            } catch (e: GoServerException) {
-                // The trial variation is kept so nothing is lost.
-                _state.update { it.copy(sending = false, problem = problemFor(e, session.serverName)) }
-            }
+    /**
+     * Hands [move] to the outbox and steps the queue on at once. The board is done with the
+     * move from here: the outbox sends it once the undo window has passed, and a move that
+     * comes back is put back on this board the next time it opens (see [restore]).
+     */
+    private fun submit(move: Move) {
+        val s = _state.value
+        val detail = s.detail ?: return
+        val size = detail.record.boardSize
+        outbox.submit(
+            OutgoingMove(
+                gameId = gameId,
+                token = detail.summary.moveToken,
+                move = move,
+                comment = s.commentDraft.trim().ifEmpty { null },
+                label = (move as? Move.Play)?.let { Coordinates.label(it.point, size) },
+                opponent = detail.summary.opponent.handle,
+                trial = if (move is Move.Play) s.trial else null,
+            ),
+        )
+        _state.update {
+            it.copy(confirmation = null, notice = null, problem = null, commentDraft = "", writingComment = false)
         }
+        onMoveSent(gameId)
     }
 
     /**
@@ -878,7 +932,7 @@ class BoardViewModel(
      * usually changed whose turn it is elsewhere, and the list is what the user goes back to.
      */
     private fun onGameMovedOn() {
-        _state.update { it.copy(sending = false, notice = "The game changed on the server. Reloaded.") }
+        _state.update { it.copy(sending = false, notice = MOVED_ON) }
         load(force = true)
         viewModelScope.launch {
             try {
@@ -889,3 +943,5 @@ class BoardViewModel(
         }
     }
 }
+
+private const val MOVED_ON = "The game changed on the server. Reloaded."

@@ -29,6 +29,7 @@ import dev.turnzen.app.notify.OpenRequest
 import dev.turnzen.app.ui.board.BoardScreen
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.common.MainTab
+import dev.turnzen.app.ui.common.OutboxLine
 import dev.turnzen.app.ui.common.TurnzenBottomBar
 import dev.turnzen.app.ui.games.GamesScreen
 import dev.turnzen.app.ui.games.GamesTab
@@ -191,6 +192,7 @@ private fun SignedInShell(container: AppContainer) {
                                 gameId = game,
                                 session = container.accounts.session(game.server),
                                 games = container.games,
+                                outbox = container.outbox,
                                 ladders = container.ladders,
                                 // The queue's next game, warmed while this one is on screen.
                                 nextGame = { nextInQueue(game) },
@@ -227,6 +229,13 @@ private fun SignedInShell(container: AppContainer) {
                 }
             }
         }
+        OutboxLine(
+            outbox = container.outbox,
+            onOpen = { id ->
+                tab = MainTab.GAMES
+                openGameId = encodeGameId(id)
+            },
+        )
         TurnzenBottomBar(
             selected = tab,
             onSelect = { selected ->

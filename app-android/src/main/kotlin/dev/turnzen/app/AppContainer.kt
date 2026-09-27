@@ -7,6 +7,7 @@ import dev.turnzen.app.data.EncryptedCredentialStore
 import dev.turnzen.app.data.FixedServer
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
+import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
@@ -23,6 +24,7 @@ import dev.turnzen.dgs.http.TurnzenUserAgent
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import dev.turnzen.ogs.OgsClient
 import dev.turnzen.ogs.net.OkHttpOgs
+import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.flow.MutableStateFlow
 
 /**
@@ -102,6 +104,9 @@ class AppContainer(
     private val watchState = WatchStateStore(appContext)
 
     val games = GamesStore(accounts) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
+
+    /** Sent moves waiting out their undo window; app-wide, as the board they left is gone. */
+    val outbox = MoveOutbox(accounts, games, MainScope())
 
     val turnCheck =
         TurnCheck(

@@ -3,12 +3,15 @@ package dev.turnzen.app
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStandings
+import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.TournamentRef
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -46,10 +49,12 @@ class LadderStandingTest : MainDispatcherTest() {
         ladders: LadderStandings,
     ): BoardViewModel {
         val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0), InMemoryCredentialStore())
-        val games = GamesStore(Accounts(listOf(session)))
+        val accounts = Accounts(listOf(session))
+        val games = GamesStore(accounts)
         session.signIn(Credentials("demo", "pw"))
         games.refresh()
-        val vm = BoardViewModel(id, session, games, ladders, onMoveSent = {})
+        val outbox = MoveOutbox(accounts, games, CoroutineScope(Dispatchers.Main))
+        val vm = BoardViewModel(id, session, games, outbox, ladders, onMoveSent = {})
         vm.load()
         return vm
     }

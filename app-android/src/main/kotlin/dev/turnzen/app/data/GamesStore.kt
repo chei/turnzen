@@ -41,8 +41,18 @@ class GamesStore(
      */
     private val onYourTurnSeen: (Map<ServerId, List<GameSummary>>) -> Unit = {},
 ) {
+    // What the servers last said. The published lists below are these with [outgoing] applied.
     private val _yourTurn = MutableStateFlow<List<GameSummary>?>(null)
     private val _allRunning = MutableStateFlow<List<GameSummary>?>(null)
+    private val shownYourTurn = MutableStateFlow<List<GameSummary>?>(null)
+    private val shownAllRunning = MutableStateFlow<List<GameSummary>?>(null)
+
+    /**
+     * Games whose move is on its way (see [MoveOutbox]): the user has played, the server has
+     * not heard yet. Shown as already played — a refresh during the undo window must not put
+     * the game back into the queue the user has just worked past.
+     */
+    private var outgoing: Set<GameId> = emptySet()
     private val _finished = MutableStateFlow<List<GameSummary>?>(null)
     private val _arrivals = MutableStateFlow(Arrivals())
 
@@ -54,14 +64,33 @@ class GamesStore(
     private val details = LinkedHashMap<GameId, GameDetail>()
 
     /** null until the first successful load. */
-    val yourTurn: StateFlow<List<GameSummary>?> = _yourTurn.asStateFlow()
-    val allRunning: StateFlow<List<GameSummary>?> = _allRunning.asStateFlow()
+    val yourTurn: StateFlow<List<GameSummary>?> = shownYourTurn.asStateFlow()
+    val allRunning: StateFlow<List<GameSummary>?> = shownAllRunning.asStateFlow()
 
     /** The most recently finished games, newest first. null until the tab asks for them. */
     val finished: StateFlow<List<GameSummary>?> = _finished.asStateFlow()
 
     /** What the last [refresh] changed, for the screen to highlight. See [Arrivals]. */
     val arrivals: StateFlow<Arrivals> = _arrivals.asStateFlow()
+
+    /** Brings the published lists in line with the servers' lists and [outgoing]. */
+    private fun publish() {
+        shownYourTurn.value = _yourTurn.value?.filterNot { it.id in outgoing }
+        shownAllRunning.value =
+            _allRunning.value?.map { if (it.id in outgoing) it.copy(isMyTurn = false) else it }
+    }
+
+    /** A move in [id] has been handed to the outbox: show the game as played from now on. */
+    fun hold(id: GameId) {
+        outgoing = outgoing + id
+        publish()
+    }
+
+    /** The move in [id] was undone or did not go through: the game is the user's turn again. */
+    fun release(id: GameId) {
+        outgoing = outgoing - id
+        publish()
+    }
 
     /**
      * Fetches both lists from every signed-in server, all calls at once, and merges them into
@@ -117,6 +146,7 @@ class GamesStore(
             )
         _yourTurn.value = turnList
         _allRunning.value = runningList
+        publish()
         return failures
     }
 
@@ -234,10 +264,12 @@ class GamesStore(
         // The cached record predates the move that was just sent, so it is no longer usable.
         details.remove(id)
         onArrivalShown(id)
+        outgoing = outgoing - id
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list ->
             list?.map { if (it.id == id) it.copy(isMyTurn = false) else it }
         }
+        publish()
     }
 
     /**
@@ -249,6 +281,7 @@ class GamesStore(
         onArrivalShown(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
+        publish()
         // The game has just joined the archive, which this copy predates: drop it so the
         // Finished tab fetches the list again rather than showing one without this game.
         _finished.value = null
@@ -259,14 +292,17 @@ class GamesStore(
      * header and an empty grid in their final position while the full record loads.
      */
     fun summary(id: GameId): GameSummary? =
-        _allRunning.value?.firstOrNull { it.id == id }
-            ?: _yourTurn.value?.firstOrNull { it.id == id }
+        shownAllRunning.value?.firstOrNull { it.id == id }
+            ?: shownYourTurn.value?.firstOrNull { it.id == id }
             ?: _finished.value?.firstOrNull { it.id == id }
 
     /**
      * The next game strictly after [id] within the list the user is browsing: all running
      * games when [all] is true, otherwise the "your turn" queue. Does not wrap: null when
      * [id] is the last game (or not in the list), which the UI reads as "back to the list".
+     *
+     * Reads the servers' list, so [id] is found even while its own move is on its way; the
+     * games after it whose moves are on their way too are stepped over.
      */
     fun nextAfter(
         id: GameId,
@@ -275,7 +311,10 @@ class GamesStore(
         val list = (if (all) _allRunning else _yourTurn).value ?: return null
         val index = list.indexOfFirst { it.id == id }
         if (index < 0) return null
-        return list.drop(index + 1).firstOrNull()?.id
+        return list
+            .drop(index + 1)
+            .firstOrNull { all || it.id !in outgoing }
+            ?.id
     }
 
     /**
@@ -294,6 +333,7 @@ class GamesStore(
         _yourTurn.update { list -> list?.filterNot { it.id.server == server } }
         _allRunning.update { list -> list?.filterNot { it.id.server == server } }
         _finished.update { list -> list?.filterNot { it.id.server == server } }
+        publish()
     }
 
     fun clear() {
@@ -302,6 +342,7 @@ class GamesStore(
         _finished.value = null
         _arrivals.value = Arrivals()
         details.clear()
+        publish()
     }
 
     private companion object {

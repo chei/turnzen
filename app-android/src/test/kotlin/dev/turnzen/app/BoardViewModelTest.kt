@@ -2,6 +2,7 @@ package dev.turnzen.app
 
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardEventKind
 import dev.turnzen.app.ui.board.BoardViewModel
@@ -22,7 +23,10 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.TurnBasedGoServerClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -50,7 +54,11 @@ class BoardViewModelTest : MainDispatcherTest() {
     ) {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
-        val games = GamesStore(Accounts(listOf(session)))
+        val accounts = Accounts(listOf(session))
+        val games = GamesStore(accounts)
+
+        // Main is the test dispatcher, so the undo window runs on virtual time.
+        val outbox = MoveOutbox(accounts, games, CoroutineScope(Dispatchers.Main))
         val sent = ArrayList<GameId>()
         var ended = 0
         lateinit var vm: BoardViewModel
@@ -62,7 +70,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             session.signIn(Credentials("demo", "pw"))
             games.refresh()
             if (finished) games.refreshFinished()
-            vm = BoardViewModel(id, session, games, onGameEnded = { ended++ }) { sent += it }
+            vm = BoardViewModel(id, session, games, outbox, onGameEnded = { ended++ }) { sent += it }
             vm.load()
         }
     }
@@ -151,7 +159,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
             assertEquals(1, downloads)
 
-            val vm = BoardViewModel(warmed, h.session, h.games) { }
+            val vm = BoardViewModel(warmed, h.session, h.games, h.outbox) { }
             vm.load()
             // Instantaneous: the record is already here, so there is no second download and
             // no loading state to sit through.
@@ -647,9 +655,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             // A three-move exploration cannot be sent; step back to a single move ahead first.
             h.vm.stepBack()
             h.vm.stepBack()
-            h.vm.askSend()
-            assertEquals(PendingConfirmation.SEND, h.vm.state.value.confirmation)
-            h.vm.confirm()
+            h.vm.send()
             advanceUntilIdle()
 
             val record = client.game(game).record
@@ -674,14 +680,20 @@ class BoardViewModelTest : MainDispatcherTest() {
             client.sendMove(game, MoveToken("12"), Move.Play(Point(8, 8)))
 
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
-            h.vm.confirm()
+            h.vm.send()
             advanceUntilIdle()
+            assertTrue(
+                h.outbox.failed.value!!
+                    .movedOn,
+            )
 
+            // Back on the board: the real position, and a line saying why.
+            h.vm.load()
+            advanceUntilIdle()
             val s = h.vm.state.value
             assertNotNull(s.notice)
             assertEquals(14, s.moveCount)
-            assertTrue(h.sent.isEmpty())
+            assertEquals(0, s.trialMoves.size)
         }
 
     @Test
@@ -709,17 +721,17 @@ class BoardViewModelTest : MainDispatcherTest() {
             val loadsAfterStart = listLoads
 
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
-            h.vm.confirm()
+            h.vm.send()
             advanceUntilIdle()
+            assertEquals(loadsAfterStart + 1, listLoads)
 
+            h.vm.load()
+            advanceUntilIdle()
             val s = h.vm.state.value
             // Not a rejection the user can act on: the game moved on, so it is reloaded and
             // the games list is re-read rather than an error being shown.
             assertNotNull(s.notice)
             assertNull(s.problem)
-            assertTrue(h.sent.isEmpty())
-            assertEquals(loadsAfterStart + 1, listLoads)
         }
 
     @Test
@@ -738,8 +750,9 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
-            h.vm.confirm()
+            h.vm.send()
+            advanceUntilIdle()
+            h.vm.load()
             advanceUntilIdle()
 
             val s = h.vm.state.value
@@ -764,15 +777,24 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
-            h.vm.confirm()
+            h.vm.send()
             advanceUntilIdle()
+            // The board had already stepped on; the game is back in the queue, and the line
+            // says the move did not go.
+            assertEquals(listOf(game), h.sent)
+            assertNotNull(h.outbox.failed.value)
+            assertNotNull(
+                h.games.yourTurn.value
+                    ?.firstOrNull { it.id == game },
+            )
 
+            h.vm.load()
+            advanceUntilIdle()
             val s = h.vm.state.value
             assertNotNull(s.problem)
             assertEquals(1, s.trialMoves.size)
             assertTrue(s.canSend)
-            assertTrue(h.sent.isEmpty())
+            assertNull(h.outbox.failed.value)
         }
 
     @Test
@@ -822,9 +844,8 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
             h.vm.onCommentChange("  Thanks, you too  ")
-            h.vm.confirm()
+            h.vm.send()
             advanceUntilIdle()
 
             assertEquals(listOf<String?>("Thanks, you too"), comments)
@@ -874,12 +895,165 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.onTap(Point(0, 0))
-            h.vm.askSend()
             h.vm.onCommentChange("good luck")
-            h.vm.confirm()
+            h.vm.send()
+            advanceUntilIdle()
+            h.vm.load()
             advanceUntilIdle()
 
             assertEquals("good luck", h.vm.state.value.commentDraft)
+        }
+
+    @Test
+    fun `send steps on at once and the move waits out the undo window`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.send()
+
+            // No dialog, no wait: the queue moves on and the game leaves it...
+            assertNull(h.vm.state.value.confirmation)
+            assertEquals(listOf(game), h.sent)
+            assertNull(
+                h.games.yourTurn.value
+                    ?.firstOrNull { it.id == game },
+            )
+            // ...but nothing has reached the server yet, and a refresh does not bring it back.
+            advanceTimeBy(MoveOutbox.UNDO_WINDOW_MILLIS - 500)
+            h.games.refresh()
+            assertEquals(
+                12,
+                client
+                    .game(game)
+                    .record.moves.size,
+            )
+            assertNull(
+                h.games.yourTurn.value
+                    ?.firstOrNull { it.id == game },
+            )
+
+            advanceUntilIdle()
+            assertEquals(
+                Move.Play(Point(0, 0)),
+                client
+                    .game(game)
+                    .record.moves[12]
+                    .move,
+            )
+            assertNull(h.outbox.waiting.value)
+        }
+
+    @Test
+    fun `undo keeps the move off the server and puts it back on the board`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.onTap(Point(1, 0))
+            h.vm.stepBack()
+            h.vm.onCommentChange("hm")
+            h.vm.send()
+            advanceTimeBy(1_000)
+
+            assertEquals(game, h.outbox.undo()?.gameId)
+            advanceUntilIdle()
+            assertEquals(
+                12,
+                client
+                    .game(game)
+                    .record.moves.size,
+            )
+            assertNotNull(
+                h.games.yourTurn.value
+                    ?.firstOrNull { it.id == game },
+            )
+
+            // Reopened, the board holds the line it was sent from, first stone armed.
+            h.vm.load()
+            advanceUntilIdle()
+            val s = h.vm.state.value
+            assertEquals(2, s.trialCount)
+            assertEquals(1, s.trialMoves.size)
+            assertTrue(s.canSend)
+            assertEquals("hm", s.commentDraft)
+            assertNull(s.problem)
+        }
+
+    @Test
+    fun `opening a game whose move is waiting sends it now and shows the result`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.send()
+
+            h.vm.load()
+            assertTrue(h.vm.state.value.loading)
+            advanceTimeBy(100)
+            // Well inside the window, and already on the server: opening the game settled it.
+            assertEquals(
+                Move.Play(Point(0, 0)),
+                client
+                    .game(game)
+                    .record.moves[12]
+                    .move,
+            )
+            advanceUntilIdle()
+            val s = h.vm.state.value
+            assertFalse(s.loading)
+            assertEquals(14, s.moveCount)
+            assertFalse(s.hasTrial)
+        }
+
+    @Test
+    fun `a second send commits the first at once, and only the newest can be undone`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.send()
+
+            val other = GameId(DEMO_SERVER, "demo-13")
+            val second = BoardViewModel(other, h.session, h.games, h.outbox) { }
+            second.load()
+            advanceTimeBy(100)
+            val before =
+                client
+                    .game(other)
+                    .record.moves.size
+            second.onTap(Point(0, 0))
+            second.send()
+            advanceTimeBy(100)
+
+            // The first went the moment the second was sent, long before its window ran out.
+            assertEquals(
+                Move.Play(Point(0, 0)),
+                client
+                    .game(game)
+                    .record.moves[12]
+                    .move,
+            )
+            assertEquals(other, h.outbox.undo()?.gameId)
+            advanceUntilIdle()
+            assertEquals(
+                before,
+                client
+                    .game(other)
+                    .record.moves.size,
+            )
+            assertNotNull(
+                h.games.yourTurn.value
+                    ?.firstOrNull { it.id == other },
+            )
         }
 
     @Test

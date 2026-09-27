@@ -442,37 +442,62 @@ def screen_board_header_two_servers():
     return s + bottom_nav("Games") + "</svg>"
 
 
-def screen_board_comment(dialog=False):
-    """The board with the opponent's message under the action row, and the send confirmation
-    with its comment field."""
+def outbox_line(message, action):
+    """The line above the bottom bar about the move that has just left: flat, a hairline over it."""
+    y = NAV_Y - 44
+    s = f'<rect x="0" y="{y}" width="{W}" height="44" fill="{BG}"/>' + hairline(y, 0, W)
+    s += text(20, y + 27, message, 14)
+    s += text(W - 20, y + 27, action, 14, 500, ACCENT, "end")
+    return s
+
+
+def screen_board_comment(writing=False):
+    """The board with the opponent's message under the action row; writing, the comment field
+    open in place under Send, which goes in one tap."""
     s = frame_open() + status_bar()
     s += header_game("mkvtl", "7k", "black", 12, "22 h")
-    trial = (("E6", "B"),) if dialog else ()
-    b, yend = board(9, 104, STONES_9, LAST_9, trial, trial_mode=dialog)
+    trial = (("E6", "B"),) if writing else ()
+    b, yend = board(9, 104, STONES_9, LAST_9, trial, trial_mode=writing)
     s += b
     y = yend + 20
-    s += move_nav(y, 13 if dialog else 12, live=not dialog, forward_enabled=dialog)
+    s += move_nav(y, 13 if writing else 12, live=not writing, forward_enabled=writing)
     y += 60
     bw = (W - 40 - 12) / 2
     s += button(20, y, bw, 48, "Skip")
-    s += button(20 + bw + 12, y, bw, 48, "Send E6" if dialog else "Send", primary=True, disabled=not dialog)
+    s += button(20 + bw + 12, y, bw, 48, "Send E6" if writing else "Send", primary=True, disabled=not writing)
+    y += 48
+    # The comment for the next move: a text action, or the field it opens, under the action row
+    # so opening it never moves a button.
+    if writing:
+        s += text(20, y + 26, "Comment, sent with your move", 14, 400, INK2)
+        s += text(20, y + 56, "Thanks, I think it holds", 16)
+        s += f'<rect x="20" y="{y + 68}" width="{W - 40}" height="2" fill="{ACCENT}"/>'
+        y += 70
+    else:
+        s += text(24, y + 30, "Add a comment", 14, 500, ACCENT)
+        y += 38
     # Comments: below everything that is operated, so they never move a button.
-    y += 48 + 16 + 18
+    y += 16 + 18
     s += text(20, y, "mkvtl", 14, 600)
     s += text(20, y + 22, "I wasn't sure about that last one.", 16)
     s += text(20, y + 44, "We'll see. Your move!", 16)
-    if dialog:
-        s += f'<rect width="{W}" height="{H}" fill="#000000" fill-opacity="0.32"/>'
-        dx, dy, dw, dh = 24, 250, W - 48, 290
-        s += f'<rect x="{dx}" y="{dy}" width="{dw}" height="{dh}" rx="28" fill="{BG}"/>'
-        s += text(dx + 24, dy + 44, "Send E6?", 20, 400)
-        s += text(dx + 24, dy + 80, "Only this move is sent. The other trial", 14, 400, INK2)
-        s += text(dx + 24, dy + 100, "stones stay on your device.", 14, 400, INK2)
-        s += text(dx + 24, dy + 140, "Comment (optional)", 14, 400, INK2)
-        s += text(dx + 24, dy + 176, "Thanks, I think it holds", 16)
-        s += f'<rect x="{dx + 24}" y="{dy + 190}" width="{dw - 48}" height="2" fill="{ACCENT}"/>'
-        s += text(dx + dw - 128, dy + dh - 30, "Cancel", 14, 500, INK, "end")
-        s += text(dx + dw - 24, dy + dh - 30, "Send E6", 14, 500, ACCENT, "end")
+    return s + bottom_nav("Games") + "</svg>"
+
+
+def screen_board_sent():
+    """Straight after Send: already on the next game, the move waiting out its undo window."""
+    s = frame_open() + status_bar()
+    s += header_game("hana_go", "9k", "white", 8, "6 h")
+    b, yend = board(9, 104, STONES_9, LAST_9)
+    s += b
+    y = yend + 20
+    s += move_nav(y, 8)
+    y += 60
+    bw = (W - 40 - 12) / 2
+    s += button(20, y, bw, 48, "Skip")
+    s += button(20 + bw + 12, y, bw, 48, "Send", primary=True, disabled=True)
+    s += text(24, y + 48 + 30, "Add a comment", 14, 500, ACCENT)
+    s += outbox_line("Sending E6 to mkvtl", "Undo")
     return s + bottom_nav("Games") + "</svg>"
 
 
@@ -495,7 +520,8 @@ screens.update({
     "07-settings-two-servers": screen_settings_two_servers(),
     "08-board-server-dot": screen_board_header_two_servers(),
     "09-board-comment": screen_board_comment(),
-    "09b-send-with-comment": screen_board_comment(dialog=True),
+    "09b-send-with-comment": screen_board_comment(writing=True),
+    "09c-sent-undo": screen_board_sent(),
 })
 use_palette(DARK)
 screens.update({

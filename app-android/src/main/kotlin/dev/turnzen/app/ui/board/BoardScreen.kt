@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,6 +36,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -109,6 +113,8 @@ fun BoardScreen(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
+            // The comment field sits low on the screen: keep it above the keyboard.
+            .imePadding()
             .verticalScroll(rememberScrollState()),
     ) {
         // No back control of its own: Android's back (gesture or button) closes the game, as
@@ -317,7 +323,7 @@ fun BoardScreen(
                                         stringResource(R.string.board_send)
                                     }
                                 },
-                            onClick = viewModel::askSend,
+                            onClick = viewModel::send,
                             primary = true,
                             enabled = state.canSend,
                             modifier = Modifier.weight(1f),
@@ -326,6 +332,29 @@ fun BoardScreen(
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
+            }
+        }
+
+        // The comment that goes with the next move, written in place rather than in a dialog so
+        // that Send stays one tap. Under the action row, so opening it never moves a button.
+        if (state.canComment) {
+            if (state.showCommentField) {
+                Spacer(Modifier.height(8.dp))
+                CommentField(
+                    value = state.commentDraft,
+                    onChange = viewModel::onCommentChange,
+                    // Focused when the user has just asked for it, not when a returned move
+                    // brings its comment back.
+                    focus = state.writingComment,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+            } else {
+                TextAction(
+                    stringResource(R.string.board_add_comment),
+                    viewModel::startComment,
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    color = colors.accent,
+                )
             }
         }
 
@@ -367,18 +396,6 @@ fun BoardScreen(
     }
 
     when (state.confirmation) {
-        PendingConfirmation.SEND -> {
-            Confirmation(
-                title = "${stringResource(R.string.board_send)} ${state.sendLabel}?",
-                text = stringResource(R.string.board_send_explain),
-                confirmLabel = "${stringResource(R.string.board_send)} ${state.sendLabel}",
-                onConfirm = viewModel::confirm,
-                onDismiss = viewModel::cancelConfirmation,
-                comment = state.commentDraft,
-                onCommentChange = viewModel::onCommentChange,
-            )
-        }
-
         PendingConfirmation.PASS -> {
             Confirmation(
                 title = stringResource(R.string.board_pass_question),
@@ -393,8 +410,6 @@ fun BoardScreen(
                 confirmLabel = stringResource(R.string.board_pass),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
-                comment = state.commentDraft,
-                onCommentChange = viewModel::onCommentChange,
             )
         }
 
@@ -1170,9 +1185,6 @@ private fun Confirmation(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     confirmColor: Color = colors.accent,
-    /** Non-null for a move, which can carry a message: the field shows what is typed. */
-    comment: String? = null,
-    onCommentChange: (String) -> Unit = {},
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1180,12 +1192,7 @@ private fun Confirmation(
         titleContentColor = colors.ink,
         textContentColor = colors.ink2,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(text, style = MaterialTheme.typography.bodyMedium)
-                if (comment != null) CommentField(comment, onCommentChange)
-            }
-        },
+        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = confirmColor) } },
         dismissButton = {
             TextButton(
@@ -1200,8 +1207,12 @@ private fun Confirmation(
 private fun CommentField(
     value: String,
     onChange: (String) -> Unit,
+    focus: Boolean,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.fillMaxWidth()) {
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focus) { if (focus) focusRequester.requestFocus() }
+    Column(modifier.fillMaxWidth()) {
         Text(
             stringResource(R.string.board_comment_label),
             style = MaterialTheme.typography.bodyMedium,
@@ -1224,7 +1235,7 @@ private fun CommentField(
                     focusedTextColor = colors.ink,
                     unfocusedTextColor = colors.ink,
                 ),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
         )
     }
 }

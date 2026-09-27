@@ -494,7 +494,8 @@ The two servers mean different things by a comment, and the model is cut to fit 
   the socket has been quiet for a second (at most eight). A correspondence game sends no
   clock ticks to break that silence. A `reset-chats` event discards what came before; lines
   are de-duplicated by `chat_id`.
-- **Writing: a comment goes with a move**, as a field in the send (and pass) confirmation.
+- **Writing: a comment goes with a move**, typed in a field under the board's action row
+  ("Add a comment" opens it) and sent with the next Send or Pass.
   `sendMove(…, comment)`. On DGS it is the move's `msg`, in the same request. On OGS it is a
   `main` chat line sent right after the server has echoed the move, with `move_number` = the
   move just played, and the client waits (at most ten seconds) for it to come back. The move
@@ -717,7 +718,8 @@ Recommended order, cheapest/lowest-risk first:
 - **On every app start, fetch the "your move" game list immediately.** No manual step.
 - **"Try moves" is the default board behavior.** Tapping the board never sends anything to
   the server; it only places a local trial stone. The only way a move reaches the server
-  is the explicit Send action with confirmation.
+  is the explicit Send action, which names the move and can be undone for a few seconds
+  after it (see "Send move").
 - **The board view is as clean as possible.** Outside the board itself, show only what is
   strictly necessary. No decorative chrome, no persistent toolbars that compete with the
   board.
@@ -813,15 +815,25 @@ Recommended order, cheapest/lowest-risk first:
   sendable — it answers a question the game has moved beyond — and returning to the current
   position drops it. Only a variation branching at the current state can be sent.
 - **Send move**: only the *first* stone of the current variation (the user's actual move)
-  is sent; all later trial stones are discarded. The confirmation states exactly what is
-  sent ("Send D4?"). **Pass** is a move like any other and takes the same path, but it does
-  not hold a permanent place on the board: it lives in the game-info sheet, and is promoted
-  into the action row's send slot exactly when the opponent has passed and no trial stone is
-  armed. **Resign** lives only in that sheet, confirmed and coloured urgent.
-- After a successful send, automatically advance to the next "your move" game; if none
-  remain, return to the (empty) list.
-- States: sending, send failed (the variation must not be lost), stale state (the game
-  changed on the server meanwhile — e.g. opponent resigned — re-fetch and inform).
+  is sent; all later trial stones are discarded. The button states exactly what is sent
+  ("Send D4") and one tap sends it — **no confirmation dialog, an undo window instead**
+  (September 2026). The board steps on to the next game at once, and a line above the bottom
+  bar reads "Sending D4 to kaya_r · Undo" for four seconds before the move goes to the
+  server. Undo reopens the game with the line and comment as they were. A dialog everyone
+  learns to tap through protects less than an undo that is there when a slip is noticed.
+  **Pass** is a move like any other and takes the same path, but it does not hold a
+  permanent place on the board: it lives in the game-info sheet, and is promoted into the
+  action row's send slot exactly when the opponent has passed and no trial stone is armed.
+  It keeps a confirmation, because what a pass means (and, after the opponent's pass, that
+  it ends the game) needs saying; after it, the undo window as for a stone. **Resign** lives
+  only in that sheet, confirmed and coloured urgent.
+- On Send, advance straight to the next "your move" game; if none remain, return to the
+  (empty) list. No pause first: the undo line is what says the move went.
+- States: waiting (the undo window), sending, send failed, stale state (the game changed on
+  the server meanwhile — e.g. opponent resigned). A failure is reported wherever the user
+  is by then — "D4 to kaya_r wasn't sent · Open" — and puts the game back in the queue;
+  opening it restores the variation and the comment, with the problem line, so Send is the
+  retry. A stale game reopens on the real position with "The game changed on the server".
 - Move history navigation (step backward/forward through played moves with a move
   counter) is likely needed already in the MVP: in a weeks-long correspondence game the
   user has to be able to recover the context of the position.
@@ -903,8 +915,8 @@ Recommended order, cheapest/lowest-risk first:
 
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)
 
-5. **Move comment** — *done (September 2026)*: a text field in the send and pass
-   confirmations, and the players' comments at the move on show below the action row, on DGS
+5. **Move comment** — *done (September 2026)*: a text field under the action row that goes
+   with the next move, and the players' comments at the move on show below the action row, on DGS
    and OGS alike. See "Comments".
 6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed
    (irreversible; must not be reachable by accident). A resigned game leaves both lists and
@@ -1012,12 +1024,22 @@ Decisions taken while building the MVP that refine or amend the sections above.
   which is exactly the screen an offline cold start used to land on.
 - **Pass and resign are placed by what they are, not by how often they are used.** Resign is
   an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
-  confirmation. A pass is a *move*: it takes the same confirm-and-send path as a stone, it is
+  confirmation. A pass is a *move*: it takes the same send path as a stone, it is
   clock-sensitive, and it is how every game ends — so it is reachable in two taps from the
   sheet and is promoted into the action row's send slot when the opponent has passed and
   nothing is armed to send. Scoring is still missing, so passing into a finished game leads
   to a phase the app cannot render; rather than hide the button, the confirmation says so and
   names the server where the game can be finished.
+- **Sent moves go through an app-wide outbox** (`MoveOutbox`, September 2026), not the
+  board's view model, because the board has stepped on before the move leaves. It holds one
+  move at a time in its undo window: sending another commits the one before at once, since
+  the undo on screen can only be about the newest. While a move waits or is on the wire,
+  `GamesStore` shows its game as played (out of "Your turn", not-your-turn in "All games"),
+  so a refresh in the window does not put it back in the queue; opening such a game sends
+  a waiting move at once and shows the result. The window is flushed when the app leaves the
+  screen (`ProcessLifecycleOwner.onStop`), so a move the user saw leave never waits on a
+  process Android may kill; only a crash inside those four seconds can lose it. Scoring
+  marks and resigning stay on the confirm-then-send path.
 - **The client interface gained `resign` and `gameUrl`.** `gameUrl` is the escape hatch for
   everything a server can do that Turnzen cannot yet, and keeps the UI from knowing which
   server it talks to: the URL comes from the client, not from a constant in a screen.
