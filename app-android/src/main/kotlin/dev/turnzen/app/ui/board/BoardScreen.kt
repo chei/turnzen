@@ -1,5 +1,6 @@
 package dev.turnzen.app.ui.board
 
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -36,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -49,16 +51,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -109,13 +118,35 @@ fun BoardScreen(
     // size, so the board keeps its final position instead of flashing a blank rectangle.
     val position = state.position ?: state.boardSize?.let { Position.empty(it) }
 
+    // Leaving the game ends any comment in progress. Not on a rotation, which disposes this
+    // screen too but leaves the user exactly where they were.
+    val activity = LocalActivity.current
+    DisposableEffect(viewModel) {
+        onDispose { if (activity?.isChangingConfigurations != true) viewModel.onLeave() }
+    }
+
+    // A tap anywhere but the comment field takes the focus off it, as a tap outside a field
+    // does in most apps. Compose does not do this by itself: the board and the buttons take
+    // their taps without touching focus, and the field would stay in editing under them.
+    val focusManager = LocalFocusManager.current
+    var screenCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var commentBounds by remember { mutableStateOf<Rect?>(null) }
+
     Column(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
             // The comment field sits low on the screen: keep it above the keyboard.
             .imePadding()
-            .verticalScroll(rememberScrollState()),
+            .onGloballyPositioned { screenCoordinates = it }
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    // Seen first and left unconsumed, so the tap still does what it does.
+                    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val at = screenCoordinates?.localToWindow(down.position)
+                    if (at == null || commentBounds?.contains(at) != true) focusManager.clearFocus()
+                }
+            }.verticalScroll(rememberScrollState()),
     ) {
         // No back control of its own: Android's back (gesture or button) closes the game, as
         // does the Games tab in the bottom bar. A third affordance only cost the board the
@@ -269,7 +300,11 @@ fun BoardScreen(
                     // Focused when the user has just asked for it, not when a returned move
                     // brings its comment back.
                     focus = state.writingComment,
-                    modifier = Modifier.padding(horizontal = 20.dp),
+                    onBlur = viewModel::stopComment,
+                    modifier =
+                        Modifier
+                            .padding(horizontal = 20.dp)
+                            .onGloballyPositioned { commentBounds = it.boundsInWindow() },
                 )
             } else {
                 TextAction(
@@ -1209,10 +1244,14 @@ private fun CommentField(
     value: String,
     onChange: (String) -> Unit,
     focus: Boolean,
+    onBlur: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val focusRequester = remember { FocusRequester() }
     LaunchedEffect(focus) { if (focus) focusRequester.requestFocus() }
+    // Only a real loss of focus counts: the field reports "unfocused" once as it appears,
+    // before the request above has landed.
+    var hadFocus by remember { mutableStateOf(false) }
     Column(modifier.fillMaxWidth()) {
         Text(
             stringResource(R.string.board_comment_label),
@@ -1236,7 +1275,14 @@ private fun CommentField(
                     focusedTextColor = colors.ink,
                     unfocusedTextColor = colors.ink,
                 ),
-            modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .onFocusChanged {
+                        if (hadFocus && !it.isFocused) onBlur()
+                        hadFocus = it.isFocused
+                    },
         )
     }
 }

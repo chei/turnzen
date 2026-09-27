@@ -1057,6 +1057,33 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `leaving a game drops an unsent comment, but a move that comes back keeps its own`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.startComment()
+            h.vm.onCommentChange("half a thought")
+            h.vm.onLeave()
+            h.vm.load()
+            advanceUntilIdle()
+            assertEquals("", h.vm.state.value.commentDraft)
+            assertFalse(h.vm.state.value.showCommentField)
+
+            // Sent, left, undone: the comment that went with the move is back.
+            h.vm.onTap(Point(0, 0))
+            h.vm.onCommentChange("gg")
+            h.vm.send()
+            h.vm.onLeave()
+            h.outbox.undo()
+            h.vm.load()
+            advanceUntilIdle()
+            assertEquals("gg", h.vm.state.value.commentDraft)
+            assertTrue(h.vm.state.value.showCommentField)
+            assertFalse(h.vm.state.value.writingComment)
+        }
+
+    @Test
     fun `comments a server keeps apart from the game are asked for after it loads`() =
         runTest(dispatcher) {
             var asked = 0

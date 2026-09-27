@@ -328,6 +328,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   on a move. The row is there from the moment the game opens on the user's turn, so it never
   pushes Send down under a finger; opening the field does move the action row, deliberately
   and in answer to the user's own tap.
+  A tap anywhere else ends the editing: an empty field folds back into "Add a comment", one
+  holding text stays open, unfocused, so what will go out stays in sight. Leaving the game
+  drops an unsent comment rather than keeping it hidden for some later move; a move that is
+  undone or fails brings its own comment back.
   It goes with whichever move is sent next, Send or Pass; resigning takes none. It is cleared
   once the move leaves and comes back with a move that is undone or fails. See
   `09-board-comment.svg` and `09b-send-with-comment.svg`.

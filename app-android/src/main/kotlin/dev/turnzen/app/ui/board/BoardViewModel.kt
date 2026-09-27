@@ -843,6 +843,17 @@ class BoardViewModel(
     /** Opens the comment field under the action row. */
     fun startComment() = _state.update { it.copy(writingComment = true) }
 
+    /** The field lost focus: out of editing. It stays on screen only while it holds text. */
+    fun stopComment() = _state.update { it.copy(writingComment = false) }
+
+    /**
+     * The user has left this game (back to the list, Skip, another game). A comment is
+     * written for the move about to be made here and now, so an unsent one is dropped rather
+     * than waiting, hidden, to ride along with some later move. A move that comes back from
+     * the outbox brings its own comment with it.
+     */
+    fun onLeave() = _state.update { it.copy(writingComment = false, commentDraft = "") }
+
     /** The comment field under the action row; what is typed goes with the next move. */
     fun onCommentChange(text: String) = _state.update { it.copy(commentDraft = text) }
 
