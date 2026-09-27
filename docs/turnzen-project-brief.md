@@ -497,7 +497,7 @@ The two servers mean different things by a comment, and the model is cut to fit 
   the socket has been quiet for a second (at most eight). A correspondence game sends no
   clock ticks to break that silence. A `reset-chats` event discards what came before; lines
   are de-duplicated by `chat_id`.
-- **Writing: a comment goes with a move**, typed in a field under the board's action row
+- **Writing: a comment goes with a move**, typed in a field above the board's action row
   ("Add a comment" opens it) and sent with the next Send or Pass.
   `sendMove(…, comment)`. On DGS it is the move's `msg`, in the same request. On OGS it is a
   `main` chat line sent right after the server has echoed the move, with `move_number` = the
@@ -918,7 +918,7 @@ Recommended order, cheapest/lowest-risk first:
 
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)
 
-5. **Move comment** — *done (September 2026)*: a text field under the action row that goes
+5. **Move comment** — *done (September 2026)*: a text field above the action row that goes
    with the next move, and the players' comments at the move on show below the action row, on DGS
    and OGS alike. See "Comments".
 6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed

@@ -453,7 +453,7 @@ def outbox_line(message, action):
 
 def screen_board_comment(writing=False):
     """The board with the opponent's message under the action row; writing, the comment field
-    open in place under Send, which goes in one tap."""
+    open in place above Send, which goes in one tap."""
     s = frame_open() + status_bar()
     s += header_game("mkvtl", "7k", "black", 12, "22 h")
     trial = (("E6", "B"),) if writing else ()
@@ -461,21 +461,21 @@ def screen_board_comment(writing=False):
     s += b
     y = yend + 20
     s += move_nav(y, 13 if writing else 12, live=not writing, forward_enabled=writing)
-    y += 60
-    bw = (W - 40 - 12) / 2
-    s += button(20, y, bw, 48, "Skip")
-    s += button(20 + bw + 12, y, bw, 48, "Send E6" if writing else "Send", primary=True, disabled=not writing)
-    y += 48
-    # The comment for the next move: a text action, or the field it opens, under the action row
-    # so opening it never moves a button.
+    y += 44
+    # The comment for the next move: a text action, or the field it opens, between the move
+    # navigation and the action row, so a slip off the forward buttons never lands on Send.
     if writing:
         s += text(20, y + 26, "Comment, sent with your move", 14, 400, INK2)
         s += text(20, y + 56, "Thanks, I think it holds", 16)
         s += f'<rect x="20" y="{y + 68}" width="{W - 40}" height="2" fill="{ACCENT}"/>'
-        y += 70
+        y += 78
     else:
         s += text(24, y + 30, "Add a comment", 14, 500, ACCENT)
-        y += 38
+        y += 46
+    bw = (W - 40 - 12) / 2
+    s += button(20, y, bw, 48, "Skip")
+    s += button(20 + bw + 12, y, bw, 48, "Send E6" if writing else "Send", primary=True, disabled=not writing)
+    y += 48
     # Comments: below everything that is operated, so they never move a button.
     y += 16 + 18
     s += text(20, y, "mkvtl", 14, 600)
@@ -492,11 +492,12 @@ def screen_board_sent():
     s += b
     y = yend + 20
     s += move_nav(y, 8)
-    y += 60
+    y += 44
+    s += text(24, y + 30, "Add a comment", 14, 500, ACCENT)
+    y += 46
     bw = (W - 40 - 12) / 2
     s += button(20, y, bw, 48, "Skip")
     s += button(20 + bw + 12, y, bw, 48, "Send", primary=True, disabled=True)
-    s += text(24, y + 48 + 30, "Add a comment", 14, 500, ACCENT)
     s += outbox_line("Sending E6 to mkvtl", "Undo")
     return s + bottom_nav("Games") + "</svg>"
 

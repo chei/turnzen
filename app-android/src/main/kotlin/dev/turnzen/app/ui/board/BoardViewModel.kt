@@ -297,9 +297,13 @@ data class BoardUiState(
     val canPass: Boolean
         get() = isMyTurn && detail != null && !sending && !loading
 
-    /** A comment goes with a move, so it can be written exactly when a move can be made. */
+    /**
+     * A comment goes with a move, so it can be written exactly when a move can be made. Known
+     * from the preview already, so the row is there from the start and never pushes the action
+     * row down under a finger once the record arrives.
+     */
     val canComment: Boolean
-        get() = isMyTurn && !isFinished && !isScoring && detail != null
+        get() = isMyTurn && !isFinished && !isScoring
 
     /** The field shows once opened, and stays while it holds something. */
     val showCommentField: Boolean

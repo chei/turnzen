@@ -257,6 +257,30 @@ fun BoardScreen(
             )
         }
 
+        // The comment that goes with the next move, written in place rather than in a dialog so
+        // that Send stays one tap. Above the action row, so the move navigation and Send are
+        // never neighbours: a slip off the forward buttons lands on the comment, not on a move.
+        if (state.canComment) {
+            if (state.showCommentField) {
+                Spacer(Modifier.height(8.dp))
+                CommentField(
+                    value = state.commentDraft,
+                    onChange = viewModel::onCommentChange,
+                    // Focused when the user has just asked for it, not when a returned move
+                    // brings its comment back.
+                    focus = state.writingComment,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+            } else {
+                TextAction(
+                    stringResource(R.string.board_add_comment),
+                    viewModel::startComment,
+                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                    color = colors.accent,
+                )
+            }
+        }
+
         // Skip keeps a fixed half-width slot on the left in every game; Send fills the
         // right slot only on the user's own turn (an empty spacer holds it otherwise), so
         // Skip never changes size or position.
@@ -332,29 +356,6 @@ fun BoardScreen(
                 } else {
                     Spacer(Modifier.weight(1f))
                 }
-            }
-        }
-
-        // The comment that goes with the next move, written in place rather than in a dialog so
-        // that Send stays one tap. Under the action row, so opening it never moves a button.
-        if (state.canComment) {
-            if (state.showCommentField) {
-                Spacer(Modifier.height(8.dp))
-                CommentField(
-                    value = state.commentDraft,
-                    onChange = viewModel::onCommentChange,
-                    // Focused when the user has just asked for it, not when a returned move
-                    // brings its comment back.
-                    focus = state.writingComment,
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-            } else {
-                TextAction(
-                    stringResource(R.string.board_add_comment),
-                    viewModel::startComment,
-                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    color = colors.accent,
-                )
             }
         }
 

@@ -321,9 +321,13 @@ Use tabular figures for time and move counts so columns don't jitter.
   game ends", "only you can see this"), because its writer is the one person who sees it and
   must not mistake it for said; the line goes once the game is over. Public and players-only
   parts carry nothing: the difference is real but not worth a label on every message.
-- **A comment is written in place**, under the action row: an "Add a comment" text action
-  (`accent`) that opens an underlined field like the sign-in ones, labelled "Comment, sent
-  with your move", focused as it opens. Under the buttons, so opening it never moves one.
+- **A comment is written in place**, between the move navigation and the action row: an
+  "Add a comment" text action (`accent`) that opens an underlined field like the sign-in
+  ones, labelled "Comment, sent with your move", focused as it opens. Above the buttons rather than under them, so Send is
+  never the neighbour of the forward buttons and a slip off those lands on the comment, not
+  on a move. The row is there from the moment the game opens on the user's turn, so it never
+  pushes Send down under a finger; opening the field does move the action row, deliberately
+  and in answer to the user's own tap.
   It goes with whichever move is sent next, Send or Pass; resigning takes none. It is cleared
   once the move leaves and comes back with a move that is undone or fails. See
   `09-board-comment.svg` and `09b-send-with-comment.svg`.
