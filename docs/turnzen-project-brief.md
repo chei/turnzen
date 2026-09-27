@@ -407,9 +407,12 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   connection opened for the one action; a move whose game has moved on since (move count ≠
   token) is refused as `StaleGame` before it is sent. An **annulled** OGS game keeps its
   winner — OGS annuls early timeouts, which only makes them unrated.
-- **Redirect port 8735**, path `/ogs/signed-in`. The page it serves has a "Back to Turnzen"
-  link to `turnzen://signed-in`, which MainActivity accepts as a BROWSABLE link (a
-  launcher-style intent URL is refused by browsers and ends up in the Play Store). MainActivity
+- **Redirect port 8735**, path `/ogs/signed-in`. The listener answers with a redirect straight
+  on to `turnzen://signed-in` (as an intent URL naming the package), which MainActivity accepts
+  as a BROWSABLE link (a launcher-style intent URL is refused by browsers and ends up in the
+  Play Store). There is no "signed in" page to tap through: the browser follows a redirect to
+  an app because the navigation chain began with the user's tap on OGS's authorize button.
+  (The first releases served a page with a "Back to Turnzen" link instead.) MainActivity
   is `singleTask`, so returning closes the browser page left in Turnzen's task. That needs the
   page to be *in* Turnzen's task, so the sign-in page opens in a Custom Tab (`androidx.browser`),
   not the browser app: the first release used a plain `ACTION_VIEW`, and the finished sign-in

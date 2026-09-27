@@ -442,15 +442,18 @@ class OgsClientTest {
             while (opened == null) kotlinx.coroutines.delay(10)
             val query = LoopbackRedirect.parseQuery(URI(opened!!).rawQuery)
             assertEquals("S256", query["code_challenge_method"])
-            val page =
+            val connection =
                 withContext(Dispatchers.IO) {
                     val connection =
                         URI("http://127.0.0.1:$port/ogs/signed-in?code=the-code&state=${query["state"]}")
                             .toURL()
                             .openConnection() as HttpURLConnection
-                    connection.inputStream.bufferedReader().readText()
+                    connection.instanceFollowRedirects = false
+                    connection.also { it.responseCode }
                 }
-            assertTrue(page.contains("Back to Turnzen"))
+            // Straight back to the app, no page in between.
+            assertEquals(302, connection.responseCode)
+            assertEquals("intent://x", connection.getHeaderField("Location"))
             assertEquals("turnzen-test", signIn.await().handle)
             assertTrue(client.exportSession()!!.contains("\"userId\":1001"))
             assertEquals(OgsMethod.POST, http.requests.first().method)

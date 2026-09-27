@@ -29,7 +29,7 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- The "Back to Turnzen" link on the page shown after an OGS sign-in. A browser
+            <!-- Where the browser is redirected once an OGS sign-in is done. A browser
                  opens an app from a link only when the app says it can be browsed to; it
                  carries nothing, it only brings the app back. singleTask, so the return
                  closes the browser page the sign-in left in Turnzen's task instead of

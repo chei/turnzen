@@ -61,8 +61,10 @@ internal sealed interface Redirect {
  * route — an https App Link — would need a hosted `assetlinks.json` listing the fingerprint
  * of every key that signs the app (F-Droid's included). A loopback listener needs nothing
  * outside the app. The browser loads the redirect from 127.0.0.1, which only this device can
- * reach, and the page it gets back says the sign-in is done and offers the way back to the
- * app ([returnLink]).
+ * reach. With a [returnLink] the answer is a redirect straight back to the app, so the user
+ * never sees a page of ours; the browser follows it because the chain of navigations began
+ * with the user's own tap on OGS's authorize button. Without one, the answer is a page saying
+ * the sign-in is done.
  */
 internal class LoopbackRedirect(
     private val port: Int,
@@ -123,9 +125,10 @@ internal class LoopbackRedirect(
                     query["code"]?.let { Redirect.Code(it, query["state"]) }
                         ?: Redirect.Denied(query["error"] ?: "no_code")
                 val body = page(redirect is Redirect.Code).toByteArray(Charsets.UTF_8)
+                val status = if (returnLink == null) "200 OK" else "302 Found\r\nLocation: $returnLink"
                 out.write(
                     (
-                        "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\n" +
+                        "HTTP/1.1 $status\r\nContent-Type: text/html; charset=utf-8\r\n" +
                             "Content-Length: ${body.size}\r\nConnection: close\r\n\r\n"
                     ).toByteArray(Charsets.US_ASCII),
                 )
@@ -136,6 +139,7 @@ internal class LoopbackRedirect(
         }
     }
 
+    /** The body; with a [returnLink] it is only seen by a browser that will not follow the redirect. */
     private fun page(ok: Boolean): String {
         val message = if (ok) "You are signed in to Online Go Server." else "The sign-in was cancelled."
         val link = returnLink?.let { """<p><a href="${escape(it)}">Back to Turnzen</a></p>""" }.orEmpty()

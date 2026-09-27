@@ -45,7 +45,7 @@ class OgsClient(
     private val http: OgsHttp,
     sockets: OgsSocketConnector,
     private val clientId: String,
-    /** Where the "Back to Turnzen" link on the post-sign-in page points; null for no link. */
+    /** Where the browser is redirected once the sign-in is done; null to show a page instead. */
     private val returnLink: String? = null,
     clientVersion: String = "dev",
     private val redirectPort: Int = DEFAULT_REDIRECT_PORT,

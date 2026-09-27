@@ -53,7 +53,7 @@ class AppContainer(
     private val ogsTransport = OkHttpOgs(userAgent)
 
     /**
-     * Where the "Back to Turnzen" link on the page after an OGS sign-in leads: the app's own
+     * Where the browser is sent once an OGS sign-in has come back to the app: the app's own
      * `turnzen://signed-in` (see the manifest), as an Android intent URL naming the package so
      * no other app can answer it. A launcher-style MAIN intent does not work here: browsers
      * only open activities that declare BROWSABLE, and fall back to the Play Store otherwise.
