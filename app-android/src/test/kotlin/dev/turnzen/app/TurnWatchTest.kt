@@ -12,13 +12,17 @@ import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ServerId
-import java.time.Duration
-import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 class TurnWatchTest {
     private val dgs = ServerId("dgs")
@@ -29,8 +33,8 @@ class TurnWatchTest {
         id: String,
         move: Int = 10,
         server: ServerId = dgs,
-        left: Duration? = Duration.ofDays(5),
-        lastMove: Instant = now.minusSeconds(60),
+        left: Duration? = 5.days,
+        lastMove: Instant = now - 60.seconds,
     ) = GameSummary(
         id = GameId(server, id),
         opponent = Opponent("opp$id", null, null),
@@ -71,8 +75,8 @@ class TurnWatchTest {
 
     @Test
     fun `a game newly waiting on the user alerts, listing every waiting game with the new one first`() {
-        val a = game("1", lastMove = now.minusSeconds(10))
-        val b = game("2", lastMove = now.minusSeconds(3600))
+        val a = game("1", lastMove = now - 10.seconds)
+        val b = game("2", lastMove = now - 3600.seconds)
         val state = WatchState(known = mapOf(a.id to 10))
         val out = TurnWatch.check(state, input(listOf(a, b)))
         val post = assertIs<SummaryAction.Post>(out.summary)
@@ -149,8 +153,8 @@ class TurnWatchTest {
 
     @Test
     fun `low time warns once per move, at 24 hours or less`() {
-        val low = game("1", left = Duration.ofHours(24))
-        val fine = game("2", left = Duration.ofHours(25))
+        val low = game("1", left = 24.hours)
+        val fine = game("2", left = 25.hours)
         val out = TurnWatch.check(WatchState(), input(listOf(low, fine)))
         assertEquals(listOf(low.id), out.lowTimeAlerts.map { it.id })
         val again = TurnWatch.check(out.state, input(listOf(low, fine)))
@@ -171,11 +175,11 @@ class TurnWatchTest {
         val out =
             TurnWatch.check(
                 WatchState(),
-                input(listOf(game("1", left = Duration.ofDays(3)), game("2", left = Duration.ofDays(2)))),
+                input(listOf(game("1", left = 3.days), game("2", left = 2.days))),
             )
-        assertEquals(now + Duration.ofDays(1), out.nextLowTimeCheck)
-        val close = TurnWatch.check(WatchState(), input(listOf(game("3", left = Duration.ofHours(24).plusMinutes(1)))))
-        assertEquals(now + Duration.ofMinutes(15), close.nextLowTimeCheck)
+        assertEquals(now + 1.days, out.nextLowTimeCheck)
+        val close = TurnWatch.check(WatchState(), input(listOf(game("3", left = 24.hours + 1.minutes))))
+        assertEquals(now + 15.minutes, close.nextLowTimeCheck)
     }
 
     @Test
@@ -188,7 +192,7 @@ class TurnWatchTest {
 
     @Test
     fun `low time is silent while its switch is off`() {
-        val out = TurnWatch.check(WatchState(), input(listOf(game("1", left = Duration.ofHours(3))), lowTime = false))
+        val out = TurnWatch.check(WatchState(), input(listOf(game("1", left = 3.hours)), lowTime = false))
         assertEquals(emptyList(), out.lowTimeAlerts)
         assertNull(out.nextLowTimeCheck)
     }

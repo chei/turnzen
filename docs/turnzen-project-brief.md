@@ -1175,3 +1175,16 @@ Decisions taken while building the MVP that refine or amend the sections above.
   `https://github.com/chei/turnzen`.
 - **Demo server**: `FakeTurnBasedGoServerClient` lives in the app module for previews and
   for `-Pturnzen.fakeServer=true` builds, which is how the MVP was verified on an emulator.
+- **Kotlin Multiplatform, first step toward iOS (September 2026).** `:core-game` and
+  `:core-goserver` are Kotlin Multiplatform modules with a JVM target (what the Android app
+  and the tests use) and the iOS targets `iosArm64` and `iosSimulatorArm64`. All their code
+  is in `commonMain`, so it may not use `java.*`: times in the shared model are
+  `kotlin.time.Instant` and `kotlin.time.Duration`, not `java.time`, and the rest of the app
+  uses the same types. Code that needs time zones or date formats (`DgsDates`, the app's
+  `Formatting`) still uses `java.time` inside its own module and converts at the edge.
+  Kotlin cross-compiles the iOS libraries on Linux, so CI compiles them (`compileIos`) on
+  every push and catches JVM-only calls in common code. It already caught one (`Map.merge`
+  in the SGF reader). A `test` task on each multiplatform module runs `jvmTest`, so the usual
+  test command still works. Next: `:core-dgs` and `:core-ogs` (OkHttp to Ktor, and the
+  `java.net`/`java.security` calls behind small per-platform functions), then the iOS app
+  itself (planned as SwiftUI over the shared core; see "Growth path").

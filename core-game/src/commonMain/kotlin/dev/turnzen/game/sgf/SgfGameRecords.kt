@@ -43,7 +43,7 @@ object SgfGameRecords {
             node.first("B")?.let { moves += ColoredMove(StoneColor.BLACK, toMove(it, size)) }
             node.first("W")?.let { moves += ColoredMove(StoneColor.WHITE, toMove(it, size)) }
             node.first("C")?.takeIf { it.isNotBlank() }?.let { comment ->
-                comments.merge(moves.size, comment) { earlier, later -> "$earlier\n\n$later" }
+                comments[moves.size] = comments[moves.size]?.let { earlier -> "$earlier\n\n$comment" } ?: comment
             }
         }
 

@@ -30,7 +30,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import java.io.IOException
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Online Go Server client, correspondence games only. All OGS specifics live here: the REST
@@ -50,7 +51,7 @@ class OgsClient(
     clientVersion: String = "dev",
     private val redirectPort: Int = DEFAULT_REDIRECT_PORT,
     private val baseUrl: String = DEFAULT_BASE_URL,
-    private val now: () -> Instant = Instant::now,
+    private val now: () -> Instant = { Clock.System.now() },
 ) : TurnBasedGoServerClient {
     companion object {
         const val DEFAULT_BASE_URL = "https://online-go.com"
@@ -410,7 +411,7 @@ class OgsClient(
     private suspend fun overview(): JsonObject =
         overviewLock.withLock {
             val held = overview
-            val at = now().toEpochMilli()
+            val at = now().toEpochMilliseconds()
             if (held != null && at - held.first < OVERVIEW_REUSE_MILLIS) return held.second
             api("/api/v1/ui/overview/").also { overview = at to it }
         }
@@ -467,7 +468,7 @@ class OgsClient(
 
     private suspend fun freshTokens(): Tokens {
         val held = tokens ?: throw GoServerException.SessionExpired("Not signed in to $serverName")
-        if (held.expiresAt - now().toEpochMilli() > RENEW_MARGIN_MILLIS) return held
+        if (held.expiresAt - now().toEpochMilliseconds() > RENEW_MARGIN_MILLIS) return held
         return renew(held) ?: throw GoServerException.SessionExpired("$serverName signed you out")
     }
 
@@ -497,7 +498,7 @@ class OgsClient(
         val access = body.str("access_token") ?: throw GoServerException.Protocol("$serverName sent no access token")
         val refresh = body.str("refresh_token") ?: throw GoServerException.Protocol("$serverName sent no refresh token")
         val lifetime = body.long("expires_in") ?: 3600
-        return Tokens(access, refresh, now().toEpochMilli() + lifetime * 1000, userId = tokens?.userId)
+        return Tokens(access, refresh, now().toEpochMilliseconds() + lifetime * 1000, userId = tokens?.userId)
     }
 
     private suspend fun send(request: OgsRequest): OgsResponse =

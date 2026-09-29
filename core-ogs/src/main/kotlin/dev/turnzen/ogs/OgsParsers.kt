@@ -25,11 +25,13 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
-import java.time.Duration
-import java.time.Instant
 import kotlin.math.ceil
 import kotlin.math.floor
 import kotlin.math.ln
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 /**
  * OGS ranks. The server keeps a Glicko-2 rating; the rank shown for it is derived, the same
@@ -97,7 +99,7 @@ internal object OgsClock {
         val extra =
             when (system) {
                 "fischer" -> {
-                    timeControl.long("time_increment")?.let { "+ ${compact(Duration.ofSeconds(it))}" }
+                    timeControl.long("time_increment")?.let { "+ ${compact(it.seconds)}" }
                 }
 
                 "byoyomi" -> {
@@ -109,20 +111,20 @@ internal object OgsClock {
                         periods = (periods - used).coerceAtLeast(0)
                         main = 0
                     }
-                    period?.let { "+ $periods × ${compact(Duration.ofSeconds(it))}" }
+                    period?.let { "+ $periods × ${compact(it.seconds)}" }
                 }
 
                 "canadian" -> {
                     val period = timeControl.long("period_time")
                     val stones = timeControl.int("stones_per_period")
-                    if (period != null && stones != null) "+ ${compact(Duration.ofSeconds(period))} / $stones" else null
+                    if (period != null && stones != null) "+ ${compact(period.seconds)} / $stones" else null
                 }
 
                 else -> {
                     null
                 }
             }
-        val duration = Duration.ofMillis(main.coerceAtLeast(0))
+        val duration = main.coerceAtLeast(0).milliseconds
         return RemainingTime(text = compact(duration), main = duration, extra = extra)
     }
 
@@ -141,15 +143,15 @@ internal object OgsClock {
         // `paused_since` can outlive the pause it describes, so it only counts while the game
         // says it is paused (its `pause_control` is not empty).
         val pausedSince = clock.long("paused_since")
-        val until = if (paused && pausedSince != null) pausedSince else now.toEpochMilli()
+        val until = if (paused && pausedSince != null) pausedSince else now.toEpochMilliseconds()
         return (until - lastMove).coerceAtLeast(0)
     }
 
     /** "3d 4h", "6h", "25m": a fallback text only; the app renders [RemainingTime.main] itself. */
     fun compact(duration: Duration): String {
-        val days = duration.toDays()
-        val hours = duration.minusDays(days).toHours()
-        val minutes = duration.minusDays(days).minusHours(hours).toMinutes()
+        val days = duration.inWholeDays
+        val hours = duration.inWholeHours % 24
+        val minutes = duration.inWholeMinutes % 60
         return when {
             days > 0 && hours > 0 -> "${days}d ${hours}h"
             days > 0 -> "${days}d"
@@ -289,7 +291,7 @@ internal object OgsGameData {
             boardHeight = height ?: width,
             handicap = gamedata.int("handicap") ?: 0,
             moveNumber = moves,
-            lastMoveAt = clock?.long("last_move")?.let(Instant::ofEpochMilli),
+            lastMoveAt = clock?.long("last_move")?.let(Instant::fromEpochMilliseconds),
             remainingTime =
                 if (finished) {
                     null
@@ -420,14 +422,14 @@ internal object OgsGameData {
             rated = gamedata.bool("ranked"),
             timeLimit = timeControl?.let(::timeLimit),
             weekendClock = gamedata.bool("pause_on_weekends"),
-            startedAt = gamedata.long("start_time")?.let(Instant::ofEpochSecond),
+            startedAt = gamedata.long("start_time")?.let { Instant.fromEpochSeconds(it) },
             scoring = OgsRules.scoring(gamedata.str("rules")),
         )
     }
 
     /** The time system in the app's words: "Fischer: 3d + 1d, up to 7d". */
     fun timeLimit(tc: JsonObject): String? {
-        fun d(key: String) = tc.long(key)?.let { OgsClock.compact(Duration.ofSeconds(it)) }
+        fun d(key: String) = tc.long(key)?.let { OgsClock.compact(it.seconds) }
         return when (tc.str("system") ?: tc.str("time_control")) {
             "fischer" -> {
                 "Fischer: ${d("initial_time")} + ${d("time_increment")}" +

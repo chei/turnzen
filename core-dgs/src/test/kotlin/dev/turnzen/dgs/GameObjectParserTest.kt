@@ -4,13 +4,13 @@ import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
 import kotlinx.serialization.json.JsonObject
-import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 
 /**
  * The recorded fixtures in [DgsParsersTest] cover what DGS sends on a good day. These cover
@@ -126,7 +126,7 @@ class GameObjectParserTest {
                 "white_gameinfo" to """{"remtime":"F: 40d (+ 12h)"}""",
             )
         assertEquals(StoneColor.BLACK, summary.myColor)
-        assertEquals(Duration.ofDays(2), summary.remainingTime?.main)
+        assertEquals(2.days, summary.remainingTime?.main)
     }
 
     @Test

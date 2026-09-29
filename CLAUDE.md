@@ -32,6 +32,12 @@ rather than assuming familiarity with the platform.
                  instantiates DgsClient and OgsClient.
 ```
 
+`:core-game` and `:core-goserver` are Kotlin Multiplatform (JVM + iOS). Their code lives
+in `src/commonMain` and may not use `java.*` (use `kotlin.time.Instant`/`Duration`, not
+`java.time`); `./gradlew :core-game:compileIos :core-goserver:compileIos` checks that on
+Linux. `:core-dgs` and `:core-ogs` are still JVM-only and are next to convert (see the
+brief's "Implementation decisions").
+
 Rules that follow from this:
 - Anything DGS-specific (URLs, response quirks, cookie handling) stays in `:core-dgs`;
   anything OGS-specific in `:core-ogs`.
@@ -70,6 +76,7 @@ Rules that follow from this:
 
 ```
 ./gradlew :core-game:test :core-dgs:test :core-ogs:test :core-goserver:test   # fast, JVM only
+./gradlew :core-game:compileIos :core-goserver:compileIos       # iOS compile of the shared code
 ./gradlew :app-android:testDebugUnitTest                        # view-model tests, JVM only
 ./gradlew :app-android:assembleDebug                            # APK
 ./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK using the in-memory demo servers (DGS + OGS)

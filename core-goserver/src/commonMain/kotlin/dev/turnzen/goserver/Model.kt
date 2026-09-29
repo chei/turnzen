@@ -5,8 +5,9 @@ import dev.turnzen.game.GameResult
 import dev.turnzen.game.Point
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
-import java.time.Duration
-import java.time.Instant
+import kotlin.jvm.JvmInline
+import kotlin.time.Duration
+import kotlin.time.Instant
 
 data class Credentials(
     val username: String,
