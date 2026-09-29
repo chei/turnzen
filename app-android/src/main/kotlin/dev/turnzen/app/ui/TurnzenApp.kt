@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import dev.turnzen.app.AppContainer
@@ -131,6 +133,20 @@ private fun encodeGameId(id: GameId): String = "${id.server.value}:${id.value}"
 private fun decodeGameId(saved: String): GameId =
     GameId(ServerId(saved.substringBefore(':')), saved.substringAfter(':'))
 
+/**
+ * The shell's navigation, as the board view models reach it. A board view model outlives the
+ * activity (rotation, a theme or font change recreate it), so the callbacks it was built with
+ * must not close over one composition's state: after a recreation they would write to a
+ * state nothing reads any more, and Send would leave the user on the game they just played.
+ * This holder lives in the same ViewModelStore as the boards, and every composition points it
+ * at its own state.
+ */
+private class ShellNavigation : ViewModel() {
+    var nextInQueue: (GameId) -> GameId? = { null }
+    var advanceFrom: (GameId) -> Unit = {}
+    var close: () -> Unit = {}
+}
+
 @Composable
 private fun SignedInShell(container: AppContainer) {
     var tab by rememberSaveable { mutableStateOf(MainTab.GAMES) }
@@ -153,6 +169,13 @@ private fun SignedInShell(container: AppContainer) {
 
     fun advanceFrom(id: GameId) {
         openGameId = nextInQueue(id)?.let(::encodeGameId)
+    }
+
+    val navigation = viewModel { ShellNavigation() }
+    SideEffect {
+        navigation.nextInQueue = ::nextInQueue
+        navigation.advanceFrom = ::advanceFrom
+        navigation.close = { openGameId = null }
     }
 
     BackHandler(enabled = openGame != null) { openGameId = null }
@@ -195,11 +218,11 @@ private fun SignedInShell(container: AppContainer) {
                                 outbox = container.outbox,
                                 ladders = container.ladders,
                                 // The queue's next game, warmed while this one is on screen.
-                                nextGame = { nextInQueue(game) },
-                                onMoveSent = { sent -> advanceFrom(sent) },
+                                nextGame = { navigation.nextInQueue(game) },
+                                onMoveSent = { sent -> navigation.advanceFrom(sent) },
                                 // A resigned game is over: back to the list, not on to the
                                 // next game in the queue.
-                                onGameEnded = { openGameId = null },
+                                onGameEnded = { navigation.close() },
                             )
                         }
                     // Reload whenever the game is (re)opened: the cached ViewModel may hold
