@@ -26,11 +26,11 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.net.HttpURLConnection
 import java.net.URI
-import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 class OgsClientTest {
     private val config =
@@ -78,9 +78,10 @@ class OgsClientTest {
     private fun signedIn(
         http: OgsHttp,
         socket: OgsSocketConnector = OgsSocketConnector { error("no socket expected") },
-        now: Instant = Instant.ofEpochMilli(1790500000000),
+        now: Instant = Instant.fromEpochMilliseconds(1790500000000),
     ) = OgsClient(http, socket, clientId = "test-client", now = { now }).apply {
-        restoreSession("""{"access":"a1","refresh":"r1","expiresAt":${now.toEpochMilli() + 3_600_000},"userId":1001}""")
+        val expiresAt = now.toEpochMilliseconds() + 3_600_000
+        restoreSession("""{"access":"a1","refresh":"r1","expiresAt":$expiresAt,"userId":1001}""")
     }
 
     @Test

@@ -7,13 +7,16 @@ import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.PendingAction
 import kotlinx.serialization.json.JsonObject
-import java.time.Duration
-import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Instant
 
 class OgsParsersTest {
     private fun gamedata(name: String): JsonObject = Fixtures.obj(name).obj("gamedata")!!
@@ -35,7 +38,7 @@ class OgsParsersTest {
                 game.obj("players")!!.obj("black"),
                 game.obj("players")!!.obj("white"),
                 Fixtures.ME,
-                Instant.ofEpochMilli(1790500000000),
+                Instant.fromEpochMilliseconds(1790500000000),
             )
         assertEquals("7000001", summary.id.value)
         assertEquals(OgsClient.SERVER_ID, summary.id.server)
@@ -48,9 +51,9 @@ class OgsParsersTest {
         assertEquals(PendingAction.PLAY_MOVE, summary.pendingAction)
         assertFalse(summary.isMyTurn)
         assertFalse(summary.onlyOnWeb)
-        assertEquals(Instant.ofEpochMilli(1790405991398), summary.lastMoveAt)
+        assertEquals(Instant.fromEpochMilliseconds(1790405991398), summary.lastMoveAt)
         // Not the user's move: their clock is not running, the full seven days are left.
-        assertEquals(Duration.ofDays(7), summary.remainingTime?.main)
+        assertEquals(7.days, summary.remainingTime?.main)
         assertEquals("+ 1d", summary.remainingTime?.extra)
     }
 
@@ -60,9 +63,9 @@ class OgsParsersTest {
         val clock = data.obj("clock")
         // The opponent is to move, and their clock ran from the last move until the pause:
         // 46 h 11 m of their three days.
-        val far = Instant.ofEpochMilli(1790900000000)
+        val far = Instant.fromEpochMilliseconds(1790900000000)
         val remaining = OgsClock.remaining(clock, data.obj("time_control"), 2007, far, OgsGameData.isPaused(data))
-        assertEquals(Duration.ofMillis(259_200_000L - (1789825722323 - 1789659406179)), remaining?.main)
+        assertEquals((259_200_000L - (1789825722323 - 1789659406179)).milliseconds, remaining?.main)
     }
 
     @Test
@@ -74,10 +77,10 @@ class OgsParsersTest {
                 data.obj("clock"),
                 data.obj("time_control"),
                 2007,
-                Instant.ofEpochMilli(lastMove + Duration.ofHours(30).toMillis()),
+                Instant.fromEpochMilliseconds(lastMove + 30.hours.inWholeMilliseconds),
                 paused = false,
             )
-        assertEquals(Duration.ofHours(42), remaining?.main)
+        assertEquals(42.hours, remaining?.main)
     }
 
     @Test
@@ -94,7 +97,7 @@ class OgsParsersTest {
                 clock,
                 tc,
                 1,
-                Instant.ofEpochMilli(Duration.ofDays(2).toMillis()),
+                Instant.fromEpochMilliseconds(2.days.inWholeMilliseconds),
                 paused = false,
             )
         assertEquals(Duration.ZERO, remaining?.main)
@@ -131,7 +134,7 @@ class OgsParsersTest {
     @Test
     fun `game info carries the rules and the time system`() {
         val game = Fixtures.obj("game_running_paused.json")
-        val info = OgsGameData.info(game.obj("gamedata")!!, null, null, Instant.ofEpochMilli(1790500000000))
+        val info = OgsGameData.info(game.obj("gamedata")!!, null, null, Instant.fromEpochMilliseconds(1790500000000))
         assertEquals("Japanese", info.ruleset)
         assertEquals(ScoringRules.TERRITORY, info.scoring)
         assertEquals("Fischer: 3d + 1d, up to 7d", info.timeLimit)

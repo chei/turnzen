@@ -23,13 +23,17 @@ import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import kotlinx.serialization.json.JsonObject
-import java.time.Duration
-import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
+import kotlin.time.toKotlinInstant
 
 /** Plain-text answer of `login.php?quick_mode=1`. */
 internal object LoginResponse {
@@ -67,7 +71,7 @@ internal object DgsDates {
         if (v.isEmpty()) return null
         return try {
             val local = LocalDateTime.parse(v, formatter)
-            if (isGmt) local.toInstant(ZoneOffset.UTC) else local.atZone(zone).toInstant()
+            (if (isGmt) local.toInstant(ZoneOffset.UTC) else local.atZone(zone).toInstant()).toKotlinInstant()
         } catch (e: DateTimeParseException) {
             null
         }
@@ -90,13 +94,13 @@ internal object DgsTimeRemaining {
     private val units: Map<String, Duration> =
         mapOf(
             // English
-            "d" to Duration.ofDays(1),
-            "h" to Duration.ofHours(1),
-            "m" to Duration.ofMinutes(1),
+            "d" to 1.days,
+            "h" to 1.hours,
+            "m" to 1.minutes,
             // Hungarian: nap, óra, perc
-            "n" to Duration.ofDays(1),
-            "ó" to Duration.ofHours(1),
-            "p" to Duration.ofMinutes(1),
+            "n" to 1.days,
+            "ó" to 1.hours,
+            "p" to 1.minutes,
         )
 
     private val part = Regex("""(\d+)\s*(\p{L}+)""")
@@ -123,7 +127,7 @@ internal object DgsTimeRemaining {
         var total = Duration.ZERO
         for (m in matches) {
             val unit = units[m.groupValues[2].lowercase()] ?: return null
-            total += unit.multipliedBy(m.groupValues[1].toLong())
+            total += unit * m.groupValues[1].toInt()
         }
         return total
     }

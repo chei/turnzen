@@ -25,9 +25,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.TimeUnit
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Instant
+import kotlin.time.toJavaDuration
 
 /**
  * One background check: asks every signed-in server for the games awaiting the user, lets
@@ -91,7 +93,7 @@ class TurnCheck(
                 lowTimeOn = prefs.lowTime,
                 inForeground = inForeground(),
                 summaryShown = notifier.summaryShown,
-                now = Instant.now(),
+                now = Clock.System.now(),
             )
         lateinit var outcome: CheckOutcome
         store.update { state -> TurnWatch.check(state, input).also { outcome = it }.state }
@@ -181,7 +183,7 @@ class CheckSchedule(
         }
         val request =
             OneTimeWorkRequestBuilder<TurnCheckWorker>()
-                .setInitialDelay(Duration.between(now, at).coerceAtLeast(Duration.ZERO))
+                .setInitialDelay((at - now).coerceAtLeast(Duration.ZERO).toJavaDuration())
                 .setConstraints(constraints)
                 .setInputData(workDataOf(KEY_LOW_TIME to true))
                 .build()

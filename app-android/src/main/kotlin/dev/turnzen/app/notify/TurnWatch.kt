@@ -3,8 +3,10 @@ package dev.turnzen.app.notify
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.ServerId
-import java.time.Duration
-import java.time.Instant
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * What the notifications remember between checks. Small, and stored as it is (see
@@ -70,10 +72,10 @@ data class CheckOutcome(
  */
 object TurnWatch {
     /** "Time running low" once the user's main time is at most this. */
-    val LOW_TIME: Duration = Duration.ofHours(24)
+    val LOW_TIME: Duration = 24.hours
 
     /** The shortest wait for the next low-time check, so a paused clock does not spin. */
-    val MIN_LOW_TIME_WAIT: Duration = Duration.ofMinutes(15)
+    val MIN_LOW_TIME_WAIT: Duration = 15.minutes
 
     fun check(
         state: WatchState,
@@ -114,7 +116,7 @@ object TurnWatch {
                 // Only games still above the line have a crossing ahead of them.
                 current
                     .mapNotNull { game -> game.remainingTime?.main?.minus(LOW_TIME) }
-                    .filter { !it.isNegative && !it.isZero }
+                    .filter { it.isPositive() }
                     .minOrNull()
                     ?.let { input.now + maxOf(it, MIN_LOW_TIME_WAIT) }
             } else {

@@ -33,8 +33,12 @@ import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.delay
-import java.time.Duration
-import java.time.Instant
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /**
  * In-memory server for previews and for developing the UI without DGS. Sending a move
@@ -191,7 +195,7 @@ class FakeTurnBasedGoServerClient(
                 moves = g.record.moves + ColoredMove(g.myColor, move) + ColoredMove(opponentColor, Move.Pass),
             )
         g.moveId += 2
-        g.lastMoveAt = Instant.now()
+        g.lastMoveAt = Clock.System.now()
     }
 
     override suspend fun resign(
@@ -237,7 +241,7 @@ class FakeTurnBasedGoServerClient(
         g.dead.clear()
         g.dead += marked
         g.moveId += 1
-        g.lastMoveAt = Instant.now()
+        g.lastMoveAt = Clock.System.now()
         // The opponent now reviews the marks, so the turn passes exactly as after a move.
         g.awaitingMe = false
     }
@@ -263,7 +267,7 @@ class FakeTurnBasedGoServerClient(
         // DGS counts in ranks, and one game is worth a fraction of a stone.
         ratingChange = if (outcome?.winner == myColor) 0.31 else -0.29
         awaitingMe = false
-        lastMoveAt = Instant.now()
+        lastMoveAt = Clock.System.now()
         archive.add(0, this)
     }
 
@@ -381,7 +385,7 @@ class FakeTurnBasedGoServerClient(
             rated = true,
             timeLimit = "F: 30d (+ 1d)",
             weekendClock = true,
-            startedAt = lastMoveAt.minus(Duration.ofDays(40)),
+            startedAt = lastMoveAt.minus(40.days),
             tournament =
                 if (id.value == "demo-13") {
                     TournamentRef(
@@ -430,8 +434,8 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.BLACK,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofMinutes(18)),
-                remaining = RemainingTime("3d 4h", Duration.ofDays(3).plusHours(4), "+ 1d * 10"),
+                lastMoveAt = Clock.System.now().minus(18.minutes),
+                remaining = RemainingTime("3d 4h", 3.days + 4.hours, "+ 1d * 10"),
                 comments =
                     mutableListOf(
                         GameComment(2, StoneColor.WHITE, "Hi, have a good game!"),
@@ -468,8 +472,8 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.WHITE,
                 record = record,
                 moveId = record.moves.size + 1,
-                lastMoveAt = Instant.now().minus(Duration.ofHours(2)),
-                remaining = RemainingTime("6h", Duration.ofHours(6), "+ 15d / 8"),
+                lastMoveAt = Clock.System.now().minus(2.hours),
+                remaining = RemainingTime("6h", 6.hours, "+ 15d / 8"),
             )
         }
 
@@ -488,8 +492,8 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.BLACK,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofDays(1)),
-                remaining = RemainingTime("5d", Duration.ofDays(5), "+ 1d"),
+                lastMoveAt = Clock.System.now().minus(1.days),
+                remaining = RemainingTime("5d", 5.days, "+ 1d"),
                 comments = mutableListOf(GameComment(record.moves.size, StoneColor.WHITE, "Your move, Demo!")),
             )
         }
@@ -528,8 +532,8 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.BLACK,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofMinutes(40)),
-                remaining = RemainingTime("2d", Duration.ofDays(2), "+ 1d * 10"),
+                lastMoveAt = Clock.System.now().minus(40.minutes),
+                remaining = RemainingTime("2d", 2.days, "+ 1d * 10"),
                 scoring = true,
             )
         }
@@ -551,8 +555,8 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.BLACK,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofHours(5)),
-                remaining = RemainingTime("9d", Duration.ofDays(9), "+ 1d"),
+                lastMoveAt = Clock.System.now().minus(5.hours),
+                remaining = RemainingTime("9d", 9.days, "+ 1d"),
                 awaitingMe = false,
             )
         }
@@ -580,7 +584,7 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.BLACK,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofDays(3)),
+                lastMoveAt = Clock.System.now().minus(3.days),
                 remaining = RemainingTime("–"),
                 awaitingMe = false,
                 result = GameResult(StoneColor.BLACK, 12.5, ResultReason.POINTS),
@@ -605,7 +609,7 @@ class FakeTurnBasedGoServerClient(
                 myColor = StoneColor.WHITE,
                 record = record,
                 moveId = record.moves.size,
-                lastMoveAt = Instant.now().minus(Duration.ofDays(9)),
+                lastMoveAt = Clock.System.now().minus(9.days),
                 remaining = RemainingTime("–"),
                 awaitingMe = false,
                 result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),

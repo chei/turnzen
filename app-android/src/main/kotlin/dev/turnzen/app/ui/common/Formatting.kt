@@ -1,12 +1,16 @@
 package dev.turnzen.app.ui.common
 
 import dev.turnzen.goserver.RemainingTime
-import java.time.Duration
-import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.abs
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
+import kotlin.time.toJavaInstant
 
 /** How close to timing out a game is, in three steps of the single urgency colour. */
 enum class Urgency { NONE, URGENT, CRITICAL }
@@ -16,8 +20,8 @@ object Formatting {
     // match that boundary, and add a stronger step below twelve hours for a game about to
     // time out. Both use the same urgent red (DESIGN.md: urgency is the only extra colour);
     // only the emphasis grows.
-    private val URGENT_UNDER = Duration.ofDays(3)
-    private val CRITICAL_UNDER = Duration.ofHours(12)
+    private val URGENT_UNDER = 3.days
+    private val CRITICAL_UNDER = 12.hours
 
     /**
      * Remaining time in the app's own words ("3 d 20 h"). The server sends this field
@@ -29,9 +33,9 @@ object Formatting {
     fun remaining(time: RemainingTime?): String {
         if (time == null) return "–"
         val main = time.main ?: return spaced(time.text).ifBlank { "–" }
-        val days = main.toDays()
-        val hours = main.minusDays(days).toHours()
-        val minutes = main.minusDays(days).minusHours(hours).toMinutes()
+        val days = main.inWholeDays
+        val hours = main.inWholeHours % 24
+        val minutes = main.inWholeMinutes % 60
         // DGS reports remaining time only down to whole hours (as its own web UI does), so
         // the minute branch fires only if a server ever sends finer data; nothing is invented.
         return when {
@@ -71,17 +75,17 @@ object Formatting {
      */
     fun relative(
         instant: Instant?,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): String {
         if (instant == null) return "–"
-        val elapsed = Duration.between(instant, now)
-        val minutes = elapsed.toMinutes()
+        val elapsed = now - instant
+        val minutes = elapsed.inWholeMinutes
         return when {
             minutes < 1 -> "just now"
             minutes < 60 -> "$minutes min ago"
-            elapsed.toHours() < 48 -> "${elapsed.toHours()} h ago"
-            elapsed.toDays() < 14 -> "${elapsed.toDays()} d ago"
-            else -> DateTimeFormatter.ofPattern("d MMM").withZone(ZoneId.systemDefault()).format(instant)
+            elapsed.inWholeHours < 48 -> "${elapsed.inWholeHours} h ago"
+            elapsed.inWholeDays < 14 -> "${elapsed.inWholeDays} d ago"
+            else -> localDate("d MMM", instant)
         }
     }
 
@@ -95,15 +99,15 @@ object Formatting {
      */
     fun since(
         instant: Instant?,
-        now: Instant = Instant.now(),
+        now: Instant = Clock.System.now(),
     ): String {
         if (instant == null) return "–"
-        val elapsed = Duration.between(instant, now)
-        val hours = elapsed.toHours()
+        val elapsed = now - instant
+        val hours = elapsed.inWholeHours
         return when {
             hours < 1 -> "just now"
             hours < 24 -> ago(hours, "hour")
-            else -> ago(elapsed.toDays(), "day")
+            else -> ago(elapsed.inWholeDays, "day")
         }
     }
 
@@ -117,8 +121,13 @@ object Formatting {
         if (instant == null) {
             "–"
         } else {
-            DateTimeFormatter.ofPattern("d MMM yyyy").withZone(ZoneId.systemDefault()).format(instant)
+            localDate("d MMM yyyy", instant)
         }
+
+    private fun localDate(
+        pattern: String,
+        instant: Instant,
+    ): String = DateTimeFormatter.ofPattern(pattern).withZone(ZoneId.systemDefault()).format(instant.toJavaInstant())
 
     /** "6.5", and "6" rather than "6.0" — for komi, margins and point totals alike. */
     fun points(value: Double): String =

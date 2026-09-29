@@ -10,8 +10,6 @@ import dev.turnzen.goserver.CredentialProblem
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.TournamentRef
-import java.time.Duration
-import java.time.Instant
 import java.time.ZoneId
 import java.util.TimeZone
 import kotlin.test.AfterTest
@@ -24,6 +22,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 class DgsParsersTest {
     // The fixture-driven assertions below expect UTC instants, and the parser now reads
@@ -54,16 +55,16 @@ class DgsParsersTest {
     fun `time remaining keeps the server wording and parses English units`() {
         val jap = DgsTimeRemaining.parse("J: 83d 14h (+ 1d * 10)")!!
         assertEquals("83d 14h", jap.text)
-        assertEquals(Duration.ofDays(83).plusHours(14), jap.main)
+        assertEquals(83.days + 14.hours, jap.main)
         assertEquals("+ 1d * 10", jap.extra)
 
         val can = DgsTimeRemaining.parse("C: 6h (+ 15d / 8)")!!
         assertEquals("6h", can.text)
-        assertEquals(Duration.ofHours(6), can.main)
+        assertEquals(6.hours, can.main)
 
         val fis = DgsTimeRemaining.parse("F: 8d (+ 12h)")!!
         assertEquals("8d", fis.text)
-        assertEquals(Duration.ofDays(8), fis.main)
+        assertEquals(8.days, fis.main)
         assertEquals("+ 12h", fis.extra)
 
         assertNull(DgsTimeRemaining.parse(""))
@@ -75,11 +76,11 @@ class DgsParsersTest {
         // DGS renders this field in the account's language: "nap" and "óra" for Hungarian.
         val hu = DgsTimeRemaining.parse("F: 3n 20ó (+ 1n 6ó)")!!
         assertEquals("3n 20ó", hu.text)
-        assertEquals(Duration.ofDays(3).plusHours(20), hu.main)
+        assertEquals(3.days + 20.hours, hu.main)
         assertEquals("+ 1n 6ó", hu.extra)
 
         val huDaysOnly = DgsTimeRemaining.parse("F: 10n (+ 1n 6ó)")!!
-        assertEquals(Duration.ofDays(10), huDaysOnly.main)
+        assertEquals(10.days, huDaysOnly.main)
     }
 
     @Test
@@ -125,7 +126,7 @@ class DgsParsersTest {
         assertEquals(0, first.handicap)
         assertEquals(87, first.moveNumber)
         assertEquals("87", first.moveToken.value)
-        assertEquals(Duration.ofDays(3).plusHours(4), first.remainingTime?.main)
+        assertEquals(3.days + 4.hours, first.remainingTime?.main)
         assertEquals(Instant.parse("2026-09-02T19:42:11Z"), first.lastMoveAt)
         assertEquals(PendingAction.PLAY_MOVE, first.pendingAction)
 
@@ -137,7 +138,7 @@ class DgsParsersTest {
         assertNull(second.opponent.displayName)
         assertEquals(13, second.boardSize)
         assertEquals(2, second.handicap)
-        assertEquals(Duration.ofHours(6), second.remainingTime?.main)
+        assertEquals(6.hours, second.remainingTime?.main)
         assertTrue(second.isMyTurn)
     }
 
@@ -204,9 +205,9 @@ class DgsParsersTest {
         assertEquals(2, games.size)
         assertEquals(StoneColor.BLACK, games[0].myColor)
         assertEquals("3n 20ó", games[0].remainingTime?.text)
-        assertEquals(Duration.ofDays(3).plusHours(20), games[0].remainingTime?.main)
+        assertEquals(3.days + 20.hours, games[0].remainingTime?.main)
         assertEquals(StoneColor.WHITE, games[1].myColor)
-        assertEquals(Duration.ofDays(1).plusHours(23), games[1].remainingTime?.main)
+        assertEquals(1.days + 23.hours, games[1].remainingTime?.main)
     }
 
     @Test
@@ -216,7 +217,7 @@ class DgsParsersTest {
         assertEquals(5, summary.handicap)
         assertEquals("whitefake", summary.opponent.handle)
         assertEquals("264", summary.moveToken.value)
-        assertEquals(Duration.ofDays(8), summary.remainingTime?.main)
+        assertEquals(8.days, summary.remainingTime?.main)
     }
 
     @Test
@@ -238,10 +239,10 @@ class DgsParsersTest {
         assertEquals("15k", info.black.rankAtStart)
         assertEquals(12, info.black.prisoners)
         // Both clocks, where the summary only carries the user's own.
-        assertEquals(Duration.ofDays(8), info.black.remainingTime?.main)
+        assertEquals(8.days, info.black.remainingTime?.main)
         assertEquals("whitefake", info.white.handle)
         assertEquals(9, info.white.prisoners)
-        assertEquals(Duration.ofDays(21).plusHours(5), info.white.remainingTime?.main)
+        assertEquals(21.days + 5.hours, info.white.remainingTime?.main)
         assertEquals("se", info.white.country)
     }
 
