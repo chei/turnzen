@@ -21,7 +21,7 @@ jobs:
       - name: Unit tests (pure Kotlin modules)
         run: ./gradlew :core-game:test :core-goserver:test :core-dgs:test :core-ogs:test
       - name: iOS compile (multiplatform modules)
-        run: ./gradlew :core-game:compileIos :core-goserver:compileIos
+        run: ./gradlew compileIos
       - name: Unit tests (app view models, JVM)
         run: ./gradlew :app-android:testDebugUnitTest
 

@@ -1175,16 +1175,32 @@ Decisions taken while building the MVP that refine or amend the sections above.
   `https://github.com/chei/turnzen`.
 - **Demo server**: `FakeTurnBasedGoServerClient` lives in the app module for previews and
   for `-Pturnzen.fakeServer=true` builds, which is how the MVP was verified on an emulator.
-- **Kotlin Multiplatform, first step toward iOS (September 2026).** `:core-game` and
-  `:core-goserver` are Kotlin Multiplatform modules with a JVM target (what the Android app
-  and the tests use) and the iOS targets `iosArm64` and `iosSimulatorArm64`. All their code
-  is in `commonMain`, so it may not use `java.*`: times in the shared model are
-  `kotlin.time.Instant` and `kotlin.time.Duration`, not `java.time`, and the rest of the app
-  uses the same types. Code that needs time zones or date formats (`DgsDates`, the app's
-  `Formatting`) still uses `java.time` inside its own module and converts at the edge.
-  Kotlin cross-compiles the iOS libraries on Linux, so CI compiles them (`compileIos`) on
-  every push and catches JVM-only calls in common code. It already caught one (`Map.merge`
-  in the SGF reader). A `test` task on each multiplatform module runs `jvmTest`, so the usual
-  test command still works. Next: `:core-dgs` and `:core-ogs` (OkHttp to Ktor, and the
-  `java.net`/`java.security` calls behind small per-platform functions), then the iOS app
-  itself (planned as SwiftUI over the shared core; see "Growth path").
+- **Kotlin Multiplatform, toward iOS (September 2026).** All four `:core-*` modules are
+  Kotlin Multiplatform modules with a JVM target (what the Android app and the tests use) and
+  the iOS targets `iosArm64` and `iosSimulatorArm64`. Shared code is in `commonMain` and may
+  not use `java.*`:
+  - Times in the shared model are `kotlin.time.Instant` and `kotlin.time.Duration`. DGS's
+    bare date-times are read with `kotlinx-datetime`, which runs on `java.time` on Android.
+    The app's own formatting keeps `java.time` and converts at the edge.
+  - The URL encoding the clients need is written out in common code (`Urls` in `:core-dgs`,
+    `OgsUrls` in `:core-ogs`), with JVM tests that check it against `URLEncoder`,
+    `URLDecoder` and `URI`. It is duplicated, because server modules do not share code.
+  - PKCE's SHA-256 and secure random bytes are `expect`/`actual`: `java.security` on the
+    JVM, CommonCrypto and `SecRandomCopyBytes` on iOS.
+  - Networking stays behind the interfaces the clients already had (`HttpTransport`,
+    `OgsHttp`, `OgsSocketConnector`). The OkHttp implementations moved to `jvmMain`
+    unchanged, so Android keeps the same HTTP stack. The iOS app will supply its own.
+  - The OGS sign-in's loopback listener is JVM-only, behind `RedirectReceiver`. **Open for
+    iOS:** an iOS app cannot keep a local listener open while the browser is in front, so
+    it would use `ASWebAuthenticationSession`, which returns to the app through a custom URL
+    scheme or an https universal link. OGS does not accept custom schemes as redirects. A
+    universal link would need an https redirect on a domain the project controls, serving
+    Apple's `apple-app-site-association` file, and registered with the OAuth application.
+    So iOS sign-in to OGS needs that decision before the iOS app can offer it. The iOS
+    `redirectReceiver` throws until then. DGS is unaffected.
+
+  Kotlin cross-compiles the iOS libraries on Linux, so CI runs `compileIos` on every push.
+  It has caught JVM-only calls twice (`Map.merge` in the SGF reader, `System.nanoTime` in
+  the OGS socket code). A `test` task on each multiplatform module runs `jvmTest`, so the
+  usual test command still works. Next: the iOS app itself, planned as SwiftUI over the
+  shared core (see "Growth path").

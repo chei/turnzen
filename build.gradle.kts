@@ -12,6 +12,26 @@ plugins {
     alias(libs.plugins.kotlin.serialization) apply false
 }
 
+// Every Kotlin Multiplatform module (the :core-* ones) gets two shorthand tasks:
+// `test` runs its tests on the JVM, as `test` does in a plain JVM module, and `compileIos`
+// compiles its iOS targets. The latter works on Linux, since Kotlin cross-compiles iOS
+// libraries without a Mac, so CI catches JVM-only calls in shared code before anyone builds
+// the iOS app.
+subprojects {
+    plugins.withId("org.jetbrains.kotlin.multiplatform") {
+        tasks.register("test") {
+            group = "verification"
+            description = "Runs the tests on the JVM."
+            dependsOn("jvmTest")
+        }
+        tasks.register("compileIos") {
+            group = "build"
+            description = "Compiles the iOS targets."
+            dependsOn("compileKotlinIosArm64", "compileKotlinIosSimulatorArm64")
+        }
+    }
+}
+
 val ktlint: Configuration by configurations.creating
 
 dependencies {
