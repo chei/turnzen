@@ -708,6 +708,70 @@ Recommended order, cheapest/lowest-risk first:
    should be close to a non-event since those modules are already pure Kotlin with no
    Android dependency.
 
+## Beyond Go: other turn-based games (assessed September 2026)
+
+Asked on 2026-09-29: should Turnzen also cover correspondence chess (Lichess, Chess.com)?
+**Decision: not now.** Turnzen stays a Go client. If another game is ever added, it is
+Lichess chess only, and it starts as the read-only inbox described below, not as full play.
+
+### Why this is a bigger step than a second Go server
+
+OGS was a second *server* for the same game. Chess would be a second *game*, and Go is
+built into every layer above the server modules:
+
+- **`:core-game`** is Go rules (captures, ko, scoring), SGF and the trial-variation model.
+  Chess needs its own rules module: legal moves, castling, en passant, promotion, check and
+  mate, repetition and the fifty-move rule, and PGN/FEN instead of SGF.
+- **`:core-goserver`** speaks `Point`, `StoneColor` and Go `Move`, and has Go concepts in
+  it (scoring, ladders). Making every type generic over the game would be a large refactor
+  with little payoff. A chess server would get its own parallel interface
+  (`TurnBasedChessServerClient`) instead.
+- **The game screen**, which is most of the app's work, is Go-specific: the board drawing,
+  tap-to-place trial variations, "Send sends the first stone of the variation", captures and
+  scoring. Chess needs its own board with piece graphics, drag or tap-tap input and a
+  promotion picker.
+
+Several pieces would carry over: the games list and "Your turn" queue, the OAuth/PKCE
+loopback sign-in built for OGS (Lichess uses the same flow), the WorkManager notifications,
+session storage, the design tokens, and the idea that a game belongs to an opaque
+`serverId`.
+
+### The servers
+
+- **Lichess**: technically a good fit. It has an official, free API, and its Board API lets
+  third-party apps play correspondence games, with OAuth PKCE sign-in and an event stream
+  for pending moves.
+- **Chess.com**: ruled out. Its public API is read-only, with no official way to submit a
+  move in a daily game. Supporting it would mean reverse-engineering private endpoints,
+  which risks breaking without notice and may violate their terms.
+
+### Why the case is weaker than for Go
+
+- The project exists because the DGS Android clients are outdated and hard to use (see
+  Goal). Chess has no such gap: Lichess's own mobile app is modern, free, open source and
+  handles correspondence well.
+- The licensing rule is the same as for the Go projects under Prior art. Lichess mobile is
+  GPL and the Lichess server is AGPL, so they may be read to understand the protocol, never
+  copied. Stockfish (GPL) is out too. Chess rules would be written independently or come
+  from a permissively licensed library.
+- The Go roadmap still has open post-MVP items (comments, scoring, messages, live play).
+
+### The cheap version, if it is ever wanted
+
+The real value for a player of both games is **one "your turn" list across Go and chess**,
+not a second full game client:
+
+1. A `:core-lichess` module that only reads the games waiting on the user's move. It
+   depends on its own small interface rather than on `TurnBasedGoServerClient`.
+2. Those games appear in the existing inbox with Lichess's colour and name, and count
+   towards notifications.
+3. Tapping one opens it in the Lichess app or website; Turnzen never plays a chess move.
+
+That reuses the list, notifications and sign-in, needs no chess rules or board, and keeps
+the rule that the UI never touches server specifics. Full chess play would be considered
+only if this is used a lot. The name already allows for it: an invented name was chosen
+partly so the project could grow beyond Go (see Naming).
+
 ## Screens and UX (this list also drives the visual design work)
 
 ### Global UX decisions
