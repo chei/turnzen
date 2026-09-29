@@ -27,10 +27,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -99,6 +102,33 @@ fun GamesScreen(
             GamesTab.FINISHED -> finishedListState
         }
 
+    // The rows the list draws. It trails [games] so that a new game is never slipped in
+    // somewhere out of sight: the list is first taken to its top, and only then does the new
+    // row go in, pushing the others down while it lights up. That happens wherever the list
+    // was scrolled to, since a new game is what the user should look at next; any other
+    // change goes straight in, and a list scrolled down keeps its place. A tab opened with
+    // new rows waiting starts without them, so they come in the same way.
+    var shown by remember(tab) { mutableStateOf(games?.filterNot { it.id in arrivals }) }
+    LaunchedEffect(listState, games) {
+        val shownIds = shown?.mapTo(HashSet()) { it.id }
+        if (shownIds != null && games.orEmpty().any { it.id in arrivals && it.id !in shownIds }) {
+            listState.animateScrollToItem(0)
+        }
+        shown = games
+    }
+
+    // A list at its top stays at its top when rows go in above the first one. Left alone,
+    // the LazyColumn keeps the row that was first in view where it is, which pushes the new
+    // row up out of sight. Run on apply, before the layout that takes in the new rows, so
+    // the request replaces that anchoring. It asks for the position the list already has,
+    // so the rows below still slide down rather than jump.
+    DisposableEffect(listState, shown) {
+        if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
+            listState.requestScrollToItem(0)
+        }
+        onDispose {}
+    }
+
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Text(
             stringResource(R.string.app_name),
@@ -141,11 +171,12 @@ fun GamesScreen(
             key(tab) {
                 LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
                     val problem = state.problem
+                    val rows = shown
                     when {
                         // Nothing has ever loaded, so the problem is the whole screen: give
                         // it the empty state's shape and an explicit Try again, rather than a
                         // line of red text over an otherwise blank list.
-                        games == null && problem != null -> {
+                        rows == null && problem != null -> {
                             item { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
                         }
 
@@ -173,17 +204,17 @@ fun GamesScreen(
                                 }
                             }
                             when {
-                                games == null -> {
+                                rows == null -> {
                                     item { LoadingRow() }
                                 }
 
-                                games.isEmpty() -> {
+                                rows.isEmpty() -> {
                                     item { EmptyState(tab) }
                                 }
 
                                 else -> {
                                     // Keyed by server too: both servers number their games.
-                                    items(games, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
+                                    items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
                                         GameRow(
                                             game = game,
                                             serverName = viewModel.serverName(game.id),
