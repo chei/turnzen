@@ -1053,7 +1053,8 @@ Decisions taken while building the MVP that refine or amend the sections above.
   comment and Skip / Send in a scrolling column to its right. The games list drops its wordmark
   title and, in a window wide enough for two 340dp rows, shows its games in two columns. A
   wide window also hides the status bar (a swipe from the top brings it back briefly): its
-  strip is height the board can use, and the clock is not needed in view. Narrower windows (portrait,
+  strip is height the board can use, and the clock is not needed in view. With a game open
+  it hides the navigation bar too, so the board has the full height of the screen. Narrower windows (portrait,
   split screen) keep the stacked layout unchanged.
 - **A narrow record prefetch, qualifying "don't call the network unless the user asked"**
   (the stance above). `GamesStore` keeps a small cache of downloaded records and warms

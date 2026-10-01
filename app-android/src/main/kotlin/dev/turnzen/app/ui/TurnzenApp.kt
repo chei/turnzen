@@ -229,7 +229,11 @@ private fun SignedInShell(container: AppContainer) {
     // and a correspondence game does not need the clock in view. A swipe from the top edge
     // brings it back for a moment. The insets it leaves are zero, so the screens' status-bar
     // padding collapses with it.
-    HideStatusBar(hidden = wide)
+    //
+    // On an open game the navigation bar goes as well, so the board has the whole height.
+    // A swipe in from the edge brings it back for a moment, as with the status bar, so a
+    // stray swipe off the board does not leave the app.
+    HideSystemBars(statusBar = wide, navigationBar = wide && openGame != null && tab == MainTab.GAMES)
     val gamesLabel = stringResource(R.string.nav_games)
     val settingsLabel = stringResource(R.string.nav_settings)
 
@@ -324,18 +328,24 @@ private fun SignedInShell(container: AppContainer) {
 }
 
 @Composable
-private fun HideStatusBar(hidden: Boolean) {
+private fun HideSystemBars(
+    statusBar: Boolean,
+    navigationBar: Boolean,
+) {
     val view = LocalView.current
     val window = LocalActivity.current?.window ?: return
-    DisposableEffect(window, hidden) {
+    DisposableEffect(window, statusBar, navigationBar) {
         val controller = WindowCompat.getInsetsController(window, view)
-        if (hidden) {
-            controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.statusBars())
-        } else {
-            controller.show(WindowInsetsCompat.Type.statusBars())
-        }
-        // Signing out leaves the shell: the sign-in screen gets its status bar back.
-        onDispose { controller.show(WindowInsetsCompat.Type.statusBars()) }
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        fun showOrHide(
+            type: Int,
+            hidden: Boolean,
+        ) = if (hidden) controller.hide(type) else controller.show(type)
+
+        showOrHide(WindowInsetsCompat.Type.statusBars(), statusBar)
+        showOrHide(WindowInsetsCompat.Type.navigationBars(), navigationBar)
+        // Signing out leaves the shell: the sign-in screen gets its bars back.
+        onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
     }
 }
