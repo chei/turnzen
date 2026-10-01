@@ -383,6 +383,13 @@ class BoardViewModel(
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
     private val _state = MutableStateFlow(BoardUiState())
+
+    /**
+     * The move number of the record whose clocks were downloaded this time the game was
+     * opened; null when the board shows a held record instead.
+     */
+    private var clocksFetchedAt: Int? = null
+
     val state: StateFlow<BoardUiState> = _state.asStateFlow()
 
     /** For copy that names the server ("finish it on Dragon Go Server"). */
@@ -427,8 +434,12 @@ class BoardViewModel(
         // A move that came back — undone, or not delivered — goes back on the board.
         val back = outbox.claim(gameId)
         val refetch = force || back?.movedOn == true
-        val known = if (refetch) null else _state.value.detail ?: games.cachedDetail(gameId)
+        val held = if (refetch) null else _state.value.detail ?: games.cachedDetail(gameId)
+        // The record can be days old on a slow game; the list's clock is the current one.
+        val known = held?.let(games::withListClock)
         if (known != null && (preview == null || preview.moveNumber <= known.summary.moveNumber)) {
+            // A record from the store's cache was fetched on some earlier visit.
+            if (held !== _state.value.detail) clocksFetchedAt = null
             val replay = Replay(known.record)
             _state.update {
                 it.copy(
@@ -467,6 +478,7 @@ class BoardViewModel(
             try {
                 val detail = session.call { it.game(gameId) }
                 games.cache(detail)
+                clocksFetchedAt = detail.summary.moveNumber
                 val replay = Replay(detail.record)
                 _state.update { current ->
                     current.copy(
@@ -870,14 +882,15 @@ class BoardViewModel(
 
     /**
      * The info sheet has been opened. Everything else in it is already known, so the sheet is
-     * on screen before this runs and the standing appends underneath when it arrives — the
-     * one row in there that costs a request.
+     * on screen before this runs and the standing appends underneath when it arrives. The
+     * other request it may cost is the opponent's running clock (see [refreshOpponentClock]).
      *
      * Fetched here rather than in [load] because most games are not ladder challenges and
      * most openings never reach the sheet: paying for a standings page on the way to playing
      * a move would be exactly the wrong trade.
      */
     fun onInfoOpened() {
+        refreshOpponentClock()
         if (ladders == null || _state.value.ladderStanding != null) return
         val tournament =
             _state.value.detail
@@ -889,6 +902,39 @@ class BoardViewModel(
             // sheet's own content is what reports a session or network problem.
             val standing = ladders.standing(tournament, gameId)
             if (standing != null) _state.update { it.copy(ladderStanding = standing) }
+        }
+    }
+
+    /**
+     * On the opponent's turn their clock is the one running, and a held record has it as it
+     * was when the record was fetched, which can be days ago. The games list carries only the
+     * user's own clock (see [GamesStore.withListClock]), so the sheet that shows both asks
+     * for the game again — once, and only for a held record of a running game.
+     */
+    private fun refreshOpponentClock() {
+        val shown = _state.value.detail ?: return
+        if (shown.summary.isFinished || shown.summary.isMyTurn) return
+        if (clocksFetchedAt == shown.summary.moveNumber) return
+        clocksFetchedAt = shown.summary.moveNumber
+        viewModelScope.launch {
+            val fresh =
+                try {
+                    session.call { it.game(gameId) }
+                } catch (e: GoServerException) {
+                    // The sheet keeps the clocks it has; opening it again tries again.
+                    clocksFetchedAt = null
+                    return@launch
+                }
+            games.cache(fresh)
+            _state.update { current ->
+                val detail = current.detail
+                // Only the clocks: a game that moved on meanwhile is the next load's to show.
+                if (detail == null || detail.summary.moveNumber != fresh.summary.moveNumber) {
+                    current
+                } else {
+                    current.copy(detail = detail.copy(summary = fresh.summary, info = fresh.info ?: detail.info))
+                }
+            }
         }
     }
 

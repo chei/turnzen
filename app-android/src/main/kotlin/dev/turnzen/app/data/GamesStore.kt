@@ -1,5 +1,6 @@
 package dev.turnzen.app.data
 
+import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -223,6 +224,30 @@ class GamesStore(
 
     /** The record already held for [id], if one was fetched or prefetched earlier. */
     fun cachedDetail(id: GameId): GameDetail? = details[id]
+
+    /**
+     * [detail] with the user's clock as the games list last reported it. A held record is
+     * reused for as long as the list agrees the game has not moved on, which on a slow game
+     * is days — and the clock of the player to move runs all that while: a record cached at
+     * 12 h left kept saying 12 h on the board long after the list said 3 h. The list is
+     * fetched far more often, so while both describe the same move its clock is the fresher.
+     * Only the user's own clock: the list carries no other.
+     */
+    fun withListClock(detail: GameDetail): GameDetail {
+        val listed = summary(detail.summary.id) ?: return detail
+        val time = listed.remainingTime
+        if (listed.isFinished || listed.moveNumber != detail.summary.moveNumber || time == null) return detail
+        if (time == detail.summary.remainingTime) return detail
+        val info =
+            detail.info?.let {
+                if (detail.summary.myColor == StoneColor.BLACK) {
+                    it.copy(black = it.black.copy(remainingTime = time))
+                } else {
+                    it.copy(white = it.white.copy(remainingTime = time))
+                }
+            }
+        return detail.copy(summary = detail.summary.copy(remainingTime = time), info = info)
+    }
 
     /** Remember a record just downloaded, so reopening the game costs nothing. */
     fun cache(detail: GameDetail) {

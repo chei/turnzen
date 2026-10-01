@@ -1061,6 +1061,12 @@ Decisions taken while building the MVP that refine or amend the sections above.
   reports a higher move number the record is refetched, and the board shows its loading
   placeholder rather than a stale position. A `StaleGame` answer from the server forces a
   download outright, since there the list is known to be behind.
+  The move number is not the whole game, though: the clock of the player to move runs while
+  it stands still, and on a slow game a held record can be days old (one cached at 12 h
+  showed 12 h on the board after the list had reached 3 h, 2026-10-01). So a held record
+  takes the user's clock from the list, which carries it, at no cost; and on the opponent's
+  turn, opening the info sheet fetches the game once for *their* running clock, which no
+  list carries.
 - **SGF parsing is a small custom reader/writer** in `:core-game` (about 150 lines). No
   maintained, permissively licensed Kotlin SGF library with a small footprint was found,
   and the DGS export uses a plain FF[4] subset.

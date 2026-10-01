@@ -21,6 +21,7 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.CoroutineScope
@@ -36,6 +37,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.hours
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BoardViewModelTest : MainDispatcherTest() {
@@ -168,6 +170,114 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertNotNull(opened.position)
             advanceUntilIdle()
             assertEquals(1, downloads)
+        }
+
+    /** The demo server, with the clocks a test sets in place of the ones it reports. */
+    private class ClockedClient(
+        private val fake: FakeTurnBasedGoServerClient,
+    ) : TurnBasedGoServerClient by fake {
+        var downloads = 0
+
+        /** What the games list says is left on the user's clock. */
+        var listClock: RemainingTime? = null
+
+        /** What a downloaded record says is left on the opponent's clock. */
+        var opponentClock: RemainingTime? = null
+
+        private fun GameSummary.clocked() = listClock?.let { copy(remainingTime = it) } ?: this
+
+        override suspend fun gamesAwaitingMe() = fake.gamesAwaitingMe().map { it.clocked() }
+
+        override suspend fun myRunningGames() = fake.myRunningGames().map { it.clocked() }
+
+        override suspend fun game(id: GameId): GameDetail {
+            downloads++
+            val detail = fake.game(id)
+            val clock = opponentClock ?: return detail
+            val info = checkNotNull(detail.info)
+            return detail.copy(
+                info =
+                    if (detail.summary.myColor == StoneColor.BLACK) {
+                        info.copy(white = info.white.copy(remainingTime = clock))
+                    } else {
+                        info.copy(black = info.black.copy(remainingTime = clock))
+                    },
+            )
+        }
+    }
+
+    @Test
+    fun `a held record shows the user's clock as the games list has it now`() =
+        runTest(dispatcher) {
+            val client = ClockedClient(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            val h = Harness(client)
+            h.session.signIn(Credentials("demo", "pw"))
+            h.games.refresh()
+            val warmed = GameId(DEMO_SERVER, "demo-13")
+            h.games.prefetch(warmed)
+            advanceUntilIdle()
+            val held = checkNotNull(h.games.cachedDetail(warmed))
+            assertEquals("6h", held.summary.remainingTime?.text)
+
+            // Hours later nobody has moved, so the held record is still the game — but the
+            // user's clock has been running, and the list (refreshed meanwhile) says so.
+            client.listClock = RemainingTime("3h", 3.hours)
+            h.games.refresh()
+            advanceUntilIdle()
+
+            val vm = BoardViewModel(warmed, h.session, h.games, h.outbox) { }
+            vm.load()
+            advanceUntilIdle()
+            val detail = checkNotNull(vm.state.value.detail)
+            assertEquals("3h", detail.summary.remainingTime?.text)
+            val mine = if (detail.summary.myColor == StoneColor.BLACK) detail.info?.black else detail.info?.white
+            assertEquals("3h", mine?.remainingTime?.text)
+            // Still the held record: correcting the clock costs no download.
+            assertEquals(1, client.downloads)
+        }
+
+    @Test
+    fun `on the opponent's turn the info sheet fetches their running clock once`() =
+        runTest(dispatcher) {
+            val client = ClockedClient(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            val h = Harness(client)
+            h.session.signIn(Credentials("demo", "pw"))
+            h.games.refresh()
+            val waiting = GameId(DEMO_SERVER, "demo-waiting")
+            h.games.prefetch(waiting)
+            advanceUntilIdle()
+
+            val vm = BoardViewModel(waiting, h.session, h.games, h.outbox) { }
+            vm.load()
+            advanceUntilIdle()
+            assertEquals(1, client.downloads)
+
+            // The opponent's clock has run since the record was held; only the game knows.
+            client.opponentClock = RemainingTime("4h", 4.hours)
+            vm.onInfoOpened()
+            advanceUntilIdle()
+            assertEquals(2, client.downloads)
+            val detail = checkNotNull(vm.state.value.detail)
+            val theirs = if (detail.summary.myColor == StoneColor.BLACK) detail.info?.white else detail.info?.black
+            assertEquals("4h", theirs?.remainingTime?.text)
+
+            // Opening the sheet again asks for nothing more.
+            vm.onInfoOpened()
+            advanceUntilIdle()
+            assertEquals(2, client.downloads)
+        }
+
+    @Test
+    fun `on the user's own turn the info sheet asks for nothing`() =
+        runTest(dispatcher) {
+            val client = ClockedClient(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            val h = Harness(client)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(1, client.downloads)
+            h.vm.onInfoOpened()
+            advanceUntilIdle()
+            assertEquals(1, client.downloads)
         }
 
     @Test
