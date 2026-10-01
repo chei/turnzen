@@ -5,8 +5,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -19,6 +28,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +43,7 @@ import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.common.MainTab
 import dev.turnzen.app.ui.common.OutboxLine
 import dev.turnzen.app.ui.common.TurnzenBottomBar
+import dev.turnzen.app.ui.common.TurnzenNavRail
 import dev.turnzen.app.ui.games.GamesScreen
 import dev.turnzen.app.ui.games.GamesTab
 import dev.turnzen.app.ui.games.GamesViewModel
@@ -204,54 +215,67 @@ private fun SignedInShell(container: AppContainer) {
         container.openRequests.value = null
     }
 
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            val game = openGame
-            when {
-                game != null && tab == MainTab.GAMES -> {
-                    val vm =
-                        viewModel(key = "board-${encodeGameId(game)}") {
-                            BoardViewModel(
-                                gameId = game,
-                                session = container.accounts.session(game.server),
-                                games = container.games,
-                                outbox = container.outbox,
-                                ladders = container.ladders,
-                                // The queue's next game, warmed while this one is on screen.
-                                nextGame = { navigation.nextInQueue(game) },
-                                onMoveSent = { sent -> navigation.advanceFrom(sent) },
-                                // A resigned game is over: back to the list, not on to the
-                                // next game in the queue.
-                                onGameEnded = { navigation.close() },
-                            )
-                        }
-                    // Reload whenever the game is (re)opened: the cached ViewModel may hold
-                    // state from before a move was sent, so its board could be stale.
-                    LaunchedEffect(game) { vm.load() }
-                    BoardScreen(
-                        vm,
-                        settings.board,
-                        onSkip = { advanceFrom(game) },
-                    )
-                }
+    // A window wider than it is tall — a phone turned sideways — takes the tabs to the side,
+    // so the short edge goes to the board instead of to the bottom bar.
+    val configuration = LocalConfiguration.current
+    val wide = configuration.screenWidthDp > configuration.screenHeightDp
+    val gamesLabel = stringResource(R.string.nav_games)
+    val settingsLabel = stringResource(R.string.nav_settings)
 
-                tab == MainTab.GAMES -> {
-                    val vm = viewModel { GamesViewModel(container.accounts, container.games) }
-                    GamesScreen(
-                        vm,
-                        tab = gamesTab,
-                        onTabChange = { gamesTab = it },
-                        onOpenGame = { openGameId = encodeGameId(it) },
-                        onSignInAgain = { tab = MainTab.SETTINGS },
-                    )
-                }
+    fun selectTab(selected: MainTab) {
+        if (selected == MainTab.GAMES && tab == MainTab.GAMES) openGameId = null
+        tab = selected
+    }
 
-                else -> {
-                    val vm = viewModel { SettingsViewModel(container.settings) { container.notifier.allowed } }
-                    SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
-                }
+    val content: @Composable () -> Unit = {
+        val game = openGame
+        when {
+            game != null && tab == MainTab.GAMES -> {
+                val vm =
+                    viewModel(key = "board-${encodeGameId(game)}") {
+                        BoardViewModel(
+                            gameId = game,
+                            session = container.accounts.session(game.server),
+                            games = container.games,
+                            outbox = container.outbox,
+                            ladders = container.ladders,
+                            // The queue's next game, warmed while this one is on screen.
+                            nextGame = { navigation.nextInQueue(game) },
+                            onMoveSent = { sent -> navigation.advanceFrom(sent) },
+                            // A resigned game is over: back to the list, not on to the
+                            // next game in the queue.
+                            onGameEnded = { navigation.close() },
+                        )
+                    }
+                // Reload whenever the game is (re)opened: the cached ViewModel may hold
+                // state from before a move was sent, so its board could be stale.
+                LaunchedEffect(game) { vm.load() }
+                BoardScreen(
+                    vm,
+                    settings.board,
+                    onSkip = { advanceFrom(game) },
+                )
+            }
+
+            tab == MainTab.GAMES -> {
+                val vm = viewModel { GamesViewModel(container.accounts, container.games) }
+                GamesScreen(
+                    vm,
+                    tab = gamesTab,
+                    onTabChange = { gamesTab = it },
+                    onOpenGame = { openGameId = encodeGameId(it) },
+                    onSignInAgain = { tab = MainTab.SETTINGS },
+                )
+            }
+
+            else -> {
+                val vm = viewModel { SettingsViewModel(container.settings) { container.notifier.allowed } }
+                SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
             }
         }
+    }
+
+    val outboxLine: @Composable () -> Unit = {
         OutboxLine(
             outbox = container.outbox,
             onOpen = { id ->
@@ -259,14 +283,31 @@ private fun SignedInShell(container: AppContainer) {
                 openGameId = encodeGameId(id)
             },
         )
-        TurnzenBottomBar(
-            selected = tab,
-            onSelect = { selected ->
-                if (selected == MainTab.GAMES && tab == MainTab.GAMES) openGameId = null
-                tab = selected
-            },
-            gamesLabel = stringResource(R.string.nav_games),
-            settingsLabel = stringResource(R.string.nav_settings),
-        )
+    }
+
+    if (wide) {
+        Row(Modifier.fillMaxSize()) {
+            TurnzenNavRail(tab, ::selectTab, gamesLabel, settingsLabel)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    // The rail takes the start edge's insets; this side has the rest.
+                    .windowInsetsPadding(
+                        WindowInsets.navigationBars
+                            .union(WindowInsets.displayCutout)
+                            .only(WindowInsetsSides.End + WindowInsetsSides.Bottom),
+                    ),
+            ) {
+                Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+                outboxLine()
+            }
+        }
+    } else {
+        Column(Modifier.fillMaxSize()) {
+            Box(Modifier.weight(1f).fillMaxWidth()) { content() }
+            outboxLine()
+            TurnzenBottomBar(tab, ::selectTab, gamesLabel, settingsLabel)
+        }
     }
 }
