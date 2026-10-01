@@ -1051,7 +1051,9 @@ Decisions taken while building the MVP that refine or amend the sections above.
   edge, and (b) on the board screen, when a full-height board still leaves at least 220dp
   beside it, puts the board on the left at the full height and the header, move navigation,
   comment and Skip / Send in a scrolling column to its right. The games list drops its wordmark
-  title and, in a window wide enough for two 340dp rows, shows its games in two columns. Narrower windows (portrait,
+  title and, in a window wide enough for two 340dp rows, shows its games in two columns. A
+  wide window also hides the status bar (a swipe from the top brings it back briefly): its
+  strip is height the board can use, and the clock is not needed in view. Narrower windows (portrait,
   split screen) keep the stacked layout unchanged.
 - **A narrow record prefetch, qualifying "don't call the network unless the user asked"**
   (the stance above). `GamesStore` keeps a small cache of downloaded records and warms
