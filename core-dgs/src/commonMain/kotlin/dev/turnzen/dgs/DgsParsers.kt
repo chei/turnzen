@@ -296,28 +296,6 @@ internal object GameInfoParser {
         )
     }
 
-    /**
-     * Both clocks of game [gameId] as a game *list* reports them, or null when the list does
-     * not carry that game.
-     *
-     * `cmd=info` appears to give `remtime` as it stood after the last move, without running
-     * down the clock of the player to move: a game the website and the status list showed
-     * at 3 h came back from `cmd=info` at 12 h (observed 2026-10-01). The lists agree with
-     * the website, so a running game's clocks are taken from there.
-     */
-    fun liveClocks(
-        listEnvelope: JsonObject,
-        gameId: String,
-    ): Pair<RemainingTime?, RemainingTime?>? {
-        val game =
-            listEnvelope
-                .array("list_result")
-                ?.firstNotNullOfOrNull { (it as? JsonObject)?.takeIf { g -> g.string("id") == gameId } }
-                ?: return null
-        return DgsTimeRemaining.parse(game.obj("black_gameinfo")?.string("remtime")) to
-            DgsTimeRemaining.parse(game.obj("white_gameinfo")?.string("remtime"))
-    }
-
     /** DGS shouts its enum values ("JAPANESE"); Turnzen is sentence case throughout. */
     private fun sentenceCase(value: String?): String? =
         value

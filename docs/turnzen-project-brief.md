@@ -148,12 +148,6 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   - `quick_do.php?obj=game&cmd=resign&gid=<id>&move_id=<n>` — resign
   - `quick_do.php?obj=game&cmd=score&gid=<id>&toggle=uniq&move=<...>&move_id=<n>` and
     `cmd=status_score` — scoring phase (marking dead stones)
-  - `quick_do.php?obj=game&cmd=info&gid=<id>` — one game. Its `remtime` does not match the
-    website for a running game: one the website and `view=status` showed at 3 h came back
-    at 12 h (2026-10-01), apparently the clock as it stood after the last move, not run
-    down since. The lists agree with the website, so `DgsClient.game` takes both clocks of
-    a running game from `cmd=list&view=running&uid=mine` (one extra request), falling back
-    to `cmd=info`'s when the list leaves the game out
   - `quick_do.php?obj=message&cmd=list&filter_folders=2&with=user_id` — message list
   - `quick_do.php?obj=message&cmd=send_msg`, `cmd=accept_inv`, `cmd=decline_inv`,
     `cmd=move_msg` — messaging and invitation handling
@@ -1120,8 +1114,8 @@ Decisions taken while building the MVP that refine or amend the sections above.
   summary — ruleset, komi, rated, time system, weekend clock, start date, and a
   `PlayerDetail` per side with rank, rank at the start, captures and that side's clock —
   plus a `TournamentRef` merged in from the SGF's `EV`/`RO` header (id, name, kind, whether
-  it is a ladder, round of how many). None of it costs a request (except a running game's
-  clocks, see the `cmd=info` protocol note); the fields were simply being discarded. It is deliberately not on `GameSummary`: the list rows never need it.
+  it is a ladder, round of how many). None of it costs a request; the fields were simply
+  being discarded. It is deliberately not on `GameSummary`: the list rows never need it.
   `isLadder` is read out of the kind wording, and measuring DGS's published translation dump
   settled that this is safe: of its 38 languages, none translates `Ladder#T_type` or
   `Dragon#T_scope`, so every account receives "(Dragon Ladder)" whatever its interface

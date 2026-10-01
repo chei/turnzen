@@ -19,7 +19,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.hours
 
 class DgsClientTest {
     private class FakeTransport : HttpTransport {
@@ -186,51 +185,6 @@ class DgsClientTest {
             assertTrue(sgfRequest.has("owned_comments=1"))
             // The fixture is a finished game with no messages, only the server's count.
             assertEquals(emptyList(), detail.comments)
-        }
-
-    @Test
-    fun `a running game's clocks come from the list, which runs them down to now`() =
-        runTest {
-            val transport = transportWithHappyPath()
-            // cmd=info reports the clock as it stood after the opponent's move (12 h); the
-            // list, like the website, counts the hours since (3 h).
-            val info = Fixtures.text("game_info.json").replace("\"remtime\":\"F: 8d (+ 1d)\"", "\"remtime\":\"F: 12h (+ 1d)\"")
-            val list =
-                Fixtures
-                    .text("game_list_running.json")
-                    .replace("\"id\":1700001", "\"id\":1000000")
-                    .replace("\"remtime\":\"F: 5d (+ 1d)\"", "\"remtime\":\"F: 3h (+ 1d)\"")
-            transport.routes.add(
-                0,
-                { it: HttpRequest -> it.url.contains("quick_do.php") && it.has("cmd=info") && it.has("obj=game") }
-                    to { _: HttpRequest -> ok(info) },
-            )
-            transport.routes.add(
-                0,
-                { it: HttpRequest -> it.url.contains("quick_do.php") && it.has("view=running") } to
-                    { _: HttpRequest -> ok(list) },
-            )
-            val client = DgsClient(transport, "https://dgs.example.test")
-            client.signIn(Credentials("fakeuser", "secret"))
-            val detail = client.game(GameId(DgsClient.SERVER_ID, "1000000"))
-            val mine = checkNotNull(detail.summary.remainingTime)
-            assertEquals("3h", mine.text)
-            assertEquals(3.hours, mine.main)
-            val clocks = checkNotNull(detail.info)
-            assertEquals("3h", clocks.black.remainingTime?.text)
-            assertEquals("8d", clocks.white.remainingTime?.text)
-        }
-
-    @Test
-    fun `a running game the list leaves out keeps the clocks from its info`() =
-        runTest {
-            val transport = transportWithHappyPath()
-            val client = DgsClient(transport, "https://dgs.example.test")
-            client.signIn(Credentials("fakeuser", "secret"))
-            // The happy path's list does not carry game 1000000.
-            val detail = client.game(GameId(DgsClient.SERVER_ID, "1000000"))
-            assertEquals("8d", detail.summary.remainingTime?.text)
-            assertEquals("21d 5h", checkNotNull(detail.info).white.remainingTime?.text)
         }
 
     @Test
