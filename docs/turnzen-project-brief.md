@@ -1040,15 +1040,18 @@ Decisions taken while building the MVP that refine or amend the sections above.
   vocabularies. `:core-game` still depends on nothing.
 - **Server clients return a parsed `GameRecord`, not SGF text.** `:core-dgs` downloads the
   SGF and parses it with `:core-game`'s reader, so the UI never sees a server response.
-- **Orientation: not locked, but not specially designed for either.** Correspondence Go on a
-  phone is portrait work, and a square board in landscape leaves wide empty margins while the
-  header, navigation and action row compete for a short viewport — a dedicated landscape
-  layout is not worth the maintenance for this audience. Locking to portrait is not the
-  answer either: with `targetSdk 36`, Android 16 ignores orientation restrictions on large
+- **Orientation: not locked; wide windows get a side-by-side layout.** Locking to portrait is
+  not an option: with `targetSdk 36`, Android 16 ignores orientation restrictions on large
   screens, so a lock would hold on phones and fail on exactly the tablets and foldables where
-  landscape actually happens. Instead the one layout is made to behave in any window, the
-  board sizing itself to the *short* edge rather than the width. That covers foldables,
-  tablets and multi-window, not just a rotated phone.
+  landscape actually happens. The first version kept one stacked layout for every window,
+  the board sizing itself to the *short* edge. On a phone turned sideways that left the board
+  small and the window scrolling, because the header, the navigation row, the action row and
+  the bottom bar all came out of the short edge too. So a window wider than it is tall now
+  (a) moves the Games / Settings tabs from the bottom bar to a navigation rail on the left
+  edge, and (b) on the board screen, when a full-height board still leaves at least 220dp
+  beside it, puts the board on the left at the full height and the header, move navigation,
+  comment and Skip / Send in a scrolling column to its right. Narrower windows (portrait,
+  split screen) keep the stacked layout unchanged.
 - **A narrow record prefetch, qualifying "don't call the network unless the user asked"**
   (the stance above). `GamesStore` keeps a small cache of downloaded records and warms
   exactly two things: the game at the top of "Your turn" when the list lands, and the queue's

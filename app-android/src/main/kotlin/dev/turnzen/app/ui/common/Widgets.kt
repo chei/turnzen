@@ -4,16 +4,25 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
@@ -21,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -319,31 +329,75 @@ fun TurnzenBottomBar(
                 .height(80.dp)
                 .selectableGroup(),
         ) {
-            BottomBarItem(
-                label = gamesLabel,
-                selected = selected == MainTab.GAMES,
-                onClick = { onSelect(MainTab.GAMES) },
-                modifier = Modifier.weight(1f),
-            ) { color ->
-                Canvas(Modifier.size(28.dp)) {
-                    val r = size.minDimension * 0.25f
-                    drawCircle(color, r, Offset(size.width * 0.35f, size.height * 0.62f))
-                    drawCircle(color, r, Offset(size.width * 0.66f, size.height * 0.4f), style = Stroke(1.6.dp.toPx()))
-                }
-            }
-            BottomBarItem(
-                label = settingsLabel,
-                selected = selected == MainTab.SETTINGS,
-                onClick = { onSelect(MainTab.SETTINGS) },
-                modifier = Modifier.weight(1f),
-            ) { color ->
-                Canvas(Modifier.size(28.dp)) {
-                    drawCircle(color, size.minDimension * 0.3f, style = Stroke(1.6.dp.toPx()))
-                    drawCircle(color, size.minDimension * 0.09f)
-                }
-            }
+            MainTabItems(selected, onSelect, gamesLabel, settingsLabel, Modifier.weight(1f))
         }
         Box(Modifier.navigationBarsPadding())
+    }
+}
+
+/**
+ * The bottom bar's two tabs stood up along the left edge, for windows wider than they are
+ * tall. On a phone turned sideways the bottom bar's 80dp come out of the short edge, which is
+ * the one the square board has to fit; the long edge has room to spare. Material calls this a
+ * navigation rail. The items sit in the middle of the edge, where a thumb holding the phone
+ * sideways reaches them.
+ */
+@Composable
+fun TurnzenNavRail(
+    selected: MainTab,
+    onSelect: (MainTab) -> Unit,
+    gamesLabel: String,
+    settingsLabel: String,
+) {
+    Row(Modifier.fillMaxHeight().background(colors.surface)) {
+        Column(
+            Modifier
+                .fillMaxHeight()
+                // In landscape the system bars and a camera cutout can sit on this edge.
+                .windowInsetsPadding(
+                    WindowInsets.systemBars
+                        .union(WindowInsets.displayCutout)
+                        .only(WindowInsetsSides.Start + WindowInsetsSides.Vertical),
+                ).width(80.dp)
+                .selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+        ) {
+            MainTabItems(selected, onSelect, gamesLabel, settingsLabel, Modifier.fillMaxWidth().height(72.dp))
+        }
+        VerticalDivider(thickness = 1.dp, color = colors.line)
+    }
+}
+
+@Composable
+private fun MainTabItems(
+    selected: MainTab,
+    onSelect: (MainTab) -> Unit,
+    gamesLabel: String,
+    settingsLabel: String,
+    itemModifier: Modifier,
+) {
+    BottomBarItem(
+        label = gamesLabel,
+        selected = selected == MainTab.GAMES,
+        onClick = { onSelect(MainTab.GAMES) },
+        modifier = itemModifier,
+    ) { color ->
+        Canvas(Modifier.size(28.dp)) {
+            val r = size.minDimension * 0.25f
+            drawCircle(color, r, Offset(size.width * 0.35f, size.height * 0.62f))
+            drawCircle(color, r, Offset(size.width * 0.66f, size.height * 0.4f), style = Stroke(1.6.dp.toPx()))
+        }
+    }
+    BottomBarItem(
+        label = settingsLabel,
+        selected = selected == MainTab.SETTINGS,
+        onClick = { onSelect(MainTab.SETTINGS) },
+        modifier = itemModifier,
+    ) { color ->
+        Canvas(Modifier.size(28.dp)) {
+            drawCircle(color, size.minDimension * 0.3f, style = Stroke(1.6.dp.toPx()))
+            drawCircle(color, size.minDimension * 0.09f)
+        }
     }
 }
 
