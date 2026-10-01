@@ -7,6 +7,7 @@ import dev.turnzen.dgs.http.HttpTransport
 import dev.turnzen.dgs.http.HttpTransportException
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
+import dev.turnzen.game.StoneColor
 import dev.turnzen.game.sgf.SgfCoordinates
 import dev.turnzen.game.sgf.SgfGameRecords
 import dev.turnzen.game.sgf.SgfParseException
@@ -17,6 +18,7 @@ import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignedInUser
@@ -145,10 +147,22 @@ class DgsClient(
                 // only) and is what lets the info sheet show what the game did to both ranks.
                 "with" to "user_id,ratingdiff",
             )
-        val summary = GameObjectParser.parse(game, userId)
+        var summary = GameObjectParser.parse(game, userId)
         // Same payload, read twice: the summary is what every screen needs, the info is the
         // rest of what DGS already told us (ruleset, komi, both clocks, captures, tournament).
-        val info = GameInfoParser.parse(game)
+        var info = GameInfoParser.parse(game)
+        // Except the clocks: cmd=info does not seem to run down the clock of the player to move, so
+        // they are read from the running list instead (see GameInfoParser.liveClocks).
+        if (!summary.isFinished) {
+            liveClocks(id)?.let { (black, white) ->
+                info =
+                    info.copy(
+                        black = info.black.copy(remainingTime = black),
+                        white = info.white.copy(remainingTime = white),
+                    )
+                summary = summary.copy(remainingTime = if (summary.myColor == StoneColor.BLACK) black else white)
+            }
+        }
         // owned_comments=1 is what brings the players' own messages: without it DGS writes
         // the SGF for an observer, who gets only the public parts. It also appends the user's
         // private game notes, which DgsComments cuts off again.
@@ -176,6 +190,26 @@ class DgsClient(
         val completed =
             info.copy(tournament = DgsTournament.merge(info.tournament, sgfGame.rootProperties))
         return GameDetail(summary, sgfGame.record, completed, DgsComments.parse(sgfGame, summary.myColor))
+    }
+
+    /**
+     * Both clocks of a running game, counted up to now. Null when the list leaves the game
+     * out, or cannot be had: the game then keeps the clocks from cmd=info, as before.
+     */
+    private suspend fun liveClocks(id: GameId): Pair<RemainingTime?, RemainingTime?>? {
+        val envelope =
+            try {
+                quickDo(
+                    "obj" to "game",
+                    "cmd" to "list",
+                    "view" to "running",
+                    "uid" to "mine",
+                    "lstyle" to "json",
+                )
+            } catch (e: GoServerException.Protocol) {
+                return null
+            }
+        return GameInfoParser.liveClocks(envelope, id.value)
     }
 
     override suspend fun sendMove(
