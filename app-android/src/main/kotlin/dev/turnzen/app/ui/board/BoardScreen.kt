@@ -12,11 +12,14 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -132,12 +135,10 @@ fun BoardScreen(
     var screenCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var commentBounds by remember { mutableStateOf<Rect?>(null) }
 
-    Column(
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
             .statusBarsPadding()
-            // The comment field sits low on the screen: keep it above the keyboard.
-            .imePadding()
             .onGloballyPositioned { screenCoordinates = it }
             .pointerInput(Unit) {
                 awaitEachGesture {
@@ -146,65 +147,62 @@ fun BoardScreen(
                     val at = screenCoordinates?.localToWindow(down.position)
                     if (at == null || commentBounds?.contains(at) != true) focusManager.clearFocus()
                 }
-            }.verticalScroll(rememberScrollState()),
+            },
     ) {
-        // No back control of its own: Android's back (gesture or button) closes the game, as
-        // does the Games tab in the bottom bar. A third affordance only cost the board the
-        // vertical space it sat in.
-        if (summary != null) {
-            val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
-            Header(
-                server = summary.id.server,
-                opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
-                subtitle =
-                    if (state.isFinished) {
-                        stringResource(
-                            if (summary.myColor == StoneColor.BLACK) {
-                                R.string.board_played_black
-                            } else {
-                                R.string.board_played_white
-                            },
-                            moveNumber,
-                        )
-                    } else {
-                        "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
-                            "move $moveNumber"
-                    },
-                remaining = summary.remainingTime,
-                // A finished game has no clock and nobody to move: the same corner carries
-                // how it ended instead.
-                result = if (state.isFinished) summary.result else null,
-                ratingChange = summary.ratingChange,
-                isFinished = state.isFinished,
-                you = summary.myColor,
-                // The header names the game, so it is also the way into everything else about
-                // it. Only once the record is here: the sheet's actions need its move token.
-                onOpenInfo =
-                    if (state.detail != null) {
-                        {
-                            showingInfo = true
-                            // Starts the one thing in the sheet that needs downloading; the
-                            // sheet itself opens now, from what is already known.
-                            viewModel.onInfoOpened()
-                        }
-                    } else {
-                        null
-                    },
-            )
-        } else {
-            Spacer(Modifier.height(60.dp))
+        val header: @Composable () -> Unit = {
+            // No back control of its own: Android's back (gesture or button) closes the game, as
+            // does the Games tab. A third affordance only cost the board the
+            // vertical space it sat in.
+            if (summary != null) {
+                val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
+                Header(
+                    server = summary.id.server,
+                    opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
+                    subtitle =
+                        if (state.isFinished) {
+                            stringResource(
+                                if (summary.myColor == StoneColor.BLACK) {
+                                    R.string.board_played_black
+                                } else {
+                                    R.string.board_played_white
+                                },
+                                moveNumber,
+                            )
+                        } else {
+                            "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
+                                "move $moveNumber"
+                        },
+                    remaining = summary.remainingTime,
+                    // A finished game has no clock and nobody to move: the same corner carries
+                    // how it ended instead.
+                    result = if (state.isFinished) summary.result else null,
+                    ratingChange = summary.ratingChange,
+                    isFinished = state.isFinished,
+                    you = summary.myColor,
+                    // The header names the game, so it is also the way into everything else about
+                    // it. Only once the record is here: the sheet's actions need its move token.
+                    onOpenInfo =
+                        if (state.detail != null) {
+                            {
+                                showingInfo = true
+                                // Starts the one thing in the sheet that needs downloading; the
+                                // sheet itself opens now, from what is already known.
+                                viewModel.onInfoOpened()
+                            }
+                        } else {
+                            null
+                        },
+                )
+            } else {
+                Spacer(Modifier.height(60.dp))
+            }
         }
 
-        // The board is square, so it has to fit the *short* edge of the window. Sizing it to
-        // the width is right in portrait but makes it taller than the viewport in landscape
-        // (and on anything wide), where it would simply overflow into the scroll. Centred,
-        // and capped so a strip of the header and the move navigation stays visible.
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            val boardWidth = Modifier.widthIn(max = maxBoardEdge())
+        val board: @Composable (Modifier) -> Unit = { boardModifier ->
             if (position != null) {
                 GoBoard(
                     position = position,
-                    modifier = boardWidth,
+                    modifier = boardModifier,
                     trialMoves = state.trialMoves,
                     settings = boardSettings,
                     // No interaction with the placeholder grid until the real position loads.
@@ -225,190 +223,232 @@ fun BoardScreen(
                     onScrub = if (state.isScoring) null else viewModel::scrubBy,
                 )
             } else {
-                Box(boardWidth.fillMaxWidth().aspectRatio(1f).background(colors.board))
+                Box(boardModifier.fillMaxWidth().aspectRatio(1f).background(colors.board))
             }
         }
 
-        // A fixed slot under the board for the move that leaves no stone — a pass, or the
-        // act that ended the game. Its height is reserved whether or not there is anything to
-        // say, so that scrubbing through a game never shifts the navigation row under the
-        // reader's thumb.
-        Box(
-            Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            val event = state.eventAtCursor
-            val who = state.headerSummary
-            if (event != null && who != null) {
-                Text(
-                    boardEventLabel(event, isYou = event.by == who.myColor, opponent = who.opponent.handle),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                )
+        val controls: @Composable ColumnScope.() -> Unit = {
+            // A fixed slot under the board for the move that leaves no stone — a pass, or the
+            // act that ended the game. Its height is reserved whether or not there is anything to
+            // say, so that scrubbing through a game never shifts the navigation row under the
+            // reader's thumb.
+            Box(
+                Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 20.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                val event = state.eventAtCursor
+                val who = state.headerSummary
+                if (event != null && who != null) {
+                    Text(
+                        boardEventLabel(event, isYou = event.by == who.myColor, opponent = who.opponent.handle),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.ink2,
+                    )
+                }
             }
-        }
 
-        val scoring = state.scoring
-        val summary = state.headerSummary
-        if (scoring != null && summary != null) {
-            // The counting phase replaces the move navigation: the board is the final
-            // position, there is nothing left to walk through, and the count needs the room.
-            // The summary comes with the record the count is made from, so it is always here;
-            // without it there would be no way to say which side is the reader's.
-            ScorePanel(
-                scoring = scoring,
-                you = summary.myColor,
-                opponent = summary.opponent.handle,
-                canMark = state.canMark,
-                waitingForOpponent = !state.isMyTurn,
-                onReset = viewModel::resetMarks,
-            )
-        } else {
-            MoveNavigationRow(state, viewModel)
-        }
-
-        state.problem?.let {
-            ProblemMessage(
-                it,
-                Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
-                // Retry offered only for a load that never produced a board: a failed send is
-                // retried with Send itself, which still sits below with the variation intact.
-                onRetry = if (state.replay == null) ({ viewModel.load(force = true) }) else null,
-            )
-        }
-
-        // The only feedback worth a line: a send that was rejected because the game moved
-        // on and was reloaded. Appears just when it happens; costs no space otherwise.
-        state.notice?.let {
-            Text(
-                it,
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.accent,
-            )
-        }
-
-        // The comment that goes with the next move, written in place rather than in a dialog so
-        // that Send stays one tap. Above the action row, so the move navigation and Send are
-        // never neighbours: a slip off the forward buttons lands on the comment, not on a move.
-        if (state.canComment) {
-            if (state.showCommentField) {
-                Spacer(Modifier.height(8.dp))
-                CommentField(
-                    value = state.commentDraft,
-                    onChange = viewModel::onCommentChange,
-                    // Focused when the user has just asked for it, not when a returned move
-                    // brings its comment back.
-                    focus = state.writingComment,
-                    onBlur = viewModel::stopComment,
-                    modifier =
-                        Modifier
-                            .padding(horizontal = 20.dp)
-                            .onGloballyPositioned { commentBounds = it.boundsInWindow() },
+            val scoring = state.scoring
+            val summary = state.headerSummary
+            if (scoring != null && summary != null) {
+                // The counting phase replaces the move navigation: the board is the final
+                // position, there is nothing left to walk through, and the count needs the room.
+                // The summary comes with the record the count is made from, so it is always here;
+                // without it there would be no way to say which side is the reader's.
+                ScorePanel(
+                    scoring = scoring,
+                    you = summary.myColor,
+                    opponent = summary.opponent.handle,
+                    canMark = state.canMark,
+                    waitingForOpponent = !state.isMyTurn,
+                    onReset = viewModel::resetMarks,
                 )
             } else {
-                TextAction(
-                    stringResource(R.string.board_add_comment),
-                    viewModel::startComment,
-                    Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                MoveNavigationRow(state, viewModel)
+            }
+
+            state.problem?.let {
+                ProblemMessage(
+                    it,
+                    Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+                    // Retry offered only for a load that never produced a board: a failed send is
+                    // retried with Send itself, which still sits below with the variation intact.
+                    onRetry = if (state.replay == null) ({ viewModel.load(force = true) }) else null,
+                )
+            }
+
+            // The only feedback worth a line: a send that was rejected because the game moved
+            // on and was reloaded. Appears just when it happens; costs no space otherwise.
+            state.notice?.let {
+                Text(
+                    it,
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.bodyMedium,
                     color = colors.accent,
                 )
             }
-        }
 
-        // Skip keeps a fixed half-width slot on the left in every game; Send fills the
-        // right slot only on the user's own turn (an empty spacer holds it otherwise), so
-        // Skip never changes size or position.
-        //
-        // A finished game gets no action row at all: there is no move to send, and Skip is
-        // the queue's button — the archive is not a queue, it is a list you came back from.
-        Spacer(Modifier.height(8.dp))
-        if (!state.isFinished) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                PillButton(
-                    text = stringResource(R.string.board_skip),
-                    onClick = onSkip,
-                    enabled = !state.sending,
-                    modifier = Modifier.weight(1f),
-                )
-                if (scoring != null) {
-                    // In the counting phase the right slot settles the score: the marks, when the
-                    // user has made any, and otherwise agreement with the count as it stands.
-                    if (state.isMyTurn) {
-                        PillButton(
-                            text =
-                                when {
-                                    state.sending -> stringResource(R.string.board_sending)
-                                    scoring.changed -> stringResource(R.string.score_send_marks)
-                                    else -> stringResource(R.string.score_accept)
-                                },
-                            onClick = if (scoring.changed) viewModel::askSendMarks else viewModel::askAcceptScore,
-                            primary = true,
-                            enabled = state.canSettleScore,
-                            modifier = Modifier.weight(1f),
-                        )
+            // The comment that goes with the next move, written in place rather than in a dialog so
+            // that Send stays one tap. Above the action row, so the move navigation and Send are
+            // never neighbours: a slip off the forward buttons lands on the comment, not on a move.
+            if (state.canComment) {
+                if (state.showCommentField) {
+                    Spacer(Modifier.height(8.dp))
+                    CommentField(
+                        value = state.commentDraft,
+                        onChange = viewModel::onCommentChange,
+                        // Focused when the user has just asked for it, not when a returned move
+                        // brings its comment back.
+                        focus = state.writingComment,
+                        onBlur = viewModel::stopComment,
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 20.dp)
+                                .onGloballyPositioned { commentBounds = it.boundsInWindow() },
+                    )
+                } else {
+                    TextAction(
+                        stringResource(R.string.board_add_comment),
+                        viewModel::startComment,
+                        Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        color = colors.accent,
+                    )
+                }
+            }
+
+            // Skip keeps a fixed half-width slot on the left in every game; Send fills the
+            // right slot only on the user's own turn (an empty spacer holds it otherwise), so
+            // Skip never changes size or position.
+            //
+            // A finished game gets no action row at all: there is no move to send, and Skip is
+            // the queue's button — the archive is not a queue, it is a list you came back from.
+            Spacer(Modifier.height(8.dp))
+            if (!state.isFinished) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    PillButton(
+                        text = stringResource(R.string.board_skip),
+                        onClick = onSkip,
+                        enabled = !state.sending,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (scoring != null) {
+                        // In the counting phase the right slot settles the score: the marks, when the
+                        // user has made any, and otherwise agreement with the count as it stands.
+                        if (state.isMyTurn) {
+                            PillButton(
+                                text =
+                                    when {
+                                        state.sending -> stringResource(R.string.board_sending)
+                                        scoring.changed -> stringResource(R.string.score_send_marks)
+                                        else -> stringResource(R.string.score_accept)
+                                    },
+                                onClick = if (scoring.changed) viewModel::askSendMarks else viewModel::askAcceptScore,
+                                primary = true,
+                                enabled = state.canSettleScore,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            Spacer(Modifier.weight(1f))
+                        }
+                    } else if (state.isMyTurn) {
+                        // The right slot always holds the move you would send. Normally that is Send
+                        // — armed with a trial stone, disabled without one. When the opponent has
+                        // passed and no stone is armed, the move on offer is a pass, so Pass takes
+                        // the slot: outlined, not filled, because giving up the move is not the
+                        // recommended answer, only an available one.
+                        if (state.passPromoted) {
+                            PillButton(
+                                text = stringResource(R.string.board_pass),
+                                onClick = viewModel::askPass,
+                                enabled = !state.sending,
+                                modifier = Modifier.weight(1f),
+                            )
+                        } else {
+                            PillButton(
+                                text =
+                                    when {
+                                        state.sending -> {
+                                            stringResource(R.string.board_sending)
+                                        }
+
+                                        state.canSend && state.sendLabel != null -> {
+                                            "${stringResource(R.string.board_send)} ${state.sendLabel}"
+                                        }
+
+                                        else -> {
+                                            stringResource(R.string.board_send)
+                                        }
+                                    },
+                                onClick = viewModel::send,
+                                primary = true,
+                                enabled = state.canSend,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
                     } else {
                         Spacer(Modifier.weight(1f))
                     }
-                } else if (state.isMyTurn) {
-                    // The right slot always holds the move you would send. Normally that is Send
-                    // — armed with a trial stone, disabled without one. When the opponent has
-                    // passed and no stone is armed, the move on offer is a pass, so Pass takes
-                    // the slot: outlined, not filled, because giving up the move is not the
-                    // recommended answer, only an available one.
-                    if (state.passPromoted) {
-                        PillButton(
-                            text = stringResource(R.string.board_pass),
-                            onClick = viewModel::askPass,
-                            enabled = !state.sending,
-                            modifier = Modifier.weight(1f),
-                        )
-                    } else {
-                        PillButton(
-                            text =
-                                when {
-                                    state.sending -> {
-                                        stringResource(R.string.board_sending)
-                                    }
-
-                                    state.canSend && state.sendLabel != null -> {
-                                        "${stringResource(R.string.board_send)} ${state.sendLabel}"
-                                    }
-
-                                    else -> {
-                                        stringResource(R.string.board_send)
-                                    }
-                                },
-                            onClick = viewModel::send,
-                            primary = true,
-                            enabled = state.canSend,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                } else {
-                    Spacer(Modifier.weight(1f))
                 }
             }
+
+            // What the players wrote with the move on show. Below everything that is operated,
+            // so a comment appearing or going away while scrubbing never moves a button.
+            val commenter = state.headerSummary
+            val comments = state.commentsAtCursor
+            if (commenter != null && comments.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Comments(
+                    comments = comments,
+                    you = commenter.myColor,
+                    opponent = commenter.opponent.handle,
+                    finished = state.isFinished,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+            }
+            Spacer(Modifier.height(24.dp))
         }
 
-        // What the players wrote with the move on show. Below everything that is operated,
-        // so a comment appearing or going away while scrubbing never moves a button.
-        val commenter = state.headerSummary
-        val comments = state.commentsAtCursor
-        if (commenter != null && comments.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            Comments(
-                comments = comments,
-                you = commenter.myColor,
-                opponent = commenter.opponent.handle,
-                finished = state.isFinished,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
+        // A window with room beside a full-height board — a phone turned sideways, a tablet —
+        // puts the board on the left at the full height and everything else in a column to
+        // its right. Stacked, the header and the controls would take that height from the
+        // board and push it partly off screen.
+        val boardEdge = maxHeight
+        if (maxWidth - boardEdge >= SIDE_PANE_MIN_WIDTH.dp) {
+            Row(Modifier.fillMaxSize()) {
+                board(Modifier.size(boardEdge))
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        // Only this column makes room for the keyboard: the board keeps its size.
+                        .imePadding()
+                        .verticalScroll(rememberScrollState()),
+                ) {
+                    header()
+                    controls()
+                }
+            }
+        } else {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    // The comment field sits low on the screen: keep it above the keyboard.
+                    .imePadding()
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                header()
+                // The board is square, so it has to fit the *short* edge of the window. Sizing
+                // it to the width is right in portrait but makes it taller than the viewport on
+                // anything wide, where it would simply overflow into the scroll. Centred, and
+                // capped so a strip of the header and the move navigation stays visible.
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    board(Modifier.widthIn(max = maxBoardEdge()))
+                }
+                controls()
+            }
         }
-        Spacer(Modifier.height(24.dp))
     }
 
     if (showingInfo) {
@@ -982,6 +1022,12 @@ private fun RowScope.CurrentMoveButton(
 // Held-button replay speed. A 19x19 game runs past 200 moves, so a fixed slow repeat makes
 // crossing one a chore. The repeat instead accelerates: it opens slow enough to stop on a
 // chosen move, then winds up to a rate that crosses a long game in a few seconds.
+
+/**
+ * The narrowest the column beside the board may be: the header and the Skip / Send row stay
+ * legible at this width. A window that cannot give it stacks the board above the controls.
+ */
+private const val SIDE_PANE_MIN_WIDTH = 220
 
 /** Vertical space the board leaves for the header, the event line and the navigation row. */
 private const val BOARD_HEIGHT_ALLOWANCE = 104
