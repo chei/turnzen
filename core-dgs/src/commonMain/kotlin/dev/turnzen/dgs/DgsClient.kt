@@ -205,13 +205,16 @@ class DgsClient(
     override suspend fun resign(
         id: GameId,
         token: MoveToken,
+        comment: String?,
     ) {
+        val message = comment?.trim().orEmpty()
         quickDo(
             method = HttpMethod.POST,
             "obj" to "game",
             "cmd" to "resign",
             "gid" to id.value,
             "move_id" to token.value,
+            *(if (message.isEmpty()) emptyArray() else arrayOf("msg" to message)),
         )
     }
 

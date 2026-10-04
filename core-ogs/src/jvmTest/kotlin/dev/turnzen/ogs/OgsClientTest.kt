@@ -410,6 +410,37 @@ class OgsClientTest {
         }
 
     @Test
+    fun `a comment goes into the chat before the resignation`() =
+        runTest {
+            val socket =
+                gameServer(
+                    moves = 72,
+                    onChat = { data ->
+                        listOf(chatLine("c1", 1001, data["move_number"].toString().toInt(), data["body"].toString()))
+                    },
+                ) { listOf("""["game/7000001/phase","finished"]""") }
+            signedIn(realtimeHttp(), socket).resign(
+                GameId(OgsClient.SERVER_ID, "7000001"),
+                MoveToken("72"),
+                comment = " Well played ",
+            )
+            val commands = socket.sent.map { (OgsJson.json.parseToJsonElement(it) as JsonArray)[0].toString() }
+            assertEquals(
+                listOf(
+                    "\"authenticate\"",
+                    "\"game/connect\"",
+                    "\"game/chat\"",
+                    "\"game/resign\"",
+                    "\"game/disconnect\"",
+                ),
+                commands,
+            )
+            val chat = (OgsJson.json.parseToJsonElement(socket.sent[2]) as JsonArray)[1] as JsonObject
+            assertEquals("\"Well played\"", chat["body"].toString())
+            assertEquals("72", chat["move_number"].toString())
+        }
+
+    @Test
     fun `sign-in runs through the browser and the loopback redirect`() =
         runBlocking {
             val port = 18735

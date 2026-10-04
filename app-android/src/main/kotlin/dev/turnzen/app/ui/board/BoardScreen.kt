@@ -475,17 +475,19 @@ fun BoardScreen(
         PendingConfirmation.PASS -> {
             Confirmation(
                 title = stringResource(R.string.board_pass_question),
-                // Passing after the opponent has passed ends the game and starts scoring,
-                // which this app cannot do yet — say so before the move, not after it.
+                // A pass needs no explaining, except that a second one ends the game — and,
+                // where counting happens on the web, sends the user there to finish it.
                 text =
-                    if (state.opponentPassed) {
-                        stringResource(R.string.board_pass_explain_after_pass, viewModel.serverName)
-                    } else {
-                        stringResource(R.string.board_pass_explain)
+                    when {
+                        !state.opponentPassed -> null
+                        viewModel.scoresInApp -> stringResource(R.string.board_pass_ends_game)
+                        else -> stringResource(R.string.board_pass_ends_game_web, viewModel.serverName)
                     },
                 confirmLabel = stringResource(R.string.board_pass),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
+                comment = state.confirmationComment,
+                onCommentChange = viewModel::onConfirmationCommentChange,
             )
         }
 
@@ -497,6 +499,8 @@ fun BoardScreen(
                 confirmColor = colors.urgent,
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
+                comment = state.confirmationComment,
+                onCommentChange = viewModel::onConfirmationCommentChange,
             )
         }
 
@@ -1259,14 +1263,22 @@ private fun commentAudience(
         }
     }
 
+/**
+ * A yes-or-no before an act that is not a stone. [text] is for what the title cannot say on
+ * its own, and is left out when there is nothing. With [onCommentChange], the dialog also
+ * holds the [comment] that goes with the act: pass and resign are reached from the info
+ * sheet, where the board's own comment field is out of sight.
+ */
 @Composable
 private fun Confirmation(
     title: String,
-    text: String,
+    text: String?,
     confirmLabel: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     confirmColor: Color = colors.accent,
+    comment: String = "",
+    onCommentChange: ((String) -> Unit)? = null,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1274,7 +1286,35 @@ private fun Confirmation(
         titleContentColor = colors.ink,
         textContentColor = colors.ink2,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
-        text = { Text(text, style = MaterialTheme.typography.bodyMedium) },
+        text =
+            if (text == null && onCommentChange == null) {
+                null
+            } else {
+                {
+                    Column {
+                        text?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                        if (onCommentChange != null) {
+                            if (text != null) Spacer(Modifier.height(8.dp))
+                            TextField(
+                                value = comment,
+                                onValueChange = onCommentChange,
+                                maxLines = 4,
+                                textStyle = MaterialTheme.typography.bodyLarge,
+                                placeholder = {
+                                    Text(
+                                        stringResource(R.string.board_confirm_comment_label),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = colors.ink2,
+                                    )
+                                },
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                                colors = commentFieldColors(),
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+            },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel, color = confirmColor) } },
         dismissButton = {
             TextButton(
@@ -1314,17 +1354,7 @@ private fun CommentField(
                 )
             },
             keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
-            colors =
-                TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    disabledContainerColor = Color.Transparent,
-                    focusedIndicatorColor = colors.accent,
-                    unfocusedIndicatorColor = colors.line,
-                    cursorColor = colors.accent,
-                    focusedTextColor = colors.ink,
-                    unfocusedTextColor = colors.ink,
-                ),
+            colors = commentFieldColors(),
             modifier =
                 Modifier
                     .fillMaxWidth()
@@ -1336,3 +1366,17 @@ private fun CommentField(
         )
     }
 }
+
+/** Underlined on a transparent ground, as the board's comment field and the dialogs' share. */
+@Composable
+private fun commentFieldColors() =
+    TextFieldDefaults.colors(
+        focusedContainerColor = Color.Transparent,
+        unfocusedContainerColor = Color.Transparent,
+        disabledContainerColor = Color.Transparent,
+        focusedIndicatorColor = colors.accent,
+        unfocusedIndicatorColor = colors.line,
+        cursorColor = colors.accent,
+        focusedTextColor = colors.ink,
+        unfocusedTextColor = colors.ink,
+    )

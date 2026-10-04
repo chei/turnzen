@@ -337,6 +337,25 @@ class DgsClientTest {
         }
 
     @Test
+    fun `a comment travels with the resignation as its message`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.on({ it.method == HttpMethod.POST && it.form["cmd"] == "resign" }) {
+                ok(Fixtures.text("move_ok.json"))
+            }
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            client.resign(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"), comment = " Well played ")
+            val resign = transport.requests.last()
+            assertEquals("resign", resign.form["cmd"])
+            assertEquals("Well played", resign.form["msg"])
+
+            client.resign(GameId(DgsClient.SERVER_ID, "1000000"), MoveToken("264"))
+            assertNull(transport.requests.last().form["msg"])
+        }
+
+    @Test
     fun `scoring reads the state, proposes marks and agrees explicitly`() =
         runTest {
             val transport = transportWithHappyPath()

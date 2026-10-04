@@ -498,12 +498,16 @@ The two servers mean different things by a comment, and the model is cut to fit 
   clock ticks to break that silence. A `reset-chats` event discards what came before; lines
   are de-duplicated by `chat_id`.
 - **Writing: a comment goes with a move**, typed in a field above the board's action row
-  ("Add a comment" opens it) and sent with the next Send or Pass.
-  `sendMove(…, comment)`. On DGS it is the move's `msg`, in the same request. On OGS it is a
-  `main` chat line sent right after the server has echoed the move, with `move_number` = the
-  move just played, and the client waits (at most ten seconds) for it to come back. The move
-  is already made by then, so a chat line that fails or does not come back is not reported
-  as a failed send. Off-turn chat (possible on OGS only) is not offered yet.
+  ("Add a comment" opens it) and sent with the next Send. Pass and resign are reached from
+  the info sheet, away from that field, so their confirmation dialogs hold a comment field of
+  their own, filled in from the board's: what the dialog shows is what goes, and cancelling
+  leaves the board's draft alone. `sendMove(…, comment)` and `resign(…, comment)`. On DGS
+  it is the move's `msg`, in the same request. On OGS it is a `main` chat line sent right
+  after the server has echoed the move, with `move_number` = the move just played, and the
+  client waits (at most ten seconds) for it to come back. The move is already made by then,
+  so a chat line that fails or does not come back is not reported as a failed send. A resignation's comment is the DGS `resign` command's `msg`; on OGS it is
+  a `main` chat line sent *before* `game/resign`, pinned to the last move, so it is said while
+  the game is still being played. Off-turn chat (possible on OGS only) is not offered yet.
 - **DGS's own view needs `owned_comments=1`**, which also appends the user's private game
   notes to the last node as `Notes - <name as in PB/PW>:`. They are cut off under the user's
   own name only, so a message that happens to contain the words stays whole.
@@ -891,9 +895,9 @@ partly so the project could grow beyond Go (see Naming).
   **Pass** is a move like any other and takes the same path, but it does not hold a
   permanent place on the board: it lives in the game-info sheet, and is promoted into the
   action row's send slot exactly when the opponent has passed and no trial stone is armed.
-  It keeps a confirmation, because what a pass means (and, after the opponent's pass, that
-  it ends the game) needs saying; after it, the undo window as for a stone. **Resign** lives
-  only in that sheet, confirmed and coloured urgent.
+  It keeps a confirmation, which is also where its comment is written (see "Comments"), and
+  which says only that a pass after the opponent's ends the game; after it, the undo window
+  as for a stone. **Resign** lives only in that sheet, confirmed and coloured urgent.
 - On Send, advance straight to the next "your move" game; if none remain, return to the
   (empty) list. No pause first: the undo line is what says the move went.
 - States: waiting (the undo window), sending, send failed, stale state (the game changed on
@@ -988,7 +992,8 @@ partly so the project could grow beyond Go (see Naming).
 6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed
    (irreversible; must not be reachable by accident). A resigned game leaves both lists and
    the record cache, and the board closes back to the list rather than stepping the queue on,
-   because resigning is a deliberate exit, not a move.
+   because resigning is a deliberate exit, not a move. Its dialog takes an optional comment
+   (October 2026), as the pass dialog does.
 7. **Scoring at game end** — *done (September 2026)*: a distinct mode of the board screen.
    Tapping marks a group dead, territory and the count are shown live, and the user either
    sends their marks (a disagreement, which passes the turn to the opponent) or accepts the
@@ -1107,9 +1112,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is
   clock-sensitive, and it is how every game ends — so it is reachable in two taps from the
   sheet and is promoted into the action row's send slot when the opponent has passed and
-  nothing is armed to send. Scoring is still missing, so passing into a finished game leads
-  to a phase the app cannot render; rather than hide the button, the confirmation says so and
-  names the server where the game can be finished.
+  nothing is armed to send. The confirmations are short: "Pass?" alone, or, after the
+  opponent's pass, that this one ends the game and starts counting — on a server Turnzen
+  cannot count for (OGS for now), that the counting is done on its website, named;
+  "Resign?" with only "This can't be undone."
 - **Sent moves go through an app-wide outbox** (`MoveOutbox`, September 2026), not the
   board's view model, because the board has stepped on before the move leaves. It holds one
   move at a time in its undo window: sending another commits the one before at once, since
