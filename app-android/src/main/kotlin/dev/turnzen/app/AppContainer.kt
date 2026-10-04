@@ -105,7 +105,7 @@ class AppContainer(
 
     val games = GamesStore(accounts) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
-    /** Sent moves waiting out their undo window; app-wide, as the board they left is gone. */
+    /** Sent moves on their way to the server; app-wide, as the board they left is gone. */
     val outbox = MoveOutbox(accounts, games, MainScope())
 
     val turnCheck =

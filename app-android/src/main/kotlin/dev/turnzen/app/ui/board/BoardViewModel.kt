@@ -371,7 +371,7 @@ class BoardViewModel(
     private val gameId: GameId,
     private val session: SessionManager,
     private val games: GamesStore,
-    /** Where a sent move waits out its undo window; see [MoveOutbox]. */
+    /** Where a sent move goes to the server; see [MoveOutbox]. */
     private val outbox: MoveOutbox,
     /** Ladder standings for the info sheet; absent in tests that do not care about them. */
     private val ladders: LadderStandings? = null,
@@ -422,7 +422,7 @@ class BoardViewModel(
     fun load(force: Boolean = false) {
         val preview = games.summary(gameId)
         // A move in this game is still on its way: whether it lands decides what the board
-        // should show, so wait for it (sending it now if it was waiting out its undo window).
+        // should show, so wait for it.
         if (outbox.isOutgoing(gameId)) {
             _state.update { it.copy(loading = true, preview = preview ?: it.preview) }
             viewModelScope.launch {
@@ -431,7 +431,7 @@ class BoardViewModel(
             }
             return
         }
-        // A move that came back — undone, or not delivered — goes back on the board.
+        // A move that came back — refused or not delivered — goes back on the board.
         val back = outbox.claim(gameId)
         val refetch = force || back?.movedOn == true
         val held = if (refetch) null else _state.value.detail ?: games.cachedDetail(gameId)
@@ -523,7 +523,7 @@ class BoardViewModel(
                 trialStart = s.moveCount,
                 cursor = if (trial != null) s.moveCount + 1 else s.cursor,
                 commentDraft = back.move.comment.orEmpty(),
-                problem = back.error?.let { problemFor(it, session.serverName) },
+                problem = problemFor(back.error, session.serverName),
             )
         }
     }
@@ -826,8 +826,8 @@ class BoardViewModel(
     fun toEnd() = _state.update { it.copy(cursor = it.total) }
 
     /**
-     * Sends the armed stone. No confirmation: the button already names the move, and the
-     * outbox holds it for a few seconds with an Undo while the board steps on to the next game.
+     * Sends the armed stone, at once. No confirmation: the button already names the move, and
+     * it sits at the bottom of the screen, out of reach of a slip on the board.
      */
     fun send() {
         val s = _state.value
@@ -836,9 +836,8 @@ class BoardViewModel(
     }
 
     /**
-     * Passing and resigning both go through a confirmation. A pass still gets the undo window
-     * after it, like any move; the dialog is there for what passing means, which a stone
-     * does not need explaining.
+     * Passing and resigning both go through a confirmation: the dialog is there for what
+     * passing means, which a stone does not need explaining.
      */
     fun askPass() {
         if (_state.value.canPass) _state.update { it.copy(confirmation = PendingConfirmation.PASS) }
@@ -963,7 +962,7 @@ class BoardViewModel(
 
     /**
      * Hands [move] to the outbox and steps the queue on at once. The board is done with the
-     * move from here: the outbox sends it once the undo window has passed, and a move that
+     * move from here: the outbox sends it straight away, and a move that
      * comes back is put back on this board the next time it opens (see [restore]).
      */
     private fun submit(move: Move) {

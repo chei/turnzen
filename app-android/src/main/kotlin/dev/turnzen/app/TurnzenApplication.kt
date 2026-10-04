@@ -36,9 +36,6 @@ class TurnzenApplication : Application() {
 
                 override fun onStop(owner: LifecycleOwner) {
                     container.inForeground = false
-                    // Out of sight, a move waiting for its undo window could wait on a process
-                    // Android is free to kill: send it now.
-                    container.outbox.flush()
                 }
             },
         )

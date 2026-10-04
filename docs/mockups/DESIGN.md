@@ -42,7 +42,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 4. **Tapping the board never sends anything.** The Send button is the single path to the
    server, and it always names the move it sends ("Send O15").
 5. **Sentence case everywhere. No all-caps labels, no icon-only actions** on the board
-   screen (Pass, Send, Undo, Reset are text).
+   screen (Pass, Send, Reset are text).
 
 ## Color tokens
 
@@ -175,8 +175,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   reserved whether or not there is anything to say, so scrubbing never shifts the navigation
   row under the reader's thumb. Without it the board simply goes quiet at the moments that
   most need explaining: the two passes at the end of a counted game, and the opponent's pass
-  that is the reason a Pass button has appeared. The space below the action row
-  absorbs the difference between 9×9 and 19×19; nothing is pinned to the board's height.
+  that is the reason a Pass button has appeared. The space above the action row, which
+  sits at the bottom edge, absorbs the difference between 9×9 and 19×19; nothing is pinned
+  to the board's height.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
   move number, step forward, end; back and forward repeat while held. There is no separate
   info row, trial counter or hint line: the numbered stones and this counter already say
@@ -207,7 +208,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   strongest thing in the row, reading "the board is the game". Anywhere else (rewound, or
   reading a what-if branched off the past, even where the number happens to equal the move
   count) it is an ordinary outlined button that returns to the live position.
-- **Action row**: two equal 48dp pill buttons. Skip (outlined) keeps a fixed half-width
+- **Action row**: two equal 48dp pill buttons at the bottom edge of the screen (16dp above
+  the bottom bar), as far from the board as the screen allows: Send goes in one tap with no
+  undo, so a slip off the board must not reach it. Only a screen too short for everything
+  scrolls it up with the rest. Skip (outlined) keeps a fixed half-width
   slot on the left in every game, so it never moves; the right slot is *the move that would
   go to the server*, and is filled only on the user's turn (an empty spacer holds it
   otherwise). Normally that is Send (filled accent), disabled (`line` fill, `ink2` text)
@@ -217,8 +221,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   is outlined, not filled — passing is an available answer, not the recommended one — and an
   armed Send outranks it, so trying a stone puts "Send D10" back and stepping off it brings
   Pass back. Everywhere else passing lives in the game-info sheet, costing the board
-  nothing. Send goes in one tap, with an undo line after it; Pass is confirmed first (see
-  "Undo, not confirm").
+  nothing. Send goes in one tap, at once; Pass is confirmed first (see
+  "No confirm, no undo").
 - **Tapping**: the newest stone on the board is a back button — tapping it steps behind
   that move, whether it is the newest trial stone or the last played one. Tapping the point
   the game played next is its mirror and steps forward through the record, so a rewound move
@@ -312,12 +316,13 @@ Use tabular figures for time and move counts so columns don't jitter.
   <server>" (accent), and Resign last, the only `urgent` thing in the sheet, confirmed with
   an `urgent` confirm button because it cannot be undone. Nothing in the sheet is needed to
   play a move.
-- **Comments** sit at the bottom of the board screen, below the action row, and show what
+- **Comments** sit between the comment field and the action row, and show what
   the players wrote with the move on show: at the current position of a running game that is
   the opponent's message with their last move, which is the one that matters. Inside a trial
   the move it branched from stays the one on show, so the message remains readable while the
-  answer is worked out. Below everything that is operated, because a comment comes and goes
-  while scrubbing and must never move a button under the thumb. Each is headed by its writer
+  answer is worked out. Below everything above them that is operated, with the free space
+  under them taking up the difference, because a comment comes and goes while scrubbing and
+  must never move a button under the thumb. Each is headed by its writer
   in `ink` 600 — "You" or the opponent's handle, never a colour — with the text in body size
   below; consecutive parts by the same writer share one heading. A part not everyone can
   read yet carries one `ink2` line saying so ("hidden until the game ends", "secret until the
@@ -333,18 +338,20 @@ Use tabular figures for time and move counts so columns don't jitter.
   and in answer to the user's own tap.
   A tap anywhere else ends the editing: an empty field folds back into "Add a comment", one
   holding text stays open, unfocused, so what will go out stays in sight. Leaving the game
-  drops an unsent comment rather than keeping it hidden for some later move; a move that is
-  undone or fails brings its own comment back.
+  drops an unsent comment rather than keeping it hidden for some later move; a move that
+  fails brings its own comment back.
   It goes with whichever move is sent next, Send or Pass; resigning takes none. It is cleared
-  once the move leaves and comes back with a move that is undone or fails. See
+  once the move leaves and comes back with a move that fails. See
   `09-board-comment.svg` and `09b-send-with-comment.svg`.
-- **Undo, not confirm.** Send has no dialog: the button already names the move. The board
-  steps on to the next game at once, and one line above the bottom bar says what left —
-  "Sending E6 to mkvtl" in `ink`, "Undo" in `accent` — for four seconds before the move goes
-  to the server. Flat: a hairline above, the surface below, no card or shadow, and in the
-  layout rather than over it, so it never covers the next game's Send. A move that fails
-  turns the same line into "E6 to mkvtl wasn't sent · Open", which stays until that game is
-  opened. See `09c-sent-undo.svg`.
+- **No confirm, no undo.** Send has no dialog — the button already names the move — and
+  no undo window after it (dropped in October 2026: leaving the app inside the window made
+  the move fail). Its place at the bottom edge is the guard against a slip. The board steps
+  on to the next game at once and the move goes to the server straight away. A move that
+  fails is reported on one line above the bottom bar, wherever the user is by then — "E6 to
+  mkvtl wasn't sent" in `ink`, "Open" in `accent` — until that game is opened, where the
+  move is back on the board. Flat: a hairline above, the surface below, no card or shadow,
+  and in the layout rather than over it, so it never covers the next game's Send. See
+  `09c-send-failed.svg`.
 - **Say what the app cannot do, before the move rather than after it.** Passing when the
   opponent has already passed ends the game and starts scoring, which Turnzen has no screen
   for; the confirmation says so and names the server where it can be finished.
@@ -356,7 +363,7 @@ Use tabular figures for time and move counts so columns don't jitter.
 ## Copy
 
 Plain verbs, sentence case, actions keep the same name through a flow: the button says
-"Send O15", the line after it says "Sending O15 to …", a failure "O15 to … wasn't sent". Failures say what
+"Send O15", a failure "O15 to … wasn't sent". Failures say what
 happened and what to do ("Can't reach Dragon Go Server" / "Check your connection and try
 again."), never apologize, never stay vague, and never blame the user for a connection —
 the title names what we observed, the line below it says what to try.
