@@ -18,9 +18,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -90,11 +93,11 @@ fun GamesScreen(
     LaunchedEffect(tab) { viewModel.onTabShown(tab) }
 
     // One scroll position per tab: the lists differ in length, and a single shared
-    // LazyListState re-anchors on its keyed items when the tab switches, which could leave
+    // LazyGridState re-anchors on its keyed items when the tab switches, which could leave
     // the other list scrolled to the bottom. Each tab now keeps and restores its own place.
-    val yourTurnListState = rememberLazyListState()
-    val allListState = rememberLazyListState()
-    val finishedListState = rememberLazyListState()
+    val yourTurnListState = rememberLazyGridState()
+    val allListState = rememberLazyGridState()
+    val finishedListState = rememberLazyGridState()
     val listState =
         when (tab) {
             GamesTab.YOUR_TURN -> yourTurnListState
@@ -129,13 +132,9 @@ fun GamesScreen(
         onDispose {}
     }
 
+    // No wordmark above the tabs: it cost a fifth of a landscape screen to repeat the name
+    // the launcher already showed, and the tabs say which list this is.
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Text(
-            stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
-        )
-
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
             GamesTab(
                 label = stringResource(R.string.games_tab_your_turn),
@@ -167,9 +166,17 @@ fun GamesScreen(
             // A list per tab, not one list re-filled: a game on both "Your turn" and "All
             // games" keeps its key across a tab switch, and without this the row would
             // animate from its place in one list to its place in the other. The scroll
-            // position survives, since each tab's LazyListState is held outside this.
+            // position survives, since each tab's LazyGridState is held outside this.
+            //
+            // A grid rather than a column so that a wide window — a phone turned sideways —
+            // shows games side by side instead of stretching each row across the screen and
+            // fitting three. A portrait phone is narrower than two columns, so it keeps one.
             key(tab) {
-                LazyColumn(state = listState, modifier = Modifier.fillMaxSize()) {
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = MIN_COLUMN_WIDTH.dp),
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                     val problem = state.problem
                     val rows = shown
                     when {
@@ -177,7 +184,7 @@ fun GamesScreen(
                         // it the empty state's shape and an explicit Try again, rather than a
                         // line of red text over an otherwise blank list.
                         rows == null && problem != null -> {
-                            item { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
+                            item(span = fullLine) { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
                         }
 
                         else -> {
@@ -186,7 +193,7 @@ fun GamesScreen(
                             // and pull-to-refresh is the retry. A server that signed the user
                             // out says so, with the way back in.
                             state.allProblems.forEach { line ->
-                                item {
+                                item(span = fullLine) {
                                     val signedOut = line in state.signedOut
                                     ProblemMessage(
                                         line,
@@ -205,11 +212,11 @@ fun GamesScreen(
                             }
                             when {
                                 rows == null -> {
-                                    item { LoadingRow() }
+                                    item(span = fullLine) { LoadingRow() }
                                 }
 
                                 rows.isEmpty() -> {
-                                    item { EmptyState(tab) }
+                                    item(span = fullLine) { EmptyState(tab) }
                                 }
 
                                 else -> {
@@ -341,6 +348,12 @@ private const val FLASH_OUT_MILLIS = 700
  * colour rather than competing with it.
  */
 private const val SLIDE_MILLIS = 300
+
+/** A row narrower than this squeezes the clock into the opponent's name; two fit side by side in landscape. */
+private const val MIN_COLUMN_WIDTH = 340
+
+/** Messages and the empty state run across every column. */
+private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
 @Composable
 private fun GameRow(

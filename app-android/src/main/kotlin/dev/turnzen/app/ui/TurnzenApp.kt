@@ -1,6 +1,7 @@
 package dev.turnzen.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.SideEffect
@@ -29,7 +31,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -219,6 +225,15 @@ private fun SignedInShell(container: AppContainer) {
     // so the short edge goes to the board instead of to the bottom bar.
     val configuration = LocalConfiguration.current
     val wide = configuration.screenWidthDp > configuration.screenHeightDp
+    // ...and the status bar goes too: in landscape its strip is height the board could use,
+    // and a correspondence game does not need the clock in view. A swipe from the top edge
+    // brings it back for a moment. The insets it leaves are zero, so the screens' status-bar
+    // padding collapses with it.
+    //
+    // On an open game the navigation bar goes as well, so the board has the whole height.
+    // A swipe in from the edge brings it back for a moment, as with the status bar, so a
+    // stray swipe off the board does not leave the app.
+    HideSystemBars(statusBar = wide, navigationBar = wide && openGame != null && tab == MainTab.GAMES)
     val gamesLabel = stringResource(R.string.nav_games)
     val settingsLabel = stringResource(R.string.nav_settings)
 
@@ -309,5 +324,28 @@ private fun SignedInShell(container: AppContainer) {
             outboxLine()
             TurnzenBottomBar(tab, ::selectTab, gamesLabel, settingsLabel)
         }
+    }
+}
+
+@Composable
+private fun HideSystemBars(
+    statusBar: Boolean,
+    navigationBar: Boolean,
+) {
+    val view = LocalView.current
+    val window = LocalActivity.current?.window ?: return
+    DisposableEffect(window, statusBar, navigationBar) {
+        val controller = WindowCompat.getInsetsController(window, view)
+        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+
+        fun showOrHide(
+            type: Int,
+            hidden: Boolean,
+        ) = if (hidden) controller.hide(type) else controller.show(type)
+
+        showOrHide(WindowInsetsCompat.Type.statusBars(), statusBar)
+        showOrHide(WindowInsetsCompat.Type.navigationBars(), navigationBar)
+        // Signing out leaves the shell: the sign-in screen gets its bars back.
+        onDispose { controller.show(WindowInsetsCompat.Type.systemBars()) }
     }
 }

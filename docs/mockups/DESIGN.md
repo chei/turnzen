@@ -5,8 +5,8 @@ layout and hierarchy; this file turns them into tokens and rules for the Compose
 Frame size is 390×844 (a common phone width); everything must adapt to other widths.
 
 > Note (September 2026): the SVGs predate several implemented changes and are now only a
-> rough reference. The prose below is current. Known drift in the SVGs: the games header is
-> now "Turnzen" with "Your turn"/"All games" tabs (not a "Your move" title); list rows have
+> rough reference. The prose below is current. Known drift in the SVGs: the games screen has
+> no title, just the "Your turn"/"All games"/"Finished" tabs (not a "Your move" title); list rows have
 > no "left" caption; Settings has no Server row, drops Version/License, adds Appearance >
 > Theme, and labels the account "Signed in as"; a dark theme now exists. Regenerate the
 > SVGs from `generate_mockups.py` when convenient.
@@ -152,13 +152,16 @@ Use tabular figures for time and move counts so columns don't jitter.
   transition already running, which is why each tab has its own list rather than one list
   re-filled: a game on both "Your turn" and "All games" shares a key, and rows would
   otherwise animate from their place in one list to their place in the other.
-- **Games screen**: header is the wordmark "Turnzen". Below it, three tabs above the list
+- **Games screen**: no title — a wordmark there cost a fifth of a landscape screen and
+  repeated what the launcher showed. Three tabs at the top, directly above the list
   (a content filter, distinct from the bottom destination bar): "Your turn" and "All games",
   each with a count, and "Finished" without one — it holds the last fifteen games, so the
   count would only ever be the limit. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
-  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. A window wide enough for two
+  rows of at least 340dp (a phone turned sideways) lays the games out in two columns instead
+  of stretching each row across it. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
