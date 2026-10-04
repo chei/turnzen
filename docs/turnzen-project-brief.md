@@ -789,8 +789,8 @@ partly so the project could grow beyond Go (see Naming).
 - **On every app start, fetch the "your move" game list immediately.** No manual step.
 - **"Try moves" is the default board behavior.** Tapping the board never sends anything to
   the server; it only places a local trial stone. The only way a move reaches the server
-  is the explicit Send action, which names the move and can be undone for a few seconds
-  after it (see "Send move").
+  is the explicit Send action, which names the move and sits at the bottom of the screen,
+  away from the board (see "Send move").
 - **The board view is as clean as possible.** Outside the board itself, show only what is
   strictly necessary. No decorative chrome, no persistent toolbars that compete with the
   board.
@@ -887,20 +887,22 @@ partly so the project could grow beyond Go (see Naming).
   position drops it. Only a variation branching at the current state can be sent.
 - **Send move**: only the *first* stone of the current variation (the user's actual move)
   is sent; all later trial stones are discarded. The button states exactly what is sent
-  ("Send D4") and one tap sends it — **no confirmation dialog, an undo window instead**
-  (September 2026). The board steps on to the next game at once, and a line above the bottom
-  bar reads "Sending D4 to kaya_r · Undo" for four seconds before the move goes to the
-  server. Undo reopens the game with the line and comment as they were. A dialog everyone
-  learns to tap through protects less than an undo that is there when a slip is noticed.
+  ("Send D4") and one tap sends it, at once — **no confirmation dialog and no undo**
+  (October 2026). The Skip / Send row sits at the bottom edge of the screen, as far from the
+  board as the layout allows, so a slip off the board or the move navigation cannot land on
+  it. A dialog everyone learns to tap through protects little, and the September design's
+  four-second undo window cost more than it saved: a user who left the app inside those
+  seconds had the move sent just as Android froze or cut off the backgrounded process, so it
+  regularly failed and came back as "wasn't sent".
   **Pass** is a move like any other and takes the same path, but it does not hold a
   permanent place on the board: it lives in the game-info sheet, and is promoted into the
   action row's send slot exactly when the opponent has passed and no trial stone is armed.
   It keeps a confirmation, which is also where its comment is written (see "Comments"), and
-  which says only that a pass after the opponent's ends the game; after it, the undo window
-  as for a stone. **Resign** lives only in that sheet, confirmed and coloured urgent.
+  which says only that a pass after the opponent's ends the game; after it, it is sent like
+  a stone. **Resign** lives only in that sheet, confirmed and coloured urgent.
 - On Send, advance straight to the next "your move" game; if none remain, return to the
-  (empty) list. No pause first: the undo line is what says the move went.
-- States: waiting (the undo window), sending, send failed, stale state (the game changed on
+  (empty) list. No pause first: stepping on is what says the move went.
+- States: sending, send failed, stale state (the game changed on
   the server meanwhile — e.g. opponent resigned). A failure is reported wherever the user
   is by then — "D4 to kaya_r wasn't sent · Open" — and puts the game back in the queue;
   opening it restores the variation and the comment, with the problem line, so Send is the
@@ -987,7 +989,7 @@ partly so the project could grow beyond Go (see Naming).
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)
 
 5. **Move comment** — *done (September 2026)*: a text field above the action row that goes
-   with the next move, and the players' comments at the move on show below the action row, on DGS
+   with the next move, and the players' comments at the move on show above the action row, on DGS
    and OGS alike. See "Comments".
 6. **Resign** — *done (September 2026)*: in the game-info sheet, always confirmed
    (irreversible; must not be reachable by accident). A resigned game leaves both lists and
@@ -1117,15 +1119,13 @@ Decisions taken while building the MVP that refine or amend the sections above.
   cannot count for (OGS for now), that the counting is done on its website, named;
   "Resign?" alone, its urgent confirm button saying the rest.
 - **Sent moves go through an app-wide outbox** (`MoveOutbox`, September 2026), not the
-  board's view model, because the board has stepped on before the move leaves. It holds one
-  move at a time in its undo window: sending another commits the one before at once, since
-  the undo on screen can only be about the newest. While a move waits or is on the wire,
-  `GamesStore` shows its game as played (out of "Your turn", not-your-turn in "All games"),
-  so a refresh in the window does not put it back in the queue; opening such a game sends
-  a waiting move at once and shows the result. The window is flushed when the app leaves the
-  screen (`ProcessLifecycleOwner.onStop`), so a move the user saw leave never waits on a
-  process Android may kill; only a crash inside those four seconds can lose it. Scoring
-  marks and resigning stay on the confirm-then-send path.
+  board's view model, because the board has stepped on before the server answers. The move
+  is transmitted at once (the undo window it first had was dropped in October 2026, see
+  "Send move"). While it is on the wire, `GamesStore` shows its game as played (out of "Your
+  turn", not-your-turn in "All games"), so a refresh meanwhile does not put it back in the
+  queue; opening such a game waits for the answer and shows the result. A move that fails
+  is kept in the outbox until its game is opened again, which puts it back on the board.
+  Scoring marks and resigning stay on the confirm-then-send path.
 - **The client interface gained `resign` and `gameUrl`.** `gameUrl` is the escape hatch for
   everything a server can do that Turnzen cannot yet, and keeps the UI from knowing which
   server it talks to: the URL comes from the client, not from a constant in a screen.

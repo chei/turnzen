@@ -50,7 +50,7 @@ class GamesStore(
 
     /**
      * Games whose move is on its way (see [MoveOutbox]): the user has played, the server has
-     * not heard yet. Shown as already played — a refresh during the undo window must not put
+     * not heard yet. Shown as already played — a refresh while it is on the wire must not put
      * the game back into the queue the user has just worked past.
      */
     private var outgoing: Set<GameId> = emptySet()
@@ -87,7 +87,7 @@ class GamesStore(
         publish()
     }
 
-    /** The move in [id] was undone or did not go through: the game is the user's turn again. */
+    /** The move in [id] did not go through: the game is the user's turn again. */
     fun release(id: GameId) {
         outgoing = outgoing - id
         publish()

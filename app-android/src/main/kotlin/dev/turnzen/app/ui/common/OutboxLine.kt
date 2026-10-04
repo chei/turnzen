@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -24,9 +23,9 @@ import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.goserver.GameId
 
 /**
- * One line above the bottom bar about the move that has just left: "Sending D4 to kaya_r ·
- * Undo" while it waits out its undo window, and "D4 to kaya_r wasn't sent · Open" if it did
- * not go through. On every screen, because by then the board it was sent from has stepped on.
+ * One line above the bottom bar about a move that did not reach its game: "D4 to kaya_r
+ * wasn't sent · Open". On every screen, because by then the board it was sent from has
+ * stepped on. Open goes back to that game, where the move is waiting on the board.
  *
  * Flat like the rest of the app: a hairline above, no card and no shadow. It sits in the
  * layout rather than over it, so it never covers the next game's Send button.
@@ -36,33 +35,13 @@ fun OutboxLine(
     outbox: MoveOutbox,
     onOpen: (GameId) -> Unit,
 ) {
-    val waiting by outbox.waiting.collectAsStateWithLifecycle()
-    val failed by outbox.failed.collectAsStateWithLifecycle()
-    val pending = waiting
-    val back = failed
-    when {
-        pending != null -> {
-            Line(
-                text = sendingText(pending),
-                action = stringResource(R.string.outbox_undo),
-                onAction = { outbox.undo()?.let { onOpen(it.gameId) } },
-            )
-        }
-
-        back != null -> {
-            Line(
-                text = failedText(back.move),
-                action = stringResource(R.string.outbox_open),
-                onAction = { onOpen(back.move.gameId) },
-            )
-        }
-    }
+    val back = outbox.failed.collectAsStateWithLifecycle().value ?: return
+    Line(
+        text = failedText(back.move),
+        action = stringResource(R.string.outbox_open),
+        onAction = { onOpen(back.move.gameId) },
+    )
 }
-
-@Composable
-private fun sendingText(move: OutgoingMove): String =
-    move.label?.let { stringResource(R.string.outbox_sending, it, move.opponent) }
-        ?: stringResource(R.string.outbox_sending_pass, move.opponent)
 
 @Composable
 private fun failedText(move: OutgoingMove): String =

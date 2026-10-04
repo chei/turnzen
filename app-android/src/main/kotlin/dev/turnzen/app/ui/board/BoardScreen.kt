@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -315,13 +316,34 @@ fun BoardScreen(
                 }
             }
 
+            // What the players wrote with the move on show. Below everything above it that is
+            // operated, and the free space below it takes up the difference, so a comment
+            // appearing or going away while scrubbing never moves a button.
+            val commenter = state.headerSummary
+            val comments = state.commentsAtCursor
+            if (commenter != null && comments.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                Comments(
+                    comments = comments,
+                    you = commenter.myColor,
+                    opponent = commenter.opponent.handle,
+                    finished = state.isFinished,
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                )
+            }
+
             // Skip keeps a fixed half-width slot on the left in every game; Send fills the
             // right slot only on the user's own turn (an empty spacer holds it otherwise), so
             // Skip never changes size or position.
             //
+            // The row sits at the bottom of the screen, as far from the board as it can be: Send
+            // goes in one tap with no undo after it, so a slip off the board must not land on it.
+            // Only when the screen is too short for everything does it scroll with the rest.
+            //
             // A finished game gets no action row at all: there is no move to send, and Skip is
             // the queue's button — the archive is not a queue, it is a list you came back from.
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.weight(1f))
             if (!state.isFinished) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 20.dp),
@@ -393,21 +415,7 @@ fun BoardScreen(
                 }
             }
 
-            // What the players wrote with the move on show. Below everything that is operated,
-            // so a comment appearing or going away while scrubbing never moves a button.
-            val commenter = state.headerSummary
-            val comments = state.commentsAtCursor
-            if (commenter != null && comments.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                Comments(
-                    comments = comments,
-                    you = commenter.myColor,
-                    opponent = commenter.opponent.handle,
-                    finished = state.isFinished,
-                    modifier = Modifier.padding(horizontal = 20.dp),
-                )
-            }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
         }
 
         // A window with room beside a full-height board — a phone turned sideways, a tablet —
@@ -418,25 +426,23 @@ fun BoardScreen(
         if (maxWidth - boardEdge >= SIDE_PANE_MIN_WIDTH.dp) {
             Row(Modifier.fillMaxSize()) {
                 board(Modifier.size(boardEdge))
-                Column(
+                ScreenColumn(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
                         // Only this column makes room for the keyboard: the board keeps its size.
-                        .imePadding()
-                        .verticalScroll(rememberScrollState()),
+                        .imePadding(),
                 ) {
                     header()
                     controls()
                 }
             }
         } else {
-            Column(
+            ScreenColumn(
                 Modifier
                     .fillMaxSize()
                     // The comment field sits low on the screen: keep it above the keyboard.
-                    .imePadding()
-                    .verticalScroll(rememberScrollState()),
+                    .imePadding(),
             ) {
                 header()
                 // The board is square, so it has to fit the *short* edge of the window. Sizing
@@ -527,6 +533,27 @@ fun BoardScreen(
         null -> {
             // No dialog on screen.
         }
+    }
+}
+
+/**
+ * A scrolling column at least as tall as the room it is given, so that a weighted spacer in it
+ * can push what follows to the bottom edge. A plain scrolling column measures its content with
+ * no height limit, which leaves weights nothing to share out.
+ */
+@Composable
+private fun ScreenColumn(
+    modifier: Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    BoxWithConstraints(modifier) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = maxHeight),
+            content = content,
+        )
     }
 }
 

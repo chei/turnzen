@@ -109,7 +109,7 @@ fun PillButton(
     }
 }
 
-/** Inline text action ("Undo", "Reset", "Sign out"). */
+/** Inline text action ("Open", "Reset", "Sign out"). */
 @Composable
 fun TextAction(
     text: String,
