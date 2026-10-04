@@ -1115,7 +1115,7 @@ Decisions taken while building the MVP that refine or amend the sections above.
   nothing is armed to send. The confirmations are short: "Pass?" alone, or, after the
   opponent's pass, that this one ends the game and starts counting — on a server Turnzen
   cannot count for (OGS for now), that the counting is done on its website, named;
-  "Resign?" with only "This can't be undone."
+  "Resign?" alone, its urgent confirm button saying the rest.
 - **Sent moves go through an app-wide outbox** (`MoveOutbox`, September 2026), not the
   board's view model, because the board has stepped on before the move leaves. It holds one
   move at a time in its undo window: sending another commits the one before at once, since

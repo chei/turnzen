@@ -494,7 +494,7 @@ fun BoardScreen(
         PendingConfirmation.RESIGN -> {
             Confirmation(
                 title = stringResource(R.string.board_resign_question),
-                text = stringResource(R.string.board_resign_explain),
+                text = null,
                 confirmLabel = stringResource(R.string.board_resign),
                 confirmColor = colors.urgent,
                 onConfirm = viewModel::confirm,

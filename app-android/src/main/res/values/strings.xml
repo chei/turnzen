@@ -78,7 +78,6 @@
     <string name="board_pass_ends_game_web">This ends the game. You count it on %1$s.</string>
     <string name="board_resign">Resign</string>
     <string name="board_resign_question">Resign?</string>
-    <string name="board_resign_explain">This can\'t be undone.</string>
     <string name="board_sending">Sending…</string>
     <string name="board_comment_label">Comment, sent with your next move</string>
     <string name="board_add_comment">Add a comment</string>

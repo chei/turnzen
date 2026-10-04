@@ -343,8 +343,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   the board's field holds. What the dialog shows is what is sent; Cancel leaves the board's
   draft as it was. The dialogs say no more than they must: "Pass?" alone, or "This ends the
   game and starts counting." when the opponent has passed (on a server Turnzen cannot count
-  for, "This ends the game. You count it on <server>."); "Resign?" with "This can't be
-  undone."
+  for, "This ends the game. You count it on <server>."); "Resign?" alone.
 - **Undo, not confirm.** Send has no dialog: the button already names the move. The board
   steps on to the next game at once, and one line above the bottom bar says what left —
   "Sending E6 to mkvtl" in `ink`, "Undo" in `accent` — for four seconds before the move goes
