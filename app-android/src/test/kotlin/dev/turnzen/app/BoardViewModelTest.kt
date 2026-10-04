@@ -995,11 +995,88 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.start(game)
             advanceUntilIdle()
             h.vm.askPass()
-            h.vm.onCommentChange("   ")
+            h.vm.onConfirmationCommentChange("   ")
             h.vm.confirm()
             advanceUntilIdle()
 
             assertEquals(listOf<String?>(null), comments)
+        }
+
+    @Test
+    fun `the pass dialog starts from the board's comment, and cancelling it keeps the draft`() =
+        runTest(dispatcher) {
+            val comments = ArrayList<String?>()
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val recording =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun sendMove(
+                        id: GameId,
+                        token: MoveToken,
+                        move: Move,
+                        comment: String?,
+                    ) {
+                        comments += comment
+                        fake.sendMove(id, token, move, comment)
+                    }
+                }
+            val h = Harness(recording)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onCommentChange("gg")
+
+            h.vm.askPass()
+            assertEquals("gg", h.vm.state.value.confirmationComment)
+            h.vm.onConfirmationCommentChange("never mind")
+            h.vm.cancelConfirmation()
+            assertEquals("gg", h.vm.state.value.commentDraft)
+
+            h.vm.askPass()
+            h.vm.onConfirmationCommentChange("Thanks for the game")
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals(listOf<String?>("Thanks for the game"), comments)
+            assertEquals("", h.vm.state.value.commentDraft)
+            assertEquals("", h.vm.state.value.confirmationComment)
+        }
+
+    @Test
+    fun `a resignation takes the comment written in its dialog`() =
+        runTest(dispatcher) {
+            val comments = ArrayList<String?>()
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val recording =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun resign(
+                        id: GameId,
+                        token: MoveToken,
+                        comment: String?,
+                    ) {
+                        comments += comment
+                        fake.resign(id, token, comment)
+                    }
+                }
+            val h = Harness(recording)
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onCommentChange("a move I was going to make")
+
+            h.vm.askResign()
+            assertEquals("a move I was going to make", h.vm.state.value.confirmationComment)
+            h.vm.onConfirmationCommentChange("  Well played  ")
+            h.vm.confirm()
+            advanceUntilIdle()
+
+            assertEquals(listOf<String?>("Well played"), comments)
+            assertEquals(1, h.ended)
+            assertEquals(
+                "Well played",
+                fake
+                    .game(game)
+                    .comments
+                    ?.last()
+                    ?.text,
+            )
         }
 
     @Test

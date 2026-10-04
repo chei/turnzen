@@ -74,14 +74,14 @@
     <string name="board_cancel">Cancel</string>
     <string name="board_pass">Pass</string>
     <string name="board_pass_question">Pass?</string>
-    <string name="board_pass_explain">Passing gives the move to your opponent without playing a stone.</string>
-    <string name="board_pass_explain_after_pass">Your opponent has passed. Passing too ends the game and starts scoring, which Turnzen can\'t do yet — you finish that on %1$s.</string>
+    <string name="board_pass_ends_game">This ends the game and starts counting.</string>
+    <string name="board_pass_ends_game_web">This ends the game. You count it on %1$s.</string>
     <string name="board_resign">Resign</string>
     <string name="board_resign_question">Resign?</string>
-    <string name="board_resign_explain">You give the game up. This can\'t be undone.</string>
     <string name="board_sending">Sending…</string>
     <string name="board_comment_label">Comment, sent with your next move</string>
     <string name="board_add_comment">Add a comment</string>
+    <string name="board_confirm_comment_label">Comment (optional)</string>
     <string name="outbox_failed">%1$s to %2$s wasn\'t sent</string>
     <string name="outbox_failed_pass">Your pass to %1$s wasn\'t sent</string>
     <string name="outbox_open">Open</string>

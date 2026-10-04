@@ -171,6 +171,12 @@ data class BoardUiState(
     val commentDraft: String = "",
     /** The comment field is open under the action row. */
     val writingComment: Boolean = false,
+    /**
+     * The comment in the pass or resign dialog, which is what goes with that act. It starts as
+     * [commentDraft], so a comment written on the board is seen before it is sent, and is the
+     * dialog's own copy: cancelling leaves the draft as it was.
+     */
+    val confirmationComment: String = "",
 ) {
     /** The game is being counted, so the board marks dead stones instead of trying moves. */
     val isScoring: Boolean
@@ -395,6 +401,10 @@ class BoardViewModel(
     /** For copy that names the server ("finish it on Dragon Go Server"). */
     val serverName: String
         get() = session.serverName
+
+    /** False when counting a game happens on the server's website rather than here. */
+    val scoresInApp: Boolean
+        get() = session.scoresInApp
 
     /** This game's page on the server's website, or null if it has none. */
     val gameUrl: String?
@@ -836,20 +846,25 @@ class BoardViewModel(
     }
 
     /**
-     * Passing and resigning both go through a confirmation: the dialog is there for what
-     * passing means, which a stone does not need explaining.
+     * Passing and resigning both go through a confirmation, which is also where their comment
+     * is written: both are reached from the info sheet, away from the board's comment field.
      */
     fun askPass() {
-        if (_state.value.canPass) _state.update { it.copy(confirmation = PendingConfirmation.PASS) }
+        if (_state.value.canPass) {
+            _state.update { it.copy(confirmation = PendingConfirmation.PASS, confirmationComment = it.commentDraft) }
+        }
     }
 
     fun askResign() {
         if (_state.value.detail != null && !_state.value.sending) {
-            _state.update { it.copy(confirmation = PendingConfirmation.RESIGN) }
+            _state.update { it.copy(confirmation = PendingConfirmation.RESIGN, confirmationComment = it.commentDraft) }
         }
     }
 
-    fun cancelConfirmation() = _state.update { it.copy(confirmation = null) }
+    fun cancelConfirmation() = _state.update { it.copy(confirmation = null, confirmationComment = "") }
+
+    /** The comment field in the pass or resign dialog. */
+    fun onConfirmationCommentChange(text: String) = _state.update { it.copy(confirmationComment = text) }
 
     /** Opens the comment field under the action row. */
     fun startComment() = _state.update { it.copy(writingComment = true) }
@@ -871,7 +886,7 @@ class BoardViewModel(
     fun confirm() {
         val s = _state.value
         when (s.confirmation) {
-            PendingConfirmation.PASS -> submit(Move.Pass)
+            PendingConfirmation.PASS -> submit(Move.Pass, s.confirmationComment)
             PendingConfirmation.RESIGN -> resign()
             PendingConfirmation.SEND_MARKS -> settleScore(accept = false)
             PendingConfirmation.ACCEPT_SCORE -> settleScore(accept = true)
@@ -942,11 +957,13 @@ class BoardViewModel(
      * deliberate exit, so the board closes and the user lands back on their games.
      */
     private fun resign() {
-        val detail = _state.value.detail ?: return
+        val s = _state.value
+        val detail = s.detail ?: return
+        val comment = s.confirmationComment.trim().ifEmpty { null }
         _state.update { it.copy(confirmation = null, sending = true, notice = null) }
         viewModelScope.launch {
             try {
-                session.call { it.resign(gameId, detail.summary.moveToken) }
+                session.call { it.resign(gameId, detail.summary.moveToken, comment) }
                 _state.update { it.copy(sending = false) }
                 // Ranks move exactly when a ladder game ends, ours among them.
                 ladders?.invalidate(detail.info?.tournament)
@@ -964,8 +981,14 @@ class BoardViewModel(
      * Hands [move] to the outbox and steps the queue on at once. The board is done with the
      * move from here: the outbox sends it straight away, and a move that
      * comes back is put back on this board the next time it opens (see [restore]).
+     *
+     * [comment] is what goes with it: the board's draft for a stone, the dialog's for a pass.
+     * Either way the draft has had its turn, so it is cleared.
      */
-    private fun submit(move: Move) {
+    private fun submit(
+        move: Move,
+        comment: String = _state.value.commentDraft,
+    ) {
         val s = _state.value
         val detail = s.detail ?: return
         val size = detail.record.boardSize
@@ -974,14 +997,21 @@ class BoardViewModel(
                 gameId = gameId,
                 token = detail.summary.moveToken,
                 move = move,
-                comment = s.commentDraft.trim().ifEmpty { null },
+                comment = comment.trim().ifEmpty { null },
                 label = (move as? Move.Play)?.let { Coordinates.label(it.point, size) },
                 opponent = detail.summary.opponent.handle,
                 trial = if (move is Move.Play) s.trial else null,
             ),
         )
         _state.update {
-            it.copy(confirmation = null, notice = null, problem = null, commentDraft = "", writingComment = false)
+            it.copy(
+                confirmation = null,
+                notice = null,
+                problem = null,
+                commentDraft = "",
+                writingComment = false,
+                confirmationComment = "",
+            )
         }
         onMoveSent(gameId)
     }

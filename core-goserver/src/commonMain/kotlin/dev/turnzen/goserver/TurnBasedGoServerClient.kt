@@ -99,10 +99,16 @@ interface TurnBasedGoServerClient {
     /**
      * Gives the game up. Irreversible on every server, so the caller is expected to have
      * confirmed it with the user. [token] is the same move context [sendMove] takes.
+     *
+     * [comment], when there is one, is the player's parting message. On DGS it travels with
+     * the resignation, as a message does with a move. On OGS it is a chat line sent just
+     * before, while the game is still running; failing to deliver it does not stop the
+     * resignation.
      */
     suspend fun resign(
         id: GameId,
         token: MoveToken,
+        comment: String? = null,
     )
 
     /**

@@ -201,11 +201,15 @@ class FakeTurnBasedGoServerClient(
     override suspend fun resign(
         id: GameId,
         token: MoveToken,
+        comment: String?,
     ) {
         delay(latencyMillis)
         requireSession()
         val g = find(id)
         if (token.value != g.moveId.toString()) throw GoServerException.StaleGame()
+        comment?.trim()?.takeIf { it.isNotEmpty() }?.let {
+            g.comments += GameComment(g.record.moves.size, g.myColor, it)
+        }
         // A resigned game is over, so it leaves both lists exactly as it would on a real
         // server — and turns up in the archive, which is also what a real server does.
         g.finish(GameResult(g.myColor.opposite, null, ResultReason.RESIGNATION))
