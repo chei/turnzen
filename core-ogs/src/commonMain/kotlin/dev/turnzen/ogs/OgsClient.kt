@@ -269,21 +269,22 @@ class OgsClient(
             awaitEvent("move")
             if (me != null) {
                 val played = (gamedata.arr("moves")?.size ?: token.value.toIntOrNull() ?: 0) + 1
-                sayAfterMove(message, played, me)
+                say(message, played, me)
             }
         }
         overview = null
     }
 
     /**
-     * Posts [message] to the game chat, pinned to the move just played, and waits for it to
-     * come back. OGS has no message that belongs to a move, so this is the nearest thing: the
-     * players' chat line, written at that move.
+     * Posts [message] to the game chat, pinned to [moveNumber], and waits for it to come back.
+     * OGS has no message that belongs to a move, so this is the nearest thing: the players'
+     * chat line, written at that move.
      *
-     * The move is already made when this runs, so nothing here may fail it. A chat line that
-     * does not come back in time is left to the server; the socket carried it either way.
+     * A comment is never worth failing the move or resignation it goes with, so nothing here
+     * throws. A chat line that does not come back in time is left to the server; the socket
+     * carried it either way.
      */
-    private suspend fun OgsRealtime.GameConnection.sayAfterMove(
+    private suspend fun OgsRealtime.GameConnection.say(
         message: String,
         moveNumber: Int,
         me: Long,
@@ -323,8 +324,17 @@ class OgsClient(
     override suspend fun resign(
         id: GameId,
         token: MoveToken,
+        comment: String?,
     ) {
-        inGame(id, token) { _ ->
+        val message = comment?.trim().orEmpty()
+        val me = if (message.isEmpty()) null else myId()
+        inGame(id, token, chat = me != null) { gamedata ->
+            // Said first, at the position being given up: once the game has finished, the
+            // players' channel is no longer the one the opponent is reading.
+            if (me != null) {
+                val moves = gamedata.arr("moves")?.size ?: token.value.toIntOrNull() ?: 0
+                say(message, moves, me)
+            }
             send("game/resign", buildJsonObject { put("game_id", JsonPrimitive(gameId)) })
             while (true) {
                 val (name, data) = awaitAnyEvent("phase", "gamedata")

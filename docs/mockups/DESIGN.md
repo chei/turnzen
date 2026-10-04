@@ -335,9 +335,15 @@ Use tabular figures for time and move counts so columns don't jitter.
   holding text stays open, unfocused, so what will go out stays in sight. Leaving the game
   drops an unsent comment rather than keeping it hidden for some later move; a move that is
   undone or fails brings its own comment back.
-  It goes with whichever move is sent next, Send or Pass; resigning takes none. It is cleared
-  once the move leaves and comes back with a move that is undone or fails. See
-  `09-board-comment.svg` and `09b-send-with-comment.svg`.
+  It goes with the next stone sent. It is cleared once the move leaves and comes back with a
+  move that is undone or fails. See `09-board-comment.svg` and `09b-send-with-comment.svg`.
+- **Pass and resign take their comment in their dialog.** Both are reached from the info
+  sheet, out of sight of the board's field, so the confirmation itself holds an underlined
+  field like the board's, placeholder "Comment (optional)", already filled in with whatever
+  the board's field holds. What the dialog shows is what is sent; Cancel leaves the board's
+  draft as it was. The dialogs say no more than they must: "Pass?" alone, or "This ends the
+  game and starts counting." when the opponent has passed (on a server Turnzen cannot count
+  for, "This ends the game. You count it on <server>."); "Resign?" alone.
 - **Undo, not confirm.** Send has no dialog: the button already names the move. The board
   steps on to the next game at once, and one line above the bottom bar says what left —
   "Sending E6 to mkvtl" in `ink`, "Undo" in `accent` — for four seconds before the move goes
