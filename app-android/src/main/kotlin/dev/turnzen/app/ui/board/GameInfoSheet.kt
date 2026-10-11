@@ -1,5 +1,11 @@
 package dev.turnzen.app.ui.board
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -324,8 +330,20 @@ private fun EventRows(
         InfoRow(stringResource(R.string.info_round), stringResource(R.string.info_round_of, round, rounds))
     }
     // Appears a moment after the rest: it is the one row that costs a request. Appended
-    // rather than inserted, so nothing above it moves when it lands.
-    standing?.let {
+    // rather than inserted, so nothing above it moves when it lands. What is below it (the
+    // actions) and the sheet's own top edge do move, so the row opens up instead of arriving
+    // between two frames: the same slide the games list makes room for a new game with.
+    // Already known when the sheet opens (a second look), it is simply there.
+    AnimatedVisibility(
+        visible = standing != null,
+        enter =
+            expandVertically(
+                tween(STANDING_SLIDE_MILLIS, easing = FastOutSlowInEasing),
+                expandFrom = Alignment.Top,
+            ) + fadeIn(tween(STANDING_SLIDE_MILLIS, easing = LinearEasing)),
+    ) {
+        // Never null in here: the standing is only ever set, never cleared.
+        val it = standing ?: return@AnimatedVisibility
         InfoRow(
             stringResource(R.string.info_standing),
             stringResource(
@@ -340,6 +358,9 @@ private fun EventRows(
         )
     }
 }
+
+/** As long as the games list takes to make room for a new row, so the two read as one motion. */
+private const val STANDING_SLIDE_MILLIS = 300
 
 @Composable
 private fun InfoRow(
