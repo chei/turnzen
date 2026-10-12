@@ -191,6 +191,16 @@ data class BoardUiState(
     val isScoring: Boolean
         get() = scoring != null
 
+    /**
+     * The count is on show: the game is being counted and the board stands on its final
+     * position. Stepping back from there reviews the game like any other — the navigation row
+     * returns, taps try moves — and the marks wait, untouched, for the return to the end. Only
+     * here does a tap mark, so a tap never has two meanings. A line branched out of the past
+     * never counts as the end, even when it happens to reach the same move number.
+     */
+    val showingScore: Boolean
+        get() = isScoring && trialFromCurrent && cursor == moveCount
+
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
         get() = detail?.summary ?: preview
@@ -294,15 +304,18 @@ data class BoardUiState(
 
     /** The board is live once a record is loaded: taps explore from wherever the cursor is. */
     val canPlace: Boolean
-        get() = !sending && !loading && replay != null && !isScoring
+        get() = !sending && !loading && replay != null && !showingScore
 
     /** Marking is the user's own business; only sending the marks needs their turn. */
     val canMark: Boolean
-        get() = isScoring && !sending && !loading
+        get() = showingScore && !sending && !loading
 
-    /** Sending marks and agreeing are moves in the scoring phase, so they need the turn. */
+    /**
+     * Sending marks and agreeing are moves in the scoring phase, so they need the turn — and
+     * the count in view, so that what is agreed to is what the user is looking at.
+     */
     val canSettleScore: Boolean
-        get() = isScoring && isMyTurn && !sending && !loading
+        get() = showingScore && isMyTurn && !sending && !loading
 
     /**
      * Passing is a move like any other, so it needs the same thing Send needs: the user's
@@ -332,7 +345,7 @@ data class BoardUiState(
      */
     val eventAtCursor: BoardEvent?
         get() {
-            if (isScoring || cursor > trialStart) return null
+            if (showingScore || cursor > trialStart) return null
             val played = replay?.record?.moves?.getOrNull(cursor - 1)
             if (played != null && played.move == Move.Pass) {
                 return BoardEvent(BoardEventKind.PASS, played.color)

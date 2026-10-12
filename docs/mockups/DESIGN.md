@@ -192,8 +192,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   is a fixed rate — one move per 12dp of travel — not a mapping of the board's width onto the
   game's length: an absolute mapping would put a 250-move game at under a point per move and
   make "back two" unhittable, while a fixed rate feels the same on a 9×9 and a 19×19. The
-  ends of the timeline stay the skip buttons' job. The drag is off while the game is being
-  counted, where the count has taken the navigation row's place.
+  ends of the timeline stay the skip buttons' job. The drag works while the game is being
+  counted too: it is the way from the count back into the game.
 - **Board gestures must be separable by distance, not by time.** A drag is told apart from a
   tap by touch slop, so a touch that does not travel stays a tap and places its stone with no
   delay. A double tap is told apart only by a timeout, which would hold *every* tap for it —
@@ -266,8 +266,12 @@ Use tabular figures for time and move counts so columns don't jitter.
   colour reachable through empty points, so a dead corner is one tap — and a board nobody has
   marked yet opens with the device's guess already marked. **Marking is local**, like every
   other board gesture: nothing reaches the server until the user sends it.
-  The move-navigation row is replaced by the count, because the board is the final position
-  and there is nothing left to walk through: the headline in title weight, the two sides'
+  While the board stands on the final position, the count takes the move-navigation row's
+  place. Dragging back across the board reviews the game as usual: the navigation row returns,
+  taps try moves rather than mark, the territory and dead-stone marks are hidden, and Send
+  marks / Accept are disabled, so what is agreed to is always what is in view. The row's
+  current-move button returns to the count with the marks as they were left. The count: the
+  headline in title weight, the two sides'
   sums below it, the key that names their addends, and one quiet line of guidance — "Tap a
   stone to mark it dead, with every stone of its colour in the same area", "The dead stones
   are a guess. Tap a stone to flip its whole area", "Your marks are on this device until you

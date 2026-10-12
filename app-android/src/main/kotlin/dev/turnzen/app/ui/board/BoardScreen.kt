@@ -209,19 +209,19 @@ fun BoardScreen(
                     // No interaction with the placeholder grid until the real position loads.
                     enabled = !state.sending && !state.loading,
                     scoring =
-                        state.scoring?.let {
+                        state.scoring?.takeIf { state.showingScore }?.let {
                             ScoringOverlay(
                                 dead = it.dead,
                                 blackTerritory = it.blackTerritory,
                                 whiteTerritory = it.whiteTerritory,
                             )
                         },
-                    // While the game is being counted a tap marks a group dead instead of
-                    // trying a move: there are no moves left to try.
-                    onTap = if (state.isScoring) viewModel::toggleDead else viewModel::onTap,
-                    // ...and for the same reason there is nothing to scrub through: the count
-                    // has taken the navigation row's place, so the drag loses its twin.
-                    onScrub = if (state.isScoring) null else viewModel::scrubBy,
+                    // While the count is on show a tap marks a group dead instead of trying a
+                    // move: there are no moves left to try. Stepped back into the game, the
+                    // board is for reading again.
+                    onTap = if (state.showingScore) viewModel::toggleDead else viewModel::onTap,
+                    // Scrubbing works even over the count: it is the way back into the game.
+                    onScrub = viewModel::scrubBy,
                 )
             } else {
                 Box(boardModifier.fillMaxWidth().aspectRatio(1f).background(colors.board))
@@ -250,9 +250,10 @@ fun BoardScreen(
 
             val scoring = state.scoring
             val summary = state.headerSummary
-            if (scoring != null && summary != null) {
-                // The counting phase replaces the move navigation: the board is the final
-                // position, there is nothing left to walk through, and the count needs the room.
+            if (scoring != null && summary != null && state.showingScore) {
+                // The count replaces the move navigation while the board is on the final
+                // position, which needs the room. Scrubbing back brings the row back, and its
+                // current-move button returns here with the marks as they were left.
                 // The summary comes with the record the count is made from, so it is always here;
                 // without it there would be no way to say which side is the reader's.
                 ScorePanel(

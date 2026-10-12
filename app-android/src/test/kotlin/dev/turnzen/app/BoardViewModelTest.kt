@@ -627,6 +627,58 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `a counted game can be reviewed, and the marks wait at the end`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoringGame)
+            advanceUntilIdle()
+            h.vm.toggleDead(strandedStone)
+
+            h.vm.stepBack()
+            val back = h.vm.state.value
+            assertFalse(back.showingScore)
+            assertTrue(back.isScoring)
+            // Off the end the board is for reading: taps try moves, nothing marks or settles.
+            assertTrue(back.canPlace)
+            assertFalse(back.canMark)
+            assertFalse(back.canSettleScore)
+            h.vm.toggleDead(strandedStone)
+            assertEquals(listOf(strandedStone), back.scoring?.taps)
+
+            h.vm.toCurrent()
+            val home = h.vm.state.value
+            assertTrue(home.showingScore)
+            assertTrue(home.canMark)
+            assertFalse(home.canPlace)
+            assertEquals(setOf(strandedStone), home.scoring?.dead)
+        }
+
+    @Test
+    fun `a line branched out of a counted game never stands in for the count`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoringGame)
+            advanceUntilIdle()
+            val end = h.vm.state.value.moveCount
+
+            // One move back and a stone of one's own: the line ends on the final move number
+            // without being the final position.
+            h.vm.stepBack()
+            val board = assertNotNull(h.vm.state.value.position).board
+            (0 until 9)
+                .flatMap { c -> (0 until 9).map { r -> Point(c, r) } }
+                .filter { board[it] == null }
+                .first { h.vm.onTap(it).let { h.vm.state.value.hasTrial } }
+            val s = h.vm.state.value
+            assertEquals(end, s.cursor)
+            assertFalse(s.showingScore)
+            assertFalse(s.canMark)
+
+            h.vm.toCurrent()
+            assertTrue(h.vm.state.value.showingScore)
+        }
+
+    @Test
     fun `marking the same group twice leaves nothing to tell the server`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
