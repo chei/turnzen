@@ -138,6 +138,9 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   `quick_do.php?obj=<entity>&cmd=<action>&<params>`
   Observed examples:
   - `quick_do.php?obj=game&cmd=list&view=status` — list of games awaiting your move
+  - `quick_do.php?obj=game&cmd=list&view=running&uid=mine&limit=100` — all running games.
+    Without `limit` DGS returns only the first 10 (the same fallback as below), so a player
+    with more running games would silently miss some.
   - `quick_do.php?obj=game&cmd=list&view=finished&uid=mine&limit=N` — finished games, most
     recently finished first (`list_order=time_lastmove-`), so a small `limit` takes the tail
     of the archive rather than its beginning. `limit` is honoured only in 1..100; anything

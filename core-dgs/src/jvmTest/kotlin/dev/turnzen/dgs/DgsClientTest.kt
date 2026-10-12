@@ -148,6 +148,20 @@ class DgsClientTest {
         }
 
     @Test
+    fun `running games are asked for in one full page, not DGS's default of ten`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            client.myRunningGames()
+            val list = transport.requests.last()
+            assertTrue(list.has("view=running"))
+            assertTrue(list.has("uid=mine"))
+            assertTrue(list.has("limit=100"))
+        }
+
+    @Test
     fun `the archive is asked for by the tail, newest first, and never for more than DGS allows`() =
         runTest {
             val transport = transportWithHappyPath()

@@ -36,6 +36,9 @@ class DgsClient(
 
         /** DGS's [ServerId], carried by every [GameId] this client hands out. */
         val SERVER_ID = ServerId("dgs")
+
+        /** The largest page DGS returns from a game list; it falls back to 10 outside 1..100. */
+        private const val RUNNING_LIMIT = 100
     }
 
     private val baseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
@@ -107,6 +110,9 @@ class DgsClient(
                 "cmd" to "list",
                 "view" to "running",
                 "uid" to "mine",
+                // Without a limit DGS returns only 10 games, which hid every running game past
+                // the tenth. 100 is the most it honours (see myFinishedGames).
+                "limit" to RUNNING_LIMIT.toString(),
                 "lstyle" to "json",
                 "with" to "user_id",
             )
