@@ -1029,6 +1029,21 @@ partly so the project could grow beyond Go (see Naming).
     page, the markup anchors, the extraction, the traps — is in
     [`dgs-ladder-standings.md`](dgs-ladder-standings.md). No other DGS client shows this, the
     web site included.
+13. **Game-over moment on the active list** — a game that has just ended (a score
+    accepted, a timeout, the opponent resigning) stays on the active games list once, so the
+    user meets the ending instead of the game silently moving to "Finished". Opening it shows
+    the end event in words ("You lost by 2 points", "You lost on time", "You won: White
+    resigned"); no action applies, so the only ways on are skip and back to the list. Once
+    seen, the game leaves the active list. This is the game-over screen item 7 leaves open.
+14. **Status marker on game rows** — a visual marker for games in a special state: just
+    begun (its first "your turn", whether from an incoming challenge or one the user sent),
+    last action a pass, in the scoring stage, finished (item 13). Either a row background
+    tint or a coloured badge above or below the DGS/OGS server marker; not decided.
+15. **Compact comments** — the comments shown above the action row (item 5) put the
+    player's name and their message on the same row, to take less vertical space.
+16. **Scoring marks without the delay** — the board opens in scoring mode about 0.3 s
+    before its marks appear, probably the time the dead-stone guess takes (item 7). Cut that
+    to little or nothing: speed up the guess, or work it out before the board is shown.
 
 ### Explicitly out of scope for the MVP
 
