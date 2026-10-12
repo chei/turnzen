@@ -185,15 +185,6 @@ object Scoring {
         )
     }
 
-    /**
-     * The stones that die together with the one at [point] — its connected group, which is
-     * what a tap on a dead stone means. Empty when the point holds no stone.
-     */
-    fun groupAt(
-        board: Board,
-        point: Point,
-    ): Set<Point> = board.group(point)
-
     private class Region(
         val points: Set<Point>,
         val borderedBy: Set<StoneColor>,
