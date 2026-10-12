@@ -90,7 +90,8 @@
     <string name="comment_secret_until_end">secret until the game ends</string>
     <string name="comment_writer_only">only you can see this</string>
 
-    <string name="score_hint_mark">Tap a group to mark it dead.</string>
+    <string name="score_hint_mark">Tap a stone to mark it dead, with every stone of its colour in the same area.</string>
+    <string name="score_hint_guessed">The dead stones are a guess. Tap a stone to flip its whole area.</string>
     <string name="score_hint_changed">Your marks are on this device until you send them.</string>
     <string name="score_hint_waiting">Waiting for your opponent to agree.</string>
     <string name="score_reset">Reset marks</string>

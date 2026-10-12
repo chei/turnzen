@@ -122,24 +122,25 @@ interface TurnBasedGoServerClient {
      * The scoring phase's current state: the dead stones both players are working from, the
      * territory they leave, and the server's own count.
      *
-     * [toggle] previews a change without committing it — one point per group whose life the
-     * user wants to flip — so a client can show what marking a group would be worth before
-     * proposing it. Committing is [disputeScore] or [acceptScore].
+     * [toggle] previews a change without committing it, so a client can show what marking
+     * stones would be worth before proposing it. Committing is [disputeScore] or [acceptScore].
      */
     suspend fun scoreState(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point> = emptySet(),
+        toggle: List<Point> = emptyList(),
     ): ScoreState
 
     /**
-     * Proposes different dead stones: [toggle] carries one point per group to flip. This is
-     * a move in the scoring phase — the turn passes to the opponent, who reviews the marks.
+     * Proposes different dead stones. [toggle] is the user's taps, in the order they made
+     * them, each flipping an area the way `DeadStones.toggle` does; the server replays them on
+     * its own marks. This is a move in the scoring phase — the turn passes to the opponent,
+     * who reviews the marks.
      */
     suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     )
 
     /**

@@ -9,6 +9,7 @@ import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.DeadStones
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
@@ -32,6 +33,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -55,6 +57,8 @@ class BoardViewModelTest : MainDispatcherTest() {
 
     private class Harness(
         client: TurnBasedGoServerClient,
+        /** Off unless a test is about it, so the others start from the server's own marks. */
+        private val guess: Boolean = false,
     ) {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
@@ -74,7 +78,17 @@ class BoardViewModelTest : MainDispatcherTest() {
             session.signIn(Credentials("demo", "pw"))
             games.refresh()
             if (finished) games.refreshFinished()
-            vm = BoardViewModel(id, session, games, outbox, onGameEnded = { ended++ }) { sent += it }
+            vm =
+                BoardViewModel(
+                    id,
+                    session,
+                    games,
+                    outbox,
+                    onGameEnded = { ended++ },
+                    guessDeadStones = if (guess) ({ DeadStones.guessTaps(it) }) else ({ emptyList() }),
+                    // The guess stays on the test dispatcher, so advanceUntilIdle waits for it.
+                    computeContext = EmptyCoroutineContext,
+                ) { sent += it }
             vm.load()
         }
     }
@@ -481,7 +495,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                     override suspend fun scoreState(
                         id: GameId,
                         token: MoveToken,
-                        toggle: Set<Point>,
+                        toggle: List<Point>,
                     ): ScoreState {
                         // A count nobody's arithmetic reaches, standing in for the real
                         // reasons two counts part company: seki, or unfilled dame.
@@ -519,7 +533,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                     override suspend fun scoreState(
                         id: GameId,
                         token: MoveToken,
-                        toggle: Set<Point>,
+                        toggle: List<Point>,
                     ): ScoreState {
                         reads++
                         return fake.scoreState(id, token, toggle)
@@ -542,8 +556,74 @@ class BoardViewModelTest : MainDispatcherTest() {
             // prisoner itself.
             assertEquals(18, scoring.blackTerritory.size)
             assertEquals(19.0, scoring.count?.blackPoints)
-            // One group flipped, so the server will hear about exactly one point.
-            assertEquals(1, scoring.toggled.size)
+            // One tap, so the server will hear about exactly one point.
+            assertEquals(listOf(strandedStone), scoring.taps)
+        }
+
+    @Test
+    fun `a board nobody has marked opens with the guessed dead stones`() =
+        runTest(dispatcher) {
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client, guess = true)
+            h.start(scoringGame)
+            advanceUntilIdle()
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            assertTrue(scoring.guessed)
+            assertEquals(setOf(strandedStone), scoring.dead)
+            // The guess is marks like any other: sent as taps, or dropped with Reset marks.
+            assertTrue(scoring.changed)
+            assertEquals(listOf(strandedStone), scoring.taps)
+            assertEquals(19.0, scoring.count?.blackPoints)
+
+            h.vm.resetMarks()
+            val reset = assertNotNull(h.vm.state.value.scoring)
+            assertFalse(reset.guessed)
+            assertTrue(reset.dead.isEmpty())
+        }
+
+    @Test
+    fun `the 13x13 demo opens with both dead corners marked, two taps to send`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0), guess = true)
+            h.start(GameId(DEMO_SERVER, "demo-scoring-13"))
+            advanceUntilIdle()
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            val dead =
+                listOf("L12", "N12", "M11", "N10", "M9", "N8", "K3", "L3", "M3", "N3", "N4", "N5", "M5", "N6")
+                    .map { checkNotNull(Coordinates.parse(it, 13)) }
+                    .toSet()
+            assertTrue(scoring.guessed)
+            assertEquals(dead, scoring.dead)
+            assertEquals(2, scoring.taps.size)
+        }
+
+    @Test
+    fun `marks already on the server are shown as they are, not guessed over`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            // The opponent marked a stone of black's wall: the user is there to review that.
+            val wallStone = checkNotNull(Coordinates.parse("A7", 9))
+            val marked =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun scoreState(
+                        id: GameId,
+                        token: MoveToken,
+                        toggle: List<Point>,
+                    ): ScoreState {
+                        val real = fake.scoreState(id, token, toggle)
+                        return real.copy(deadStones = real.deadStones + wallStone)
+                    }
+                }
+            val h = Harness(marked, guess = true)
+            h.start(scoringGame)
+            advanceUntilIdle()
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            assertFalse(scoring.guessed)
+            assertFalse(scoring.changed)
+            assertTrue(wallStone in scoring.dead)
+            assertFalse(strandedStone in scoring.dead)
         }
 
     @Test

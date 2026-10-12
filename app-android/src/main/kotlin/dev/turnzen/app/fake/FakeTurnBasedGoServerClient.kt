@@ -2,6 +2,7 @@ package dev.turnzen.app.fake
 
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.DeadStones
 import dev.turnzen.game.GameRecord
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
@@ -102,6 +103,7 @@ class FakeTurnBasedGoServerClient(
                     demo9(serverId),
                     demoWaiting(serverId),
                     demoScoring(serverId),
+                    demoScoring13(serverId),
                 )
             }
 
@@ -110,7 +112,7 @@ class FakeTurnBasedGoServerClient(
             }
 
             else -> {
-                mutableListOf(demo19(serverId), demo13(serverId), demoScoring(serverId))
+                mutableListOf(demo19(serverId), demo13(serverId), demoScoring(serverId), demoScoring13(serverId))
             }
         }
 
@@ -224,7 +226,7 @@ class FakeTurnBasedGoServerClient(
     override suspend fun scoreState(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ): ScoreState {
         delay(latencyMillis)
         requireSession()
@@ -235,7 +237,7 @@ class FakeTurnBasedGoServerClient(
     override suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ) {
         delay(latencyMillis)
         requireSession()
@@ -281,16 +283,10 @@ class FakeTurnBasedGoServerClient(
         return g
     }
 
-    /** The marks after flipping the group behind each toggled point. */
-    private fun FakeGame.toggled(toggle: Set<Point>): Set<Point> {
+    /** The marks after replaying the taps, each flipping an area as DGS does. */
+    private fun FakeGame.toggled(toggle: List<Point>): Set<Point> {
         val board = Replay(record).finalPosition.board
-        val marked = LinkedHashSet(dead)
-        for (point in toggle) {
-            val group = Scoring.groupAt(board, point)
-            if (group.isEmpty()) continue
-            if (group.all { it in marked }) marked -= group else marked += group
-        }
-        return marked
+        return toggle.fold(dead.toSet()) { marked, point -> DeadStones.toggle(board, marked, point) }
     }
 
     private fun FakeGame.stateFor(marked: Set<Point>): ScoreState {
@@ -538,6 +534,63 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Clock.System.now().minus(40.minutes),
                 remaining = RemainingTime("2d", 2.days, "+ 1d * 10"),
+                scoring = true,
+            )
+        }
+
+        /**
+         * A 13x13 from a real game, counted after two passes, with two dead white corners on
+         * the right: six lone stones in the top right and a chain in the bottom right. It is
+         * the position that made marking go by area — one chain at a time it took seven taps —
+         * and the board opens with both corners guessed dead. Laid out as setup stones, since
+         * the moves that led here are not what the demo is about.
+         */
+        fun demoScoring13(server: ServerId): FakeGame {
+            val rows =
+                listOf(
+                    "......OXX..X.",
+                    ".....O.OX.O.O",
+                    "...O..OOXX.O.",
+                    ".....OOOOXXXO",
+                    "....OXXXOOXO.",
+                    "..O..OOXXX.XO",
+                    ".OO..O.OX.XXX",
+                    "OOXOO.OOOX.XO",
+                    "OXXO.OXXX.XOO",
+                    "X.XOOX...XXXO",
+                    ".XXOXXX.XOOOO",
+                    "...XXXX..X...",
+                    ".......XXX.X.",
+                )
+            val black = ArrayList<Point>()
+            val white = ArrayList<Point>()
+            rows.forEachIndexed { row, line ->
+                line.forEachIndexed { col, c ->
+                    when (c) {
+                        'X' -> black += Point(col, row)
+                        'O' -> white += Point(col, row)
+                    }
+                }
+            }
+            val record =
+                GameRecord(
+                    boardSize = 13,
+                    komi = 6.5,
+                    setupBlack = black,
+                    setupWhite = white,
+                    firstToMove = StoneColor.WHITE,
+                    moves = listOf(ColoredMove(StoneColor.WHITE, Move.Pass), ColoredMove(StoneColor.BLACK, Move.Pass)),
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("ricardo_m", "9k"),
+                )
+            return FakeGame(
+                id = GameId(server, "demo-scoring-13"),
+                opponent = Opponent("ricardo_m", null, "9k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Clock.System.now().minus(3.hours),
+                remaining = RemainingTime("12h", 12.hours, "+ 1d"),
                 scoring = true,
             )
         }

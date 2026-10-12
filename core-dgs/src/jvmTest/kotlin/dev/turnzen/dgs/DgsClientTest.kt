@@ -370,12 +370,12 @@ class DgsClientTest {
             val read = transport.requests.last()
             assertEquals(HttpMethod.GET, read.method)
             assertTrue(read.url.contains("cmd=status_score"), read.url)
-            // uniq so a group named once flips once; comma-separated SGF so the answer parses.
-            assertTrue(read.url.contains("toggle=uniq"), read.url)
+            // all, so the taps are replayed in order; comma-separated SGF so the answer parses.
+            assertTrue(read.url.contains("toggle=all"), read.url)
             assertTrue(read.url.contains("move_id=264"), read.url)
 
             // A preview of what marking a group would be worth: still a read, never a commit.
-            client.scoreState(game, token, setOf(group))
+            client.scoreState(game, token, listOf(group))
             assertTrue(
                 transport.requests
                     .last()
@@ -384,7 +384,7 @@ class DgsClientTest {
                 transport.requests.last().url,
             )
 
-            client.disputeScore(game, token, setOf(group))
+            client.disputeScore(game, token, listOf(group))
             val dispute = transport.requests.last()
             assertEquals(HttpMethod.POST, dispute.method)
             assertEquals("score", dispute.form["cmd"])
