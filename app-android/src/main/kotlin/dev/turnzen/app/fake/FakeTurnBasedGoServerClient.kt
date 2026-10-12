@@ -103,6 +103,7 @@ class FakeTurnBasedGoServerClient(
                     demo9(serverId),
                     demoWaiting(serverId),
                     demoScoring(serverId),
+                    demoScoring13(serverId),
                 )
             }
 
@@ -111,7 +112,7 @@ class FakeTurnBasedGoServerClient(
             }
 
             else -> {
-                mutableListOf(demo19(serverId), demo13(serverId), demoScoring(serverId))
+                mutableListOf(demo19(serverId), demo13(serverId), demoScoring(serverId), demoScoring13(serverId))
             }
         }
 
@@ -533,6 +534,63 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size,
                 lastMoveAt = Clock.System.now().minus(40.minutes),
                 remaining = RemainingTime("2d", 2.days, "+ 1d * 10"),
+                scoring = true,
+            )
+        }
+
+        /**
+         * A 13x13 from a real game, counted after two passes, with two dead white corners on
+         * the right: six lone stones in the top right and a chain in the bottom right. It is
+         * the position that made marking go by area — one chain at a time it took seven taps —
+         * and the board opens with both corners guessed dead. Laid out as setup stones, since
+         * the moves that led here are not what the demo is about.
+         */
+        fun demoScoring13(server: ServerId): FakeGame {
+            val rows =
+                listOf(
+                    "......OXX..X.",
+                    ".....O.OX.O.O",
+                    "...O..OOXX.O.",
+                    ".....OOOOXXXO",
+                    "....OXXXOOXO.",
+                    "..O..OOXXX.XO",
+                    ".OO..O.OX.XXX",
+                    "OOXOO.OOOX.XO",
+                    "OXXO.OXXX.XOO",
+                    "X.XOOX...XXXO",
+                    ".XXOXXX.XOOOO",
+                    "...XXXX..X...",
+                    ".......XXX.X.",
+                )
+            val black = ArrayList<Point>()
+            val white = ArrayList<Point>()
+            rows.forEachIndexed { row, line ->
+                line.forEachIndexed { col, c ->
+                    when (c) {
+                        'X' -> black += Point(col, row)
+                        'O' -> white += Point(col, row)
+                    }
+                }
+            }
+            val record =
+                GameRecord(
+                    boardSize = 13,
+                    komi = 6.5,
+                    setupBlack = black,
+                    setupWhite = white,
+                    firstToMove = StoneColor.WHITE,
+                    moves = listOf(ColoredMove(StoneColor.WHITE, Move.Pass), ColoredMove(StoneColor.BLACK, Move.Pass)),
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("ricardo_m", "9k"),
+                )
+            return FakeGame(
+                id = GameId(server, "demo-scoring-13"),
+                opponent = Opponent("ricardo_m", null, "9k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Clock.System.now().minus(3.hours),
+                remaining = RemainingTime("12h", 12.hours, "+ 1d"),
                 scoring = true,
             )
         }

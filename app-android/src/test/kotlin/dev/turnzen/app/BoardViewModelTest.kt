@@ -583,6 +583,23 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `the 13x13 demo opens with both dead corners marked, two taps to send`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0), guess = true)
+            h.start(GameId(DEMO_SERVER, "demo-scoring-13"))
+            advanceUntilIdle()
+
+            val scoring = assertNotNull(h.vm.state.value.scoring)
+            val dead =
+                listOf("L12", "N12", "M11", "N10", "M9", "N8", "K3", "L3", "M3", "N3", "N4", "N5", "M5", "N6")
+                    .map { checkNotNull(Coordinates.parse(it, 13)) }
+                    .toSet()
+            assertTrue(scoring.guessed)
+            assertEquals(dead, scoring.dead)
+            assertEquals(2, scoring.taps.size)
+        }
+
+    @Test
     fun `marks already on the server are shown as they are, not guessed over`() =
         runTest(dispatcher) {
             val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
