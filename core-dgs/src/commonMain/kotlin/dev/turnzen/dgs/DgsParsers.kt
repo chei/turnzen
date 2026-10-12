@@ -241,7 +241,7 @@ internal object ScoreStateParser {
     }
 
     /** The same encoding, for the points a client asks the server to toggle. */
-    fun encode(points: Collection<Point>): String = points.joinToString(",") { SgfCoordinates.encode(it) }
+    fun encode(points: List<Point>): String = points.joinToString(",") { SgfCoordinates.encode(it) }
 }
 
 /**

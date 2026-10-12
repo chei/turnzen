@@ -221,7 +221,7 @@ class DgsClient(
     override suspend fun scoreState(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ): ScoreState =
         ScoreStateParser.parse(
             quickDo(
@@ -236,7 +236,7 @@ class DgsClient(
     override suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ) {
         quickDo(
             method = HttpMethod.POST,
@@ -266,13 +266,14 @@ class DgsClient(
     }
 
     /**
-     * The points whose life is being flipped, in SGF letters. `toggle=uniq` makes each named
-     * group flip exactly once — the client sends one point per group, and the default "all"
-     * mode would undo a group named twice.
+     * The user's taps, in order, in SGF letters. DGS flips the same area for a coordinate that
+     * `DeadStones.toggle` does for a tap, and `toggle=all` makes it apply them one after the
+     * other on the current marks — a replay of exactly what the user saw. (`uniq` would flip
+     * each point at most once, so a tap that undid an earlier one would be lost.)
      */
-    private fun scoreMoves(toggle: Set<Point>): Array<Pair<String, String>> =
+    private fun scoreMoves(toggle: List<Point>): Array<Pair<String, String>> =
         arrayOf(
-            "toggle" to "uniq",
+            "toggle" to "all",
             "fmt" to ",",
             "move" to ScoreStateParser.encode(toggle),
         )

@@ -262,13 +262,16 @@ Use tabular figures for time and move counts so columns don't jitter.
   says the game is in its scoring phase. The board keeps its stones; dead ones are drawn as
   ghosts of themselves (32% opacity) and each side's territory gets a small square in that
   side's stone colour — the same vocabulary as the stones, at a size that cannot be mistaken
-  for one. Tapping a group marks it dead or brings it back, and **marking is local**, like
-  every other board gesture: nothing reaches the server until the user sends it.
+  for one. Tapping a stone marks its whole area dead or brings it back — every stone of that
+  colour reachable through empty points, so a dead corner is one tap — and a board nobody has
+  marked yet opens with the device's guess already marked. **Marking is local**, like every
+  other board gesture: nothing reaches the server until the user sends it.
   The move-navigation row is replaced by the count, because the board is the final position
   and there is nothing left to walk through: the headline in title weight, the two sides'
   sums below it, the key that names their addends, and one quiet line of guidance — "Tap a
-  group to mark it dead", "Your marks are on this device until you send them", or "Waiting
-  for your opponent to agree".
+  stone to mark it dead, with every stone of its colour in the same area", "The dead stones
+  are a guess. Tap a stone to flip its whole area", "Your marks are on this device until you
+  send them", or "Waiting for your opponent to agree".
   A "Reset marks" text action appears beside the count once there is something to undo.
   The action row keeps Skip, and the right slot settles the score: **Send marks** while the
   user has marked something (it is a move — the opponent reviews it and the turn passes),

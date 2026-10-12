@@ -12,6 +12,7 @@ import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.DeadStones
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
 import dev.turnzen.game.Point
@@ -32,12 +33,15 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.ScoreState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 
 enum class PendingConfirmation { PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
@@ -64,8 +68,8 @@ data class BoardEvent(
  * The scoring phase: both players mark the stones they consider dead, and agree on what that
  * leaves. [server] is the state DGS last told us — its marks, its territory and its count,
  * which is the count that settles the game. [dead] is what the board shows now, including
- * marks the user has made since; [toggled] carries one point per group they flipped, which is
- * exactly what the server wants to hear about.
+ * marks made since; [taps] are the taps that led there from the server's marks, in order,
+ * which is exactly what the server wants to hear (it replays them, see [DeadStones.toggle]).
  *
  * Marking is local, like every other board gesture: nothing reaches the server until the user
  * sends the marks or accepts the score.
@@ -73,13 +77,18 @@ data class BoardEvent(
 data class ScoringUiState(
     val server: ScoreState,
     val dead: Set<Point>,
-    val toggled: Set<Point> = emptySet(),
+    val taps: List<Point> = emptyList(),
     /** The count for [dead], worked out on the device while the user is still marking. */
     val count: ScoreCount? = null,
+    /**
+     * The marks on show are the device's guess at the dead stones, untouched so far. Only made
+     * when the server holds no marks yet; see [DeadStones.guess].
+     */
+    val guessed: Boolean = false,
 ) {
     /** True while the board shows marks the server has not seen. */
     val changed: Boolean
-        get() = toggled.isNotEmpty()
+        get() = taps.isNotEmpty()
 
     /**
      * The result to show. Until the user touches anything that is the server's own count —
@@ -385,6 +394,10 @@ class BoardViewModel(
     private val nextGame: () -> GameId? = { null },
     /** The game is over (resigned): close the board rather than step to the next game. */
     private val onGameEnded: () -> Unit = {},
+    /** The taps that mark the guessed dead stones on a board nobody has marked yet. */
+    private val guessDeadStones: (Position) -> List<Point> = { DeadStones.guessTaps(it) },
+    /** Where the guess runs: it plays a few hundred games out, too much for the main thread. */
+    private val computeContext: CoroutineContext = Dispatchers.Default,
     /** Last so that the common case — only this callback — can be a trailing lambda. */
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
@@ -609,7 +622,18 @@ class BoardViewModel(
         viewModelScope.launch {
             try {
                 val state = session.call { it.scoreState(gameId, summary.moveToken) }
-                _state.update { current -> current.copy(scoring = scoringFrom(current, state, state.deadStones)) }
+                val taps = guessFor(state)
+                _state.update { current ->
+                    val position = current.replay?.finalPosition
+                    val dead =
+                        if (position == null) {
+                            state.deadStones
+                        } else {
+                            taps.fold(state.deadStones) { marks, tap -> DeadStones.toggle(position.board, marks, tap) }
+                        }
+                    val scoring = scoringFrom(current, state, dead, if (dead == state.deadStones) emptyList() else taps)
+                    current.copy(scoring = scoring?.copy(guessed = scoring.changed))
+                }
             } catch (e: GoServerException) {
                 // The board is still worth showing; the problem line explains the rest.
                 _state.update { it.copy(problem = problemFor(e, session.serverName)) }
@@ -617,12 +641,24 @@ class BoardViewModel(
         }
     }
 
+    /**
+     * The taps for the device's guess at the dead stones, or none. Only when the server holds
+     * no marks and the user is the one to mark: the opponent's marks are what the user is
+     * there to review, and a guess shown while waiting would be marks nobody can send.
+     */
+    private suspend fun guessFor(server: ScoreState): List<Point> {
+        val s = _state.value
+        if (server.deadStones.isNotEmpty() || !s.isMyTurn) return emptyList()
+        val position = s.replay?.finalPosition ?: return emptyList()
+        return withContext(computeContext) { guessDeadStones(position) }
+    }
+
     /** Rebuilds the scoring state around a set of dead stones, counting them locally. */
     private fun scoringFrom(
         state: BoardUiState,
         server: ScoreState,
         dead: Set<Point>,
-        toggled: Set<Point> = emptySet(),
+        taps: List<Point> = emptyList(),
     ): ScoringUiState? {
         val position = state.replay?.finalPosition ?: return null
         val komi = state.detail?.info?.komi ?: state.detail?.record?.komi ?: 0.0
@@ -632,36 +668,30 @@ class BoardViewModel(
         return ScoringUiState(
             server = server,
             dead = dead,
-            toggled = toggled,
+            taps = taps,
             count = Scoring.count(position, dead, komi, rules, handicap),
         )
     }
 
     /**
-     * Marks the group under the finger dead, or brings it back to life. Local, like every
-     * board gesture: the marks travel only when the user sends them.
+     * Marks the area under the finger dead, or brings it back to life: every stone of that
+     * colour and state reachable through empty points, so a corner full of dead stones goes in
+     * one tap ([DeadStones.toggle]). Local, like every board gesture: the marks travel only
+     * when the user sends them.
      *
-     * The server is told in groups, not stones — one point per group flipped — so a group
-     * flipped twice cancels out and is not mentioned at all. The lowest point of the group
-     * stands for it, so the same group always cancels itself whichever stone was tapped.
+     * The server is told the taps themselves, in order, and replays them. Once the marks are
+     * back where the server has them there is nothing to tell it, so the taps are dropped.
      */
     fun toggleDead(point: Point) {
         val s = _state.value
         val scoring = s.scoring ?: return
         if (!s.canMark) return
         val board = s.replay?.finalPosition?.board ?: return
-        val group = Scoring.groupAt(board, point)
-        if (group.isEmpty()) return
-        val representative = group.minWith(compareBy({ it.row }, { it.col }))
-        val dead = if (group.all { it in scoring.dead }) scoring.dead - group else scoring.dead + group
-        val toggled =
-            if (representative in scoring.toggled) {
-                scoring.toggled - representative
-            } else {
-                scoring.toggled + representative
-            }
+        val dead = DeadStones.toggle(board, scoring.dead, point)
+        if (dead == scoring.dead) return
+        val taps = if (dead == scoring.server.deadStones) emptyList() else scoring.taps + point
         _state.update { current ->
-            current.copy(scoring = scoringFrom(current, scoring.server, dead, toggled), notice = null)
+            current.copy(scoring = scoringFrom(current, scoring.server, dead, taps), notice = null)
         }
     }
 
@@ -696,7 +726,7 @@ class BoardViewModel(
     private fun settleScore(accept: Boolean) {
         val s = _state.value
         val detail = s.detail ?: return
-        val toggled = s.scoring?.toggled.orEmpty()
+        val taps = s.scoring?.taps.orEmpty()
         _state.update { it.copy(confirmation = null, sending = true, notice = null) }
         viewModelScope.launch {
             try {
@@ -704,7 +734,7 @@ class BoardViewModel(
                     if (accept) {
                         it.acceptScore(gameId, detail.summary.moveToken)
                     } else {
-                        it.disputeScore(gameId, detail.summary.moveToken, toggled)
+                        it.disputeScore(gameId, detail.summary.moveToken, taps)
                     }
                 }
                 _state.update { it.copy(sending = false) }

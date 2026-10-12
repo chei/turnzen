@@ -146,7 +146,7 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
     format as the scoring commands' ("W+7.5", "B+R", "0" for jigo, "VOID")
   - `quick_do.php?obj=game&cmd=move&gid=<id>&move_id=<n>&move=<coord>` — play a move
   - `quick_do.php?obj=game&cmd=resign&gid=<id>&move_id=<n>` — resign
-  - `quick_do.php?obj=game&cmd=score&gid=<id>&toggle=uniq&move=<...>&move_id=<n>` and
+  - `quick_do.php?obj=game&cmd=score&gid=<id>&toggle=all&move=<...>&move_id=<n>` and
     `cmd=status_score` — scoring phase (marking dead stones)
   - `quick_do.php?obj=message&cmd=list&filter_folders=2&with=user_id` — message list
   - `quick_do.php?obj=message&cmd=send_msg`, `cmd=accept_inv`, `cmd=decline_inv`,
@@ -162,16 +162,19 @@ This was studied by reading (not copying) DragonGoApp's `ServerConnection.java` 
   messages, private parts included, plus their private game notes), `0` an observer's (public
   parts only), `N` none at all. How the messages sit in the file is under "Comments".
 - **The scoring phase** (verified against `specs/quick_suite.txt`, September 2026):
-  `quick_do.php?obj=game&cmd=status_score&gid=&move_id=&move=<coords>&toggle=uniq&fmt=,`
+  `quick_do.php?obj=game&cmd=status_score&gid=&move_id=&move=<coords>&toggle=all&fmt=,`
   is a *read*: it returns `ruleset`, `score` ("B+2.5", "0" for jigo, "VOID", or "W+R"/"B+T"/
   "W+F"), and the full point state — `dame`, `neutral`, `black_stones`, `white_stones`,
   `black_dead`, `white_dead`, `black_territory`, `white_territory`. The coordinates it takes
   are toggles, so the same call previews what marking a group would be worth without
   committing anything. `cmd=score` commits: with `move=<coords>` it is a *disagreement*
   (the marks change and the turn passes), with `move=&agree=1` it is agreement, and the
-  spec asks for that agreement to be explicit so a client cannot agree by slip. `toggle=uniq`
-  makes each named group flip exactly once (the default "all" would undo a group named
-  twice). Statuses are `KOMI | SETUP | PLAY | PASS | SCORE | SCORE2 | FINISHED`, with SCORE
+  spec asks for that agreement to be explicit so a client cannot agree by slip. A coordinate
+  flips an *area*, not a chain: every stone of that colour and state (alive or dead) reachable
+  through empty points and each other, and killing an area also revives any dead area of the
+  other colour touching it (read from the server's `Board::toggle_marked_area`, October 2026).
+  `toggle=all` (the default) applies the coordinates one after another; `toggle=uniq` flips
+  each point at most once over the whole list. Statuses are `KOMI | SETUP | PLAY | PASS | SCORE | SCORE2 | FINISHED`, with SCORE
   the first player's scoring step and SCORE2 the other's.
 - **Game creation/invitation is NOT part of QuickSuite.** It goes through plain HTML form
   POSTs against `message.php` / `login.php` using the regular website session, and requires
@@ -997,7 +1000,9 @@ partly so the project could grow beyond Go (see Naming).
    because resigning is a deliberate exit, not a move. Its dialog takes an optional comment
    (October 2026), as the pass dialog does.
 7. **Scoring at game end** — *done (September 2026)*: a distinct mode of the board screen.
-   Tapping marks a group dead, territory and the count are shown live, and the user either
+   Tapping marks an area dead (October 2026: one tap per area, and a board nobody has marked
+   opens with a guess — see "Dead stones are marked by area"), territory and the count are
+   shown live, and the user either
    sends their marks (a disagreement, which passes the turn to the opponent) or accepts the
    score. Built on the QuickSuite `status_score` / `score` commands.
    Not yet: **resuming play** from a disagreement (DGS allows an ordinary `cmd=move` out of
@@ -1173,10 +1178,25 @@ Decisions taken while building the MVP that refine or amend the sections above.
   interaction (tap-tap-tap builds a variation), so no time-separated gesture belongs on the
   board. The rate is relative rather than an absolute map of width onto game length: a
   250-move game would otherwise run at under a point per move.
-- **Dead stones are sent as groups, not stones.** The server takes one coordinate per group
-  and flips it (`toggle=uniq`), so the app tracks the lowest point of each flipped group; a
-  group flipped twice cancels and is never mentioned. This keeps the request tiny and makes
-  "reset marks" a local operation.
+- **Dead stones are marked by area, and sent as the taps that marked them** (October 2026).
+  The first version flipped one chain per tap and told DGS one point per chain with
+  `toggle=uniq`. That cost seven taps for two dead corners of a 13x13 — and it was wrong:
+  DGS flips the whole *area* behind a coordinate (see "The scoring phase"), so a chain the user
+  had not tapped could die on the server while the board showed it alive. Now
+  `DeadStones.toggle` in `:core-game` does what DGS does, a tap flips the area, and the app
+  sends the taps themselves, in order, with `toggle=all`, which makes the server replay
+  exactly what the user saw. When the marks come back to the server's, the taps are dropped,
+  so "reset marks" stays local and nothing is sent that cancels out.
+- **A board nobody has marked opens with a guess.** When the server holds no marks and it is
+  the user's turn to mark, `DeadStones.guess` proposes the dead stones and the board opens
+  with them marked (as taps, like any other marks; Reset drops them). It plays the position
+  out at random 200 times and calls a chain dead when the opponent owns its points in a clear
+  majority, then takes a second look at chains random play could not settle (a few stones
+  with a lot of room): dead when walled in by the opponent's living stones, with nothing of
+  their own that lives in reach and neither two eyes nor room for them. A seki is left alone
+  on both counts. The guess only ever proposes whole areas, so it never kills a stone it was
+  not sure of. About 0.15 s on a desktop JVM for a 13x13, run off the main thread. No
+  opponent marks are guessed over: those are what the user is there to review.
 - **The scoring fixture is spec-derived, not recorded.** No game on the test account has
   reached the scoring phase, so `status_score.json` states the documented format instead of a
   captured response; the test says so. Replace it with a real capture when a game gets there.

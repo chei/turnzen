@@ -847,6 +847,7 @@ private fun ScorePanel(
         }
         val hint =
             when {
+                scoring.guessed -> stringResource(R.string.score_hint_guessed)
                 scoring.changed -> stringResource(R.string.score_hint_changed)
                 waitingForOpponent -> stringResource(R.string.score_hint_waiting)
                 canMark -> stringResource(R.string.score_hint_mark)

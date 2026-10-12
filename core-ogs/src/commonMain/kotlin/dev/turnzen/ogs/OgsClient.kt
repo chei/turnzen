@@ -355,13 +355,13 @@ class OgsClient(
     override suspend fun scoreState(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ): ScoreState = throw scoringOnTheWeb()
 
     override suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ): Unit = throw scoringOnTheWeb()
 
     override suspend fun acceptScore(

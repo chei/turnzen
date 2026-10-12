@@ -2,6 +2,7 @@ package dev.turnzen.app.fake
 
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
+import dev.turnzen.game.DeadStones
 import dev.turnzen.game.GameRecord
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Move
@@ -224,7 +225,7 @@ class FakeTurnBasedGoServerClient(
     override suspend fun scoreState(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ): ScoreState {
         delay(latencyMillis)
         requireSession()
@@ -235,7 +236,7 @@ class FakeTurnBasedGoServerClient(
     override suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
-        toggle: Set<Point>,
+        toggle: List<Point>,
     ) {
         delay(latencyMillis)
         requireSession()
@@ -281,16 +282,10 @@ class FakeTurnBasedGoServerClient(
         return g
     }
 
-    /** The marks after flipping the group behind each toggled point. */
-    private fun FakeGame.toggled(toggle: Set<Point>): Set<Point> {
+    /** The marks after replaying the taps, each flipping an area as DGS does. */
+    private fun FakeGame.toggled(toggle: List<Point>): Set<Point> {
         val board = Replay(record).finalPosition.board
-        val marked = LinkedHashSet(dead)
-        for (point in toggle) {
-            val group = Scoring.groupAt(board, point)
-            if (group.isEmpty()) continue
-            if (group.all { it in marked }) marked -= group else marked += group
-        }
-        return marked
+        return toggle.fold(dead.toSet()) { marked, point -> DeadStones.toggle(board, marked, point) }
     }
 
     private fun FakeGame.stateFor(marked: Set<Point>): ScoreState {
