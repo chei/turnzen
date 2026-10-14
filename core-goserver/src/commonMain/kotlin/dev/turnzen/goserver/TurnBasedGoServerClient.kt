@@ -120,7 +120,8 @@ interface TurnBasedGoServerClient {
 
     /**
      * The scoring phase's current state: the dead stones both players are working from, the
-     * territory they leave, and the server's own count.
+     * territory they leave, and the server's own count — or, on a server that counts nothing
+     * until the game is over (OGS), the client's count of the same marks.
      *
      * [toggle] previews a change without committing it, so a client can show what marking
      * stones would be worth before proposing it. Committing is [disputeScore] or [acceptScore].
@@ -135,7 +136,8 @@ interface TurnBasedGoServerClient {
      * Proposes different dead stones. [toggle] is the user's taps, in the order they made
      * them, each flipping an area the way `DeadStones.toggle` does; the server replays them on
      * its own marks. This is a move in the scoring phase — the turn passes to the opponent,
-     * who reviews the marks.
+     * who reviews the marks. Where both players mark one shared set at once (OGS), the user
+     * also accepts the marks they send, which leaves the opponent the same choice.
      */
     suspend fun disputeScore(
         id: GameId,
@@ -144,8 +146,10 @@ interface TurnBasedGoServerClient {
     )
 
     /**
-     * Agrees with the marks as they stand. When both players have agreed the game is over,
-     * so this is as final as a resignation and should be confirmed with the user.
+     * Agrees with the marks as they stand — the ones [scoreState] last showed; a client throws
+     * [GoServerException.StaleGame] rather than agree to marks that changed since. When both
+     * players have agreed the game is over, so this is as final as a resignation and should be
+     * confirmed with the user.
      */
     suspend fun acceptScore(
         id: GameId,

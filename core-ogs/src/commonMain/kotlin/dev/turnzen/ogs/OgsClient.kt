@@ -100,7 +100,13 @@ class OgsClient(
     override val serverName: String = "Online Go Server"
     override val registrationUrl: String = "$baseUrl/register"
     override val signInMethod: SignInMethod = SignInMethod.BROWSER
-    override val scoresInApp: Boolean = false
+
+    /**
+     * The marks of each game in the scoring phase as [scoreState] last read them: what the user
+     * was shown. Sending or accepting marks refuses to act on marks that have changed since, as
+     * a move refuses to act on a position that has.
+     */
+    private val shownMarks = HashMap<String, String>()
 
     override suspend fun signIn(credentials: Credentials): SignedInUser =
         throw UnsupportedOperationException("$serverName signs in in the browser")
@@ -352,25 +358,125 @@ class OgsClient(
         overview = null
     }
 
+    /**
+     * The marks as they stand, read over the realtime connection: OGS keeps the stone removal
+     * phase there. The count is this device's; OGS counts only once both players have accepted.
+     */
     override suspend fun scoreState(
         id: GameId,
         token: MoveToken,
         toggle: List<Point>,
-    ): ScoreState = throw scoringOnTheWeb()
+    ): ScoreState =
+        inGame(id, token) { gamedata ->
+            val marks = OgsStoneRemoval.read(gamedata)
+            shownMarks[id.value] = marks.encoded
+            OgsStoneRemoval.state(marks, toggle)
+        }
 
+    /**
+     * Marks differently, and accepts the new marks in the same go: on OGS both players mark
+     * the one shared set and the game ends when both have accepted it, so proposing marks one
+     * would not accept means nothing. The opponent sees them and accepts, or marks again.
+     *
+     * The taps are replayed here, on the marks the user was shown, and the server is told the
+     * stones that changed, which it sets as given.
+     */
     override suspend fun disputeScore(
         id: GameId,
         token: MoveToken,
         toggle: List<Point>,
-    ): Unit = throw scoringOnTheWeb()
+    ) {
+        val me = myId()
+        inGame(id, token) { gamedata ->
+            val marks = shownMarks(id, gamedata)
+            val dead = OgsStoneRemoval.state(marks, toggle).deadStones
+            val wanted = marks.marked - (marks.dead - dead) + (dead - marks.dead)
+            var held = marks.marked
+            for ((removed, stones) in listOf(false to marks.dead - dead, true to dead - marks.dead)) {
+                if (stones.isEmpty()) continue
+                send(
+                    "game/removed_stones/set",
+                    buildJsonObject {
+                        put("game_id", JsonPrimitive(gameId))
+                        put("removed", JsonPrimitive(removed))
+                        put("stones", JsonPrimitive(OgsStoneRemoval.encode(stones)))
+                    },
+                )
+                val echo = awaitEvent("removed_stones") as? JsonObject
+                val all = echo?.get("all_removed")
+                held =
+                    when {
+                        all != null -> OgsStoneRemoval.points(all, marks.position.board.size)
+                        removed -> held + stones
+                        else -> held - stones
+                    }
+            }
+            // Never accept marks the user did not see: if the server holds something else (the
+            // opponent marked at the same moment), leave the acceptance for a fresh look.
+            if (held != wanted) throw GoServerException.StaleGame()
+            acceptMarks(OgsStoneRemoval.encode(wanted), me)
+        }
+        shownMarks.remove(id.value)
+        overview = null
+    }
 
+    /** Accepts the marks as the user was shown them. Once both players have, the game is over. */
     override suspend fun acceptScore(
         id: GameId,
         token: MoveToken,
-    ): Unit = throw scoringOnTheWeb()
+    ) {
+        val me = myId()
+        inGame(id, token) { gamedata ->
+            acceptMarks(shownMarks(id, gamedata).encoded, me)
+        }
+        shownMarks.remove(id.value)
+        overview = null
+    }
 
-    private fun scoringOnTheWeb() =
-        GoServerException.ServerError("scoring", "Scoring on $serverName happens on the web for now")
+    /** The marks [gamedata] holds, provided they are the ones [scoreState] showed the user. */
+    private fun shownMarks(
+        id: GameId,
+        gamedata: JsonObject,
+    ): OgsStoneRemoval.Marks {
+        val marks = OgsStoneRemoval.read(gamedata)
+        if (shownMarks[id.value] != marks.encoded) throw GoServerException.StaleGame()
+        return marks
+    }
+
+    /** Accepts [stones] and waits for the server to record it, or for the game to end on it. */
+    private suspend fun OgsRealtime.GameConnection.acceptMarks(
+        stones: String,
+        me: Long,
+    ) {
+        send(
+            "game/removed_stones/accept",
+            buildJsonObject {
+                put("game_id", JsonPrimitive(gameId))
+                put("stones", JsonPrimitive(stones))
+                // Japanese strict seki mode, which the official client no longer offers.
+                put("strict_seki_mode", JsonPrimitive(false))
+            },
+        )
+        while (true) {
+            val (name, data) = awaitAnyEvent("removed_stones_accepted", "phase", "gamedata")
+            val done =
+                when (name) {
+                    "removed_stones_accepted" -> {
+                        val event = data as? JsonObject
+                        event?.long("player_id") == me || event?.str("phase") == "finished"
+                    }
+
+                    "phase" -> {
+                        (data as? JsonPrimitive)?.content == "finished"
+                    }
+
+                    else -> {
+                        (data as? JsonObject)?.str("phase") == "finished"
+                    }
+                }
+            if (done) break
+        }
+    }
 
     override fun gameUrl(id: GameId): String = "$baseUrl/game/${id.value}"
 

@@ -56,9 +56,11 @@ class OgsClientTest {
         val respond: (command: String, data: JsonObject, id: Int?) -> List<String>,
     ) : OgsSocket,
         OgsSocketConnector {
-        private val frames = Channel<String>(Channel.UNLIMITED)
+        /** A fresh line per connection, so a client may connect again after closing one. */
+        private var frames = Channel<String>(Channel.UNLIMITED)
         val sent = mutableListOf<String>()
-        override val incoming: ReceiveChannel<String> = frames
+        override val incoming: ReceiveChannel<String>
+            get() = frames
 
         override fun send(frame: String) {
             sent += frame
@@ -72,7 +74,10 @@ class OgsClientTest {
             frames.close()
         }
 
-        override suspend fun connect(url: String): OgsSocket = this
+        override suspend fun connect(url: String): OgsSocket {
+            if (frames.isClosedForSend) frames = Channel(Channel.UNLIMITED)
+            return this
+        }
     }
 
     private fun signedIn(
@@ -438,6 +443,176 @@ class OgsClientTest {
             val chat = (OgsJson.json.parseToJsonElement(socket.sent[2]) as JsonArray)[1] as JsonObject
             assertEquals("\"Well played\"", chat["body"].toString())
             assertEquals("72", chat["move_number"].toString())
+        }
+
+    /**
+     * The OGS realtime server for [StoneRemovalGame], holding [removed] as its marks. It sets
+     * marks as told and echoes the whole new state, and records an acceptance.
+     */
+    private fun removalServer(
+        removed: String,
+        /** The marks game data reports on each new connection; [removed] unless changed. */
+        marksOnJoin: () -> String = { removed },
+    ): FakeSocket {
+        var held = OgsStoneRemoval.points(JsonPrimitive(removed), 9)
+        val game = StoneRemovalGame.ID
+        return FakeSocket { command, data, id ->
+            when (command) {
+                "authenticate" -> {
+                    listOf("""[$id,{"id":1001,"username":"turnzen-test"}]""")
+                }
+
+                "game/connect" -> {
+                    val marks = marksOnJoin()
+                    held = OgsStoneRemoval.points(JsonPrimitive(marks), 9)
+                    listOf("""["game/$game/gamedata",${StoneRemovalGame.gamedata(removed = marks)}]""")
+                }
+
+                "game/removed_stones/set" -> {
+                    val stones = OgsStoneRemoval.points(data["stones"], 9)
+                    held = if (data["removed"].toString() == "true") held + stones else held - stones
+                    val all = OgsStoneRemoval.encode(held)
+                    listOf(
+                        """["game/$game/removed_stones",""" +
+                            """{"removed":${data["removed"]},"stones":${data["stones"]},"all_removed":"$all"}]""",
+                    )
+                }
+
+                "game/removed_stones/accept" -> {
+                    listOf(
+                        """["game/$game/removed_stones_accepted",""" +
+                            """{"player_id":1001,"stones":${data["stones"]},"phase":"stone removal"}]""",
+                    )
+                }
+
+                else -> {
+                    emptyList()
+                }
+            }
+        }
+    }
+
+    private val removalGame = GameId(OgsClient.SERVER_ID, StoneRemovalGame.ID.toString())
+    private val removalToken = MoveToken(StoneRemovalGame.MOVES.toString())
+
+    private fun FakeSocket.commands() =
+        sent.map { (OgsJson.json.parseToJsonElement(it) as JsonArray)[0].toString().trim('"') }
+
+    private fun FakeSocket.sentData(command: String) =
+        sent
+            .map { OgsJson.json.parseToJsonElement(it) as JsonArray }
+            .filter { it[0].toString().trim('"') == command }
+            .map { it[1] as JsonObject }
+
+    @Test
+    fun `the scoring state is the server's marks, read over the realtime connection`() =
+        runTest {
+            val socket = removalServer("hhbb")
+            val state = signedIn(realtimeHttp(), socket).scoreState(removalGame, removalToken)
+            assertEquals(setOf(Point(1, 1), Point(7, 7)), state.deadStones)
+            assertEquals(StoneColor.BLACK, state.result?.winner)
+            assertEquals(listOf("authenticate", "game/connect", "game/disconnect"), socket.commands())
+        }
+
+    @Test
+    fun `accepting sends back the marks the user was shown`() =
+        runTest {
+            val socket = removalServer("hhbb")
+            val client = signedIn(realtimeHttp(), socket)
+            client.scoreState(removalGame, removalToken)
+            client.acceptScore(removalGame, removalToken)
+            val accept = socket.sentData("game/removed_stones/accept").single()
+            assertEquals("\"bbhh\"", accept["stones"].toString())
+            assertEquals("false", accept["strict_seki_mode"].toString())
+            assertTrue(socket.sentData("game/removed_stones/set").isEmpty())
+        }
+
+    @Test
+    fun `marks that changed since the user looked are not accepted`() =
+        runTest {
+            var marks = "bb"
+            val socket = removalServer("bb") { marks }
+            val client = signedIn(realtimeHttp(), socket)
+            client.scoreState(removalGame, removalToken)
+            marks = "bbhh"
+            assertFailsWith<GoServerException.StaleGame> { client.acceptScore(removalGame, removalToken) }
+            assertTrue(socket.sentData("game/removed_stones/accept").isEmpty())
+        }
+
+    @Test
+    fun `nothing is accepted before the marks have been looked at`() =
+        runTest {
+            val socket = removalServer("bb")
+            assertFailsWith<GoServerException.StaleGame> {
+                signedIn(realtimeHttp(), socket).acceptScore(removalGame, removalToken)
+            }
+            assertTrue(socket.sentData("game/removed_stones/accept").isEmpty())
+        }
+
+    @Test
+    fun `different marks are set stone by stone and then accepted`() =
+        runTest {
+            // The server holds white's stone at B8 dead; the user kills black's at H2 and
+            // brings B8 back to life.
+            val socket = removalServer("bb")
+            val client = signedIn(realtimeHttp(), socket)
+            client.scoreState(removalGame, removalToken)
+            client.disputeScore(removalGame, removalToken, listOf(Point(7, 7), Point(1, 1)))
+            assertEquals(
+                listOf(
+                    "authenticate",
+                    "game/connect",
+                    "game/disconnect",
+                    "authenticate",
+                    "game/connect",
+                    "game/removed_stones/set",
+                    "game/removed_stones/set",
+                    "game/removed_stones/accept",
+                    "game/disconnect",
+                ),
+                socket.commands(),
+            )
+            val (revive, kill) = socket.sentData("game/removed_stones/set")
+            assertEquals("false" to "\"bb\"", revive["removed"].toString() to revive["stones"].toString())
+            assertEquals("true" to "\"hh\"", kill["removed"].toString() to kill["stones"].toString())
+            val accept = socket.sentData("game/removed_stones/accept").single()
+            assertEquals("\"hh\"", accept["stones"].toString())
+        }
+
+    @Test
+    fun `marks the server ends up holding differently are left unaccepted`() =
+        runTest {
+            val game = StoneRemovalGame.ID
+            val socket =
+                FakeSocket { command, _, id ->
+                    when (command) {
+                        "authenticate" -> {
+                            listOf("""[$id,{"id":1001}]""")
+                        }
+
+                        "game/connect" -> {
+                            listOf("""["game/$game/gamedata",${StoneRemovalGame.gamedata(removed = "")}]""")
+                        }
+
+                        // The opponent marked a stone of their own at the same moment.
+                        "game/removed_stones/set" -> {
+                            listOf(
+                                """["game/$game/removed_stones",""" +
+                                    """{"removed":true,"stones":"hh","all_removed":"bbhh"}]""",
+                            )
+                        }
+
+                        else -> {
+                            emptyList()
+                        }
+                    }
+                }
+            val client = signedIn(realtimeHttp(), socket)
+            client.scoreState(removalGame, removalToken)
+            assertFailsWith<GoServerException.StaleGame> {
+                client.disputeScore(removalGame, removalToken, listOf(Point(7, 7)))
+            }
+            assertTrue(socket.sentData("game/removed_stones/accept").isEmpty())
         }
 
     @Test
