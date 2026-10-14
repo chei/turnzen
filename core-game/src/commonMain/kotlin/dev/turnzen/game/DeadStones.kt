@@ -379,27 +379,32 @@ object DeadStones {
             var capturedAt = -1
             for (n in neighbors[point]) {
                 if (cells[n] == enemy) {
-                    val length = collectGroup(n)
-                    if (!hasLiberty(length)) {
+                    val length = chainWithoutLiberty(n)
+                    if (length > 0) {
                         for (k in 0 until length) cells[group[k]] = EMPTY
                         captured += length
                         capturedAt = n
                     }
                 }
             }
-            val own = collectGroup(point)
-            if (!hasLiberty(own)) {
+            // A stone with an empty point beside it has a liberty, and its chain with it:
+            // the chain only needs walking when the stone filled its last one.
+            if (libertyCount(point) == 0 && chainWithoutLiberty(point) > 0) {
                 // Suicide; nothing was captured or the group would have a liberty.
                 cells[point] = EMPTY
                 return false
             }
             // A lone stone that took a lone stone and sits in its place with one liberty: ko.
-            ko = if (captured == 1 && own == 1 && libertyCount(point) == 1) capturedAt else -1
+            ko = if (captured == 1 && isLone(point) && libertyCount(point) == 1) capturedAt else -1
             return true
         }
 
-        /** Fills [group] with the chain at [start]; returns its length. */
-        private fun collectGroup(start: Int): Int {
+        /**
+         * The length of the chain at [start] when it has no liberty, with its points in
+         * [group]; 0 as soon as a liberty turns up. Most chains have one a step or two away,
+         * so stopping there spares walking a long chain on every move.
+         */
+        private fun chainWithoutLiberty(start: Int): Int {
             val color = cells[start]
             markGen++
             var top = 0
@@ -410,7 +415,9 @@ object DeadStones {
                 val current = stack[--top]
                 group[length++] = current
                 for (n in neighbors[current]) {
-                    if (mark[n] != markGen && cells[n] == color) {
+                    val c = cells[n]
+                    if (c == EMPTY) return 0
+                    if (c == color && mark[n] != markGen) {
                         mark[n] = markGen
                         stack[top++] = n
                     }
@@ -419,11 +426,11 @@ object DeadStones {
             return length
         }
 
-        private fun hasLiberty(length: Int): Boolean {
-            for (k in 0 until length) {
-                for (n in neighbors[group[k]]) if (cells[n] == EMPTY) return true
-            }
-            return false
+        /** True when no stone of the same colour touches [point]. */
+        private fun isLone(point: Int): Boolean {
+            val color = cells[point]
+            for (n in neighbors[point]) if (cells[n] == color) return false
+            return true
         }
 
         private fun libertyCount(point: Int): Int = neighbors[point].count { cells[it] == EMPTY }
