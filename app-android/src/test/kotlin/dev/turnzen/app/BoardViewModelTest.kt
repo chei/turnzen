@@ -63,7 +63,13 @@ class BoardViewModelTest : MainDispatcherTest() {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
         val accounts = Accounts(listOf(session))
-        val games = GamesStore(accounts)
+        val games =
+            GamesStore(
+                accounts,
+                guessDeadStones = if (guess) ({ DeadStones.guessTaps(it) }) else ({ emptyList() }),
+                // The guess stays on the test dispatcher, so advanceUntilIdle waits for it.
+                computeContext = EmptyCoroutineContext,
+            )
 
         // Main is the test dispatcher, so sends run on virtual time.
         val outbox = MoveOutbox(accounts, games, CoroutineScope(Dispatchers.Main))
@@ -85,9 +91,6 @@ class BoardViewModelTest : MainDispatcherTest() {
                     games,
                     outbox,
                     onGameEnded = { ended++ },
-                    guessDeadStones = if (guess) ({ DeadStones.guessTaps(it) }) else ({ emptyList() }),
-                    // The guess stays on the test dispatcher, so advanceUntilIdle waits for it.
-                    computeContext = EmptyCoroutineContext,
                 ) { sent += it }
             vm.load()
         }
@@ -624,6 +627,71 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertFalse(scoring.changed)
             assertTrue(wallStone in scoring.dead)
             assertFalse(strandedStone in scoring.dead)
+        }
+
+    /** The demo client, counting the scoring states read from it. */
+    private class CountingScores(
+        private val fake: FakeTurnBasedGoServerClient = FakeTurnBasedGoServerClient(latencyMillis = 0),
+    ) : TurnBasedGoServerClient by fake {
+        var reads = 0
+
+        override suspend fun scoreState(
+            id: GameId,
+            token: MoveToken,
+            toggle: List<Point>,
+        ): ScoreState {
+            reads++
+            return fake.scoreState(id, token, toggle)
+        }
+    }
+
+    @Test
+    fun `reopening a counted game shows its marks at once, without reading them again`() =
+        runTest(dispatcher) {
+            val client = CountingScores()
+            val h = Harness(client, guess = true)
+            h.start(scoringGame)
+            advanceUntilIdle()
+            assertEquals(1, client.reads)
+
+            // Leave and come back: the board must not show the plain position first.
+            h.vm.load()
+            val s = h.vm.state.value
+            assertFalse(s.loading)
+            val scoring = assertNotNull(s.scoring)
+            assertTrue(scoring.guessed)
+            assertEquals(setOf(strandedStone), scoring.dead)
+            advanceUntilIdle()
+            assertEquals(1, client.reads)
+        }
+
+    @Test
+    fun `a prefetched counted game opens straight into scoring`() =
+        runTest(dispatcher) {
+            val client = CountingScores()
+            val h = Harness(client)
+            h.session.signIn(Credentials("demo", "pw"))
+            h.games.refresh()
+            h.games.prefetch(scoringGame)
+            assertEquals(1, client.reads)
+
+            h.start(scoringGame)
+            // No dispatcher time has passed: everything came from what was prefetched.
+            assertNotNull(h.vm.state.value.scoring)
+            advanceUntilIdle()
+            assertEquals(1, client.reads)
+        }
+
+    @Test
+    fun `a counted game opens with the board and the marks together`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoringGame)
+            // Until the scoring state is in, the placeholder stands rather than a plain board.
+            assertTrue(h.vm.state.value.loading)
+            assertNull(h.vm.state.value.replay)
+            advanceUntilIdle()
+            assertNotNull(h.vm.state.value.scoring)
         }
 
     @Test

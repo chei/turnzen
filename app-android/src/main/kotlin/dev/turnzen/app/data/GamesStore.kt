@@ -1,11 +1,19 @@
 package dev.turnzen.app.data
 
+import dev.turnzen.game.DeadStones
+import dev.turnzen.game.Point
+import dev.turnzen.game.Position
+import dev.turnzen.game.Replay
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.ServerId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -13,6 +21,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.CoroutineContext
 
 /**
  * What the last refresh brought into each running list: the rows the Games screen has not
@@ -21,6 +31,20 @@ import kotlinx.coroutines.flow.update
 data class Arrivals(
     val yourTurn: Set<GameId> = emptySet(),
     val allRunning: Set<GameId> = emptySet(),
+)
+
+/**
+ * A game's scoring phase as the server last described it, held so that reopening the game
+ * shows its marks at once instead of a plain board that switches to scoring a moment later.
+ *
+ * Tied to [token]: every mark sent or accepted is a move, so while the token stands the
+ * server's marks cannot have changed.
+ */
+data class HeldScore(
+    val token: MoveToken,
+    val state: ScoreState,
+    /** The taps of the device's guess at the dead stones; empty when there is none to make. */
+    val guess: List<Point>,
 )
 
 /**
@@ -36,6 +60,10 @@ data class Arrivals(
  */
 class GamesStore(
     private val accounts: Accounts,
+    /** The taps that mark the guessed dead stones on a board nobody has marked yet. */
+    private val guessDeadStones: (Position) -> List<Point> = { DeadStones.guessTaps(it) },
+    /** Where the guess runs: it plays a few hundred games out, too much for the main thread. */
+    private val computeContext: CoroutineContext = Dispatchers.Default,
     /**
      * Told what each answering server said is awaiting the user, after every [refresh]: the
      * user has now seen those games, so the notifications need not announce them.
@@ -63,6 +91,9 @@ class GamesStore(
      * Only ever touched from the main dispatcher (view-model scopes), so a plain map is fine.
      */
     private val details = LinkedHashMap<GameId, GameDetail>()
+
+    /** Scoring states of games in the counting phase, kept like [details]. */
+    private val scores = LinkedHashMap<GameId, HeldScore>()
 
     /** null until the first successful load. */
     val yourTurn: StateFlow<List<GameSummary>?> = shownYourTurn.asStateFlow()
@@ -259,10 +290,45 @@ class GamesStore(
         }
     }
 
+    /** The scoring state held for [id], if it is the one for the move [token] names. */
+    fun cachedScore(
+        id: GameId,
+        token: MoveToken,
+    ): HeldScore? = scores[id]?.takeIf { it.token == token }
+
     /**
-     * Download [id]'s record in the background so opening it is instantaneous. Skipped when
-     * a copy the games list agrees with is already held, so a warm game is never fetched
-     * twice. Best effort throughout: prefetching is an optimisation, and a failure here must
+     * Reads the scoring state of [detail], a game in its counting phase, and works out the
+     * device's guess at the dead stones; kept for the next time the game is opened.
+     *
+     * The guess is made only when the server holds no marks and the user is the one to mark:
+     * the opponent's marks are what the user is there to review, and a guess shown while
+     * waiting would be marks nobody can send.
+     */
+    suspend fun readScore(detail: GameDetail): HeldScore {
+        val id = detail.summary.id
+        val token = detail.summary.moveToken
+        val state = accounts.session(id.server).call { it.scoreState(id, token) }
+        val guess =
+            if (state.deadStones.isNotEmpty() || !detail.summary.isMyTurn) {
+                emptyList()
+            } else {
+                val position = Replay(detail.record).finalPosition
+                withContext(computeContext) { guessDeadStones(position) }
+            }
+        val score = HeldScore(token, state, guess)
+        scores.remove(id)
+        scores[id] = score
+        while (scores.size > MAX_CACHED_DETAILS) {
+            scores.remove(scores.keys.first())
+        }
+        return score
+    }
+
+    /**
+     * Download [id]'s record in the background so opening it is instantaneous — and, for a
+     * game being counted, its scoring state too, or the board would open without the marks
+     * and switch to them a moment later. Skipped when a copy the games list agrees with is
+     * already held, so a warm game is never fetched twice. Best effort throughout: prefetching is an optimisation, and a failure here must
      * never reach the user — the game simply loads normally when they open it.
      *
      * Deliberately narrow (the next game in the queue, and the first game waiting on the
@@ -272,9 +338,16 @@ class GamesStore(
     suspend fun prefetch(id: GameId) {
         val known = details[id]
         val summary = summary(id)
-        if (known != null && (summary == null || summary.moveNumber <= known.summary.moveNumber)) return
+        val session = accounts.session(id.server)
         try {
-            cache(accounts.session(id.server).call { it.game(id) })
+            val detail =
+                if (known != null && (summary == null || summary.moveNumber <= known.summary.moveNumber)) {
+                    known
+                } else {
+                    session.call { it.game(id) }.also(::cache)
+                }
+            if (detail.summary.pendingAction != PendingAction.SCORE || !session.scoresInApp) return
+            if (cachedScore(id, detail.summary.moveToken) == null) readScore(detail)
         } catch (e: GoServerException) {
             // Never surfaced: the game is fetched for real when it is opened.
         }
@@ -288,6 +361,7 @@ class GamesStore(
     fun onMovePlayed(id: GameId) {
         // The cached record predates the move that was just sent, so it is no longer usable.
         details.remove(id)
+        scores.remove(id)
         onArrivalShown(id)
         outgoing = outgoing - id
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
@@ -303,6 +377,7 @@ class GamesStore(
      */
     fun onGameEnded(id: GameId) {
         details.remove(id)
+        scores.remove(id)
         onArrivalShown(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
@@ -355,6 +430,7 @@ class GamesStore(
     /** A server was signed out: its games leave every list, the others stay. */
     fun forget(server: ServerId) {
         details.keys.removeAll { it.server == server }
+        scores.keys.removeAll { it.server == server }
         _yourTurn.update { list -> list?.filterNot { it.id.server == server } }
         _allRunning.update { list -> list?.filterNot { it.id.server == server } }
         _finished.update { list -> list?.filterNot { it.id.server == server } }
@@ -367,6 +443,7 @@ class GamesStore(
         _finished.value = null
         _arrivals.value = Arrivals()
         details.clear()
+        scores.clear()
         publish()
     }
 
