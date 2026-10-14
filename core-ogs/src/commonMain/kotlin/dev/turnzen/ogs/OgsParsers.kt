@@ -267,15 +267,15 @@ internal object OgsGameData {
         val action =
             when (phase) {
                 "play" -> PendingAction.PLAY_MOVE
-                "stone removal" -> PendingAction.SCORE
+                OgsStoneRemoval.PHASE -> PendingAction.SCORE
                 else -> PendingAction.OTHER
             }
         // Stone removal is not taken in turns on OGS: both players mark and accept, so it waits
-        // on the user until they have dealt with it (on the web, for now).
+        // on the user until they have accepted the marks as they stand.
         val myTurn =
             when (phase) {
                 "play" -> clock?.long("current_player") == me
-                "stone removal" -> true
+                OgsStoneRemoval.PHASE -> OgsStoneRemoval.awaits(gamedata, myColor)
                 else -> false
             }
         return GameSummary(
