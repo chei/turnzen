@@ -158,7 +158,8 @@ data class BoardUiState(
     /** Non-null once the game has reached its scoring phase. */
     val scoring: ScoringUiState? = null,
     /**
-     * The game is being counted on a server whose scoring Turnzen does not do (OGS, for now):
+     * The game is being counted on a server whose scoring Turnzen does not do
+     * (`TurnBasedGoServerClient.scoresInApp`):
      * nothing can be sent from here, and the problem line points to the web.
      */
     val scoringOnTheWeb: Boolean = false,

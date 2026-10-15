@@ -65,9 +65,6 @@ class FakeTurnBasedGoServerClient(
     override val passwordDomain = if (browserSignIn) null else "www.dragongoserver.net"
     override val signInMethod: SignInMethod = if (browserSignIn) SignInMethod.BROWSER else SignInMethod.PASSWORD
 
-    // Like OGS, the browser-signed-in demo server leaves scoring to the web.
-    override val scoresInApp: Boolean = !browserSignIn
-
     private var signedIn = false
     private val user = SignedInUser("1", "demo", "Demo User", "8k")
 

@@ -263,10 +263,11 @@ for it.
 - **Parity with what DGS already has**, as far as OGS allows: running and finished games,
   board and replay, send move, resign, rating change of a finished game. Ladder standings
   stay DGS-only (OGS has no equivalent in this form).
-- **Scoring opens on the web in the first release.** OGS's stone-removal phase is
-  concurrent (both players mark at once) rather than DGS's alternating proposals, runs only
-  over the websocket, and the server auto-scores for a player who is not connected — so it
-  does not fit `scoreState` / `disputeScore` as they stand, and gets its own design round.
+- **Scoring opened on the web in the first release; it is in the app since October 2026.**
+  OGS's stone-removal phase is concurrent (both players mark one shared set) rather than
+  DGS's alternating proposals, and runs only over the websocket. It does not need both
+  players online at once, though: see "Scoring on OGS" below for how it maps onto
+  `scoreState` / `disputeScore` / `acceptScore`.
 - **Non-square boards** (OGS allows e.g. 19×9) are not supported: such a game is listed,
   but its row opens the game on the web instead of the board.
 - Conditional moves and game chat exist on OGS (websocket `game/conditional_moves/set`,
@@ -373,8 +374,9 @@ for it.
   and whose request body is unverified. `:core-ogs` therefore opens a short-lived connection
   for an action — fetch a `user_jwt` from `/api/v1/ui/config/`, `authenticate`,
   `game/connect`, `game/move` or `game/resign`, `game/disconnect` — behind the existing
-  suspend functions. Pull-based stays true above the module boundary. Holding a connection
-  for the scoring phase is part of the scoring design round.
+  suspend functions. Pull-based stays true above the module boundary. The scoring phase
+  needs no held connection either: each read, mark and acceptance is one short connection
+  (see "Scoring on OGS").
 - Useful endpoints found so far: `/api/v1/ui/overview/` (active games with full game data;
   whose turn it is from `clock.current_player`), `/api/v1/players/{id}/game_history/`
   (finished games), and `/termination-api/player/{id}/v5-rating-history` (TSV of rating per
@@ -442,6 +444,50 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   rating-history columns.
 - The mockup review before UI code was skipped: the user asked for the work to continue
   without waiting. The UI follows the mockups in `docs/mockups/05–08`.
+
+### Scoring on OGS (October 2026)
+
+The first release sent OGS games in the scoring phase to the web; a passed-out game sat on the
+active list with nothing to do in the app. Researched against the protocol definitions of
+OGS's own board library (`goban`, Apache-2.0, read for the protocol only):
+
+- **The phase.** Two passes put the game in phase `stone removal`. The game data holds one
+  set of marks, `removed` (two-letter coordinates, "aa" the top-left corner; newer data may
+  send a list of `{x, y}`) — the dead stones plus any empty points marked as dame — and each
+  player's acceptance as `players.<colour>.accepted_stones`. Either player may change the
+  marks at any time (`game/removed_stones/set` with `removed` true or false and the points);
+  the server echoes `game/<id>/removed_stones` with `all_removed`, the whole new set. A player
+  accepts with `game/removed_stones/accept` (`stones`: the whole set, row by row;
+  `strict_seki_mode`: false), answered by `game/<id>/removed_stones_accepted`. Once both have
+  accepted the same marks the game finishes. `game/removed_stones/reject` resumes play.
+- **Nobody has to be online at the same time.** The phase has its own clock
+  (`clock.stone_removal_expiration`); when it runs out the marks *as they stand* are taken as
+  agreed. Forum reports put it at about 24 hours in correspondence games, restarted by every
+  change of marks; no current official figure was found. The danger is a game that nobody
+  marked: it then ends with every stone alive. OGS's web client avoids that by scoring the
+  board as the phase starts, and as of October 2026 (goban PR #284) the server proposes the
+  dead stones itself — whether that is live for correspondence games is not verified.
+- **Mapping onto the interface.** `scoreState` joins the game, reads the marks and counts
+  them on the device (`Scoring.count`; OGS counts nothing until the game is over).
+  `acceptScore` accepts the marks the user was shown. `disputeScore` replays the user's taps
+  on the marks they were shown (`DeadStones.toggle`), sets the stones that changed — revived
+  ones, then killed ones — and **accepts the result in the same go**: both players work on
+  one set, so marks the sender would not accept mean nothing, and the opponent is left the
+  same choice as after a DGS proposal (accept, or mark again). Dame marks on empty points are
+  kept as the server holds them; the app neither shows nor changes them.
+- **Never accept marks the user did not see.** `:core-ogs` remembers the marks each game's
+  `scoreState` showed; accepting refuses with `StaleGame` when the server's differ (the
+  opponent marked meanwhile) or when nothing was shown yet, and the board reloads. After a
+  `set`, the server's `all_removed` must equal what the user marked, or nothing is accepted.
+- **Whose turn.** The phase waits on a player until they have accepted the marks as they
+  stand (their `accepted_stones` equals `removed`, compared as sets), so an accepted game
+  moves to "waiting" and comes back when the opponent changes the marks.
+- **The guess covers the unmarked board.** When the server holds no marks, the app's own
+  guess (see "A board nobody has marked opens with a guess") is what the user sees and sends;
+  nothing is sent just for opening the board.
+- **Not done:** resuming play (`reject`), showing the phase's deadline, and the dame marks.
+  The fixture is spec-derived (`StoneRemovalGame` in the OGS tests): no game on the test
+  account has reached the phase. Replace it with a capture when one does.
 
 ### Order of work
 
@@ -1007,7 +1053,8 @@ partly so the project could grow beyond Go (see Naming).
    opens with a guess — see "Dead stones are marked by area"), territory and the count are
    shown live, and the user either
    sends their marks (a disagreement, which passes the turn to the opponent) or accepts the
-   score. Built on the QuickSuite `status_score` / `score` commands.
+   score. Built on the QuickSuite `status_score` / `score` commands on DGS, and on the
+   realtime stone-removal messages on OGS (October 2026, see "Scoring on OGS").
    Not yet: **resuming play** from a disagreement (DGS allows an ordinary `cmd=move` out of
    the scoring phase), and the game-over screen — an accepted score leaves the game list and
    the result is read on the web.
