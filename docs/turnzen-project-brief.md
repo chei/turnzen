@@ -1145,6 +1145,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   reports a higher move number the record is refetched, and the board shows its loading
   placeholder rather than a stale position. A `StaleGame` answer from the server forces a
   download outright, since there the list is known to be behind.
+  A game in its counting phase is held together with its scoring state (`status_score` plus
+  the device's dead-stone guess), keyed by the move token, which every mark changes; the
+  prefetch warms it too. Without it the board would show the plain position and switch to
+  the marks a moment later, so until the state is in the loading placeholder stands instead.
   The move number is not the whole game, though: the clock of the player to move runs while
   it stands still, and on a slow game a held record can be days old (one cached at 12 h
   showed 12 h on the board after the list had reached 3 h, 2026-10-01). So a held record

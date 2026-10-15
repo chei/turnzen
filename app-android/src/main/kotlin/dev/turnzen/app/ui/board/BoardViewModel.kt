@@ -3,6 +3,7 @@ package dev.turnzen.app.ui.board
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.HeldScore
 import dev.turnzen.app.data.LadderStandings
 import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.OutgoingMove
@@ -33,15 +34,12 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.ScoreState
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import kotlin.coroutines.CoroutineContext
 import kotlin.math.abs
 
 enum class PendingConfirmation { PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
@@ -408,10 +406,6 @@ class BoardViewModel(
     private val nextGame: () -> GameId? = { null },
     /** The game is over (resigned): close the board rather than step to the next game. */
     private val onGameEnded: () -> Unit = {},
-    /** The taps that mark the guessed dead stones on a board nobody has marked yet. */
-    private val guessDeadStones: (Position) -> List<Point> = { DeadStones.guessTaps(it) },
-    /** Where the guess runs: it plays a few hundred games out, too much for the main thread. */
-    private val computeContext: CoroutineContext = Dispatchers.Default,
     /** Last so that the common case — only this callback — can be a trailing lambda. */
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
@@ -452,6 +446,10 @@ class BoardViewModel(
      * in it, or the opponent has), so the held record would flash a stale position that then
      * jumps: show the loading placeholder instead and fetch the real one.
      *
+     * A game being counted needs its scoring state as well, held the same way (keyed by the
+     * move token, which every mark changes). Without it the placeholder stays up until the
+     * state is read, rather than showing the plain board and switching to the marks after.
+     *
      * [force] downloads unconditionally, for the one case where the server has told us
      * directly that the game moved on — the list has not caught up yet and must not be
      * trusted.
@@ -473,30 +471,18 @@ class BoardViewModel(
         val refetch = force || back?.movedOn == true
         val held = if (refetch) null else _state.value.detail ?: games.cachedDetail(gameId)
         // The record can be days old on a slow game; the list's clock is the current one.
-        val known = held?.let(games::withListClock)
-        if (known != null && (preview == null || preview.moveNumber <= known.summary.moveNumber)) {
+        val known =
+            held
+                ?.let(games::withListClock)
+                ?.takeIf { preview == null || preview.moveNumber <= it.summary.moveNumber }
+        // A game being counted opens straight into scoring, marks and all: a board that
+        // showed the plain position first and switched to the marks a moment later reads as
+        // a glitch. So the scoring state is part of what has to be at hand.
+        val score = known?.let { games.cachedScore(gameId, it.summary.moveToken) }
+        if (known != null && (!countsHere(known) || score != null)) {
             // A record from the store's cache was fetched on some earlier visit.
             if (held !== _state.value.detail) clocksFetchedAt = null
-            val replay = Replay(known.record)
-            _state.update {
-                it.copy(
-                    loading = false,
-                    problem = null,
-                    preview = preview ?: it.preview,
-                    detail = known,
-                    replay = replay,
-                    trial = TrialVariation.start(replay.finalPosition),
-                    trialStart = replay.moveCount,
-                    cursor = openingCursor(replay, known.summary),
-                    scoring = null,
-                    comments = known.comments ?: it.comments,
-                    writingComment = false,
-                )
-            }
-            restore(back)
-            loadScoreIfCounting()
-            loadCommentsIfSeparate(known)
-            warmNext()
+            show(known, score, back)
             return
         }
         _state.update {
@@ -512,33 +498,59 @@ class BoardViewModel(
             )
         }
         viewModelScope.launch {
-            try {
-                val detail = session.call { it.game(gameId) }
-                games.cache(detail)
-                clocksFetchedAt = detail.summary.moveNumber
-                val replay = Replay(detail.record)
-                _state.update { current ->
-                    current.copy(
-                        loading = false,
-                        detail = detail,
-                        replay = replay,
-                        // A fresh trial on the current position, coloured for the side to move.
-                        trial = TrialVariation.start(replay.finalPosition),
-                        trialStart = replay.moveCount,
-                        cursor = openingCursor(replay, detail.summary),
-                        scoring = null,
-                        comments = detail.comments ?: current.comments,
-                        writingComment = false,
-                    )
+            val detail =
+                try {
+                    known ?: session.call { it.game(gameId) }.also {
+                        games.cache(it)
+                        clocksFetchedAt = it.summary.moveNumber
+                    }
+                } catch (e: GoServerException) {
+                    _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
+                    return@launch
                 }
-                restore(back)
-                loadScoreIfCounting()
-                loadCommentsIfSeparate(detail)
-                warmNext()
+            if (!countsHere(detail)) {
+                show(detail, null, back)
+                return@launch
+            }
+            try {
+                show(detail, games.readScore(detail), back)
             } catch (e: GoServerException) {
-                _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
+                // The board is still worth showing; the problem line explains the rest.
+                show(detail, null, back)
+                _state.update { it.copy(problem = problemFor(e, session.serverName)) }
             }
         }
+    }
+
+    /** Puts [detail] on the board, in scoring mode when [score] is given. */
+    private fun show(
+        detail: GameDetail,
+        score: HeldScore?,
+        back: ReturnedMove?,
+    ) {
+        val replay = Replay(detail.record)
+        _state.update { current ->
+            val shown =
+                current.copy(
+                    loading = false,
+                    problem = null,
+                    preview = games.summary(gameId) ?: current.preview,
+                    detail = detail,
+                    replay = replay,
+                    // A fresh trial on the current position, coloured for the side to move.
+                    trial = TrialVariation.start(replay.finalPosition),
+                    trialStart = replay.moveCount,
+                    cursor = openingCursor(replay, detail.summary),
+                    scoring = null,
+                    comments = detail.comments ?: current.comments,
+                    writingComment = false,
+                )
+            shown.copy(scoring = score?.let { scoringShown(shown, it) })
+        }
+        restore(back)
+        if (detail.summary.pendingAction == PendingAction.SCORE && !session.scoresInApp) countOnTheWeb()
+        loadCommentsIfSeparate(detail)
+        warmNext()
     }
 
     /**
@@ -606,65 +618,43 @@ class BoardViewModel(
         return at
     }
 
-    /**
-     * Fetches the scoring state when the game has reached the counting phase.
-     *
-     * Read-only, and done whoever's turn it is: seeing which stones the opponent has marked
-     * is the whole point of the phase, and the board would otherwise show a finished game
-     * with no explanation of why it cannot be played.
-     */
-    private fun loadScoreIfCounting() {
-        val s = _state.value
-        val summary = s.detail?.summary ?: return
-        if (summary.pendingAction != PendingAction.SCORE) return
-        if (!session.scoresInApp) {
-            _state.update {
-                it.copy(
-                    scoringOnTheWeb = true,
-                    problem =
-                        ServerProblem(
-                            title = "Counting on the web",
-                            message =
-                                "This game is being counted. Turnzen can't count ${session.serverName} games " +
-                                    "yet; open it on the web to agree on the dead stones.",
-                            transient = true,
-                        ),
-                )
-            }
-            return
-        }
-        viewModelScope.launch {
-            try {
-                val state = session.call { it.scoreState(gameId, summary.moveToken) }
-                val taps = guessFor(state)
-                _state.update { current ->
-                    val position = current.replay?.finalPosition
-                    val dead =
-                        if (position == null) {
-                            state.deadStones
-                        } else {
-                            taps.fold(state.deadStones) { marks, tap -> DeadStones.toggle(position.board, marks, tap) }
-                        }
-                    val scoring = scoringFrom(current, state, dead, if (dead == state.deadStones) emptyList() else taps)
-                    current.copy(scoring = scoring?.copy(guessed = scoring.changed))
-                }
-            } catch (e: GoServerException) {
-                // The board is still worth showing; the problem line explains the rest.
-                _state.update { it.copy(problem = problemFor(e, session.serverName)) }
-            }
+    /** True when [detail] is in its counting phase and the counting happens in the app. */
+    private fun countsHere(detail: GameDetail): Boolean =
+        detail.summary.pendingAction == PendingAction.SCORE && session.scoresInApp
+
+    /** Counting this server's games happens on its website: the board says so. */
+    private fun countOnTheWeb() {
+        _state.update {
+            it.copy(
+                scoringOnTheWeb = true,
+                problem =
+                    ServerProblem(
+                        title = "Counting on the web",
+                        message =
+                            "This game is being counted. Turnzen can't count ${session.serverName} games " +
+                                "yet; open it on the web to agree on the dead stones.",
+                        transient = true,
+                    ),
+            )
         }
     }
 
-    /**
-     * The taps for the device's guess at the dead stones, or none. Only when the server holds
-     * no marks and the user is the one to mark: the opponent's marks are what the user is
-     * there to review, and a guess shown while waiting would be marks nobody can send.
-     */
-    private suspend fun guessFor(server: ScoreState): List<Point> {
-        val s = _state.value
-        if (server.deadStones.isNotEmpty() || !s.isMyTurn) return emptyList()
-        val position = s.replay?.finalPosition ?: return emptyList()
-        return withContext(computeContext) { guessDeadStones(position) }
+    /** The scoring panel for [score] on the board [state] shows, the guess already marked. */
+    private fun scoringShown(
+        state: BoardUiState,
+        score: HeldScore,
+    ): ScoringUiState? {
+        val server = score.state
+        val taps = score.guess
+        val position = state.replay?.finalPosition
+        val dead =
+            if (position == null) {
+                server.deadStones
+            } else {
+                taps.fold(server.deadStones) { marks, tap -> DeadStones.toggle(position.board, marks, tap) }
+            }
+        val scoring = scoringFrom(state, server, dead, if (dead == server.deadStones) emptyList() else taps)
+        return scoring?.copy(guessed = scoring.changed)
     }
 
     /** Rebuilds the scoring state around a set of dead stones, counting them locally. */
