@@ -102,11 +102,6 @@
     <string name="score_black">black</string>
     <string name="score_white">white</string>
     <string name="score_sum">= %1$s</string>
-    <string name="score_key_territory">Territory</string>
-    <string name="score_key_prisoners">prisoners</string>
-    <string name="score_key_stones">stones</string>
-    <string name="score_key_komi">komi</string>
-    <string name="score_key_handicap">handicap</string>
     <string name="score_server_differs">These totals are this device\'s count (%1$s); the server\'s figure above is the one that settles the game.</string>
     <string name="score_aside_you">you by %1$s</string>
     <string name="score_aside_them">%1$s by %2$s</string>

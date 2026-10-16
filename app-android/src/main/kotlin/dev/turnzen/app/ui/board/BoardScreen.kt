@@ -97,8 +97,6 @@ import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Position
 import dev.turnzen.game.ResultReason
-import dev.turnzen.game.ScoreCount
-import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.CommentVisibility
 import dev.turnzen.goserver.GameComment
@@ -699,41 +697,6 @@ private fun colorName(color: StoneColor): String =
     stringResource(if (color == StoneColor.BLACK) R.string.score_black else R.string.score_white)
 
 /**
- * What the two sums are made of, named in the order they are added: "Territory + prisoners
- * + komi". Only the addends that actually appear are named, so a game with no komi and no
- * prisoners does not promise figures that are not on the screen.
- */
-@Composable
-private fun countKey(count: ScoreCount): String {
-    val parts =
-        buildList {
-            add(stringResource(R.string.score_key_territory))
-            val secondary =
-                if (count.rules == ScoringRules.AREA) {
-                    count.stonesOf(StoneColor.BLACK) + count.stonesOf(StoneColor.WHITE)
-                } else {
-                    count.capturesOf(StoneColor.BLACK) + count.capturesOf(StoneColor.WHITE)
-                }
-            if (secondary > 0) {
-                add(
-                    stringResource(
-                        if (count.rules ==
-                            ScoringRules.AREA
-                        ) {
-                            R.string.score_key_stones
-                        } else {
-                            R.string.score_key_prisoners
-                        },
-                    ),
-                )
-            }
-            if (count.komi != 0.0) add(stringResource(R.string.score_key_komi))
-            if (count.handicapCompensation != 0.0) add(stringResource(R.string.score_key_handicap))
-        }
-    return parts.joinToString(" + ")
-}
-
-/**
  * One side of the breakdown: who they are, the addends, and what they come to. A side with
  * a single addend shows the figure once — "0 = 0" is arithmetic nobody needs checking.
  */
@@ -840,11 +803,6 @@ private fun ScorePanel(
                     total = count.pointsOf(color),
                 )
             }
-            Text(
-                countKey(count),
-                style = MaterialTheme.typography.bodySmall,
-                color = colors.ink2,
-            )
         }
         scoring.localAside?.let {
             Text(
