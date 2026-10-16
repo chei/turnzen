@@ -485,12 +485,12 @@ class BoardViewModelTest : MainDispatcherTest() {
             // Nothing is marked yet, so the stranded white stone keeps black's area neutral.
             assertTrue(scoring.dead.isEmpty())
             assertTrue(scoring.blackTerritory.isEmpty())
-            // Server and device count the same position the same way: nothing to reconcile.
-            assertNull(scoring.localAside)
+            // Server and device count the same position the same way, so the breakdown adds up.
+            assertEquals(scoring.count, scoring.breakdown)
         }
 
     @Test
-    fun `a server count the device cannot reproduce is owned up to`() =
+    fun `a server count the device cannot reproduce gets no breakdown`() =
         runTest(dispatcher) {
             val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
             val generous =
@@ -512,18 +512,17 @@ class BoardViewModelTest : MainDispatcherTest() {
 
             val scoring = assertNotNull(h.vm.state.value.scoring)
             // The headline stays the server's — that is what an agreement agrees to — and the
-            // device's own figure, which the breakdown adds up to, is offered beside it.
+            // device's figures, which would not add up to it, are left out.
             assertEquals(10.0, scoring.result?.margin)
-            assertEquals(scoring.count?.result, scoring.localAside)
+            assertNotNull(scoring.count)
+            assertNull(scoring.breakdown)
 
             // Once the user marks something the device's count is the only one on show, so
-            // there are no longer two answers to reconcile.
+            // its breakdown is back.
             h.vm.toggleDead(strandedStone)
             advanceUntilIdle()
-            assertNull(
-                h.vm.state.value.scoring
-                    ?.localAside,
-            )
+            val marked = assertNotNull(h.vm.state.value.scoring)
+            assertEquals(marked.count, marked.breakdown)
         }
 
     @Test

@@ -1224,8 +1224,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   different set of stones. The two normally agree on any position whose dead stones are
   agreed, which is the position a player is looking at when they accept — but not always
   (seki, dame left unfilled under area scoring), so when the margins differ by more than
-  rounding the screen says so and names both figures. The server's is still the one that
-  settles the game.
+  rounding the per-side breakdown is left out and only the server's figure is on show
+  (October 2026; it used to name both figures in a line of its own, which cost two or three
+  lines on a screen that has none to spare). The server's is the one that settles the game,
+  so the device's arithmetic is not worth explaining.
 - **The count is shown as a sum, and that forced a rules fix.** The panel breaks each side's
   total into its addends (September 2026), which means any error in the arithmetic is now on
   screen for the reader to check. One was: under area scoring black's handicap stones sit on

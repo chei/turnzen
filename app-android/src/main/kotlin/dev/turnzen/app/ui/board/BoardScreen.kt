@@ -676,21 +676,6 @@ private fun leadLabel(
     }
 }
 
-/** "you by 6.5", "kirisame by 6.5", "a draw" — a result inside a sentence, not opening one. */
-@Composable
-private fun asideLabel(
-    result: GameResult,
-    you: StoneColor,
-    opponent: String,
-): String {
-    val margin = Formatting.points(result.margin ?: 0.0)
-    return when (result.winner) {
-        null -> stringResource(R.string.score_aside_draw)
-        you -> stringResource(R.string.score_aside_you, margin)
-        else -> stringResource(R.string.score_aside_them, opponent, margin)
-    }
-}
-
 /** "black" / "white", for the colour that follows a player's name in the breakdown. */
 @Composable
 private fun colorName(color: StoneColor): String =
@@ -748,8 +733,8 @@ private fun ScoreLine(
  *
  * The breakdown underneath is always the device's own arithmetic: the server sends a result
  * and its territory, but no per-side totals, so there is nothing of its own to take apart.
- * On the rare position where the two answers differ, a line says so rather than leaving two
- * numbers on screen that refuse to add up.
+ * On the rare position where the two answers differ the breakdown is left out, rather than
+ * leaving numbers on screen that refuse to add up.
  */
 @Composable
 private fun ScorePanel(
@@ -788,7 +773,7 @@ private fun ScorePanel(
                 )
             }
         }
-        val count = scoring.count
+        val count = scoring.breakdown
         if (count != null) {
             // The reader's own side first: the screen is about their game.
             for (color in listOf(you, you.opposite)) {
@@ -803,14 +788,6 @@ private fun ScorePanel(
                     total = count.pointsOf(color),
                 )
             }
-        }
-        scoring.localAside?.let {
-            Text(
-                stringResource(R.string.score_server_differs, asideLabel(it, you, opponent)),
-                Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink2,
-            )
         }
         if (waitingForOpponent) {
             Text(

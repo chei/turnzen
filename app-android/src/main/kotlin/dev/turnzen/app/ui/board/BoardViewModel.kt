@@ -103,21 +103,21 @@ data class ScoringUiState(
         get() = if (changed) count?.territoryOf(StoneColor.WHITE).orEmpty() else server.whiteTerritory
 
     /**
-     * The device's own count, but only when the server's is the one on show and the two have
-     * parted company by more than rounding; null the rest of the time.
+     * The count to break down into each side's addends, or null when there is none to show.
      *
-     * The panel shows the server's figure while the marks are untouched and breaks down the
-     * device's count underneath it, because the server sends a result and territory but no
-     * per-side totals. Usually both answers agree and nobody notices the seam. When they do
-     * not — a seki, dame left unfilled under area scoring — the screen has to say so rather
-     * than print two numbers that refuse to add up.
+     * The server sends a result and territory but no per-side totals, so the breakdown is
+     * always the device's own arithmetic, while the headline is the server's figure until the
+     * user marks something. Usually both answers agree and nobody notices the seam. When they
+     * do not — a seki, dame left unfilled under area scoring — the breakdown is left out
+     * rather than printing figures that do not add up to the headline: the device's count
+     * settles nothing, so there is nothing to gain from explaining it.
      */
-    val localAside: GameResult?
+    val breakdown: ScoreCount?
         get() {
-            if (changed) return null
-            val settled = server.result ?: return null
-            val local = count?.result ?: return null
-            return local.takeIf { abs(it.signedMargin - settled.signedMargin) > 0.01 }
+            val local = count ?: return null
+            if (changed) return local
+            val settled = server.result ?: return local
+            return local.takeIf { abs(it.result.signedMargin - settled.signedMargin) <= 0.01 }
         }
 }
 
