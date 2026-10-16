@@ -127,6 +127,8 @@ Use tabular figures for time and move counts so columns don't jitter.
 
 - **Bottom navigation**: 80dp, two items in the MVP (Games, Settings). Active item in
   `accent`, others in `ink2`. Icons are simple geometry (two stones / a ring with a dot).
+  Not on an open game: the board screen is a detail of the Games tab, left with the back
+  gesture, and needs the height more than a way to Settings.
 - **Screen padding**: 20dp horizontal for everything except the board.
 - **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. The row leads
   with its title: opponent (rank). (No stone in the user's color: a filled disc was the
@@ -173,13 +175,14 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
   black, move N" — which states the colour, so no stone icon repeats it; right: remaining
   time over "to move", or, for a finished game, the outcome over the rating change) → board →
-  event line → move-navigation row → action row → flexible space → bottom nav.
+  event line → move-navigation row → action row → flexible space. No bottom nav.
 - **Event line**: one 24dp slot under the board for what happened at the cursor that leaves
   no stone — "You passed", "kaya_r resigned", "nori_88 ran out of time". The height is
   reserved whether or not there is anything to say, so scrubbing never shifts the navigation
   row under the reader's thumb. Without it the board simply goes quiet at the moments that
   most need explaining: the two passes at the end of a counted game, and the opponent's pass
-  that is the reason a Pass button has appeared. The space above the action row, which
+  that is the reason a Pass button has appeared. Over the count it shrinks to a 12dp margin:
+  the count's panel replaces the navigation row anyway, and has nothing to say there. The space above the action row, which
   sits at the bottom edge, absorbs the difference between 9×9 and 19×19; nothing is pinned
   to the board's height.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
@@ -213,7 +216,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   reading a what-if branched off the past, even where the number happens to equal the move
   count) it is an ordinary outlined button that returns to the live position.
 - **Action row**: two equal 48dp pill buttons at the bottom edge of the screen (16dp above
-  the bottom bar), as far from the board as the screen allows: Send goes in one tap with no
+  it; the board screen has no bottom bar), as far from the board as the screen allows: Send goes in one tap with no
   undo, so a slip off the board must not reach it. Only a screen too short for everything
   scrolls it up with the rest. Skip (outlined) keeps a fixed half-width
   slot on the left in every game, so it never moves; the right slot is *the move that would
@@ -275,14 +278,17 @@ Use tabular figures for time and move counts so columns don't jitter.
   taps try moves rather than mark, the territory and dead-stone marks are hidden, and Send
   marks / Accept are disabled, so what is agreed to is always what is in view. The row's
   current-move button returns to the count with the marks as they were left. The count: the
-  headline in title weight, the two sides'
-  sums below it, the key that names their addends, and, while the opponent has the turn, one quiet
-  "Waiting for your opponent to agree". No line explains how to mark (principle 6).
+  headline in title weight and the two sides' sums below it, nothing else — the screen has no
+  height to spare. The event line, which has nothing to say over the count, shrinks to a 12dp
+  margin. No line explains how to mark (principle 6), and no key names the addends: the
+  player knows how to count.
   A "Reset marks" text action appears beside the count once there is something to undo,
   without vertical padding so it fits the headline's line and the panel never grows.
   The action row keeps Skip, and the right slot settles the score: **Send marks** while the
   user has marked something (it is a move — the opponent reviews it and the turn passes),
   **Accept score** when the marks are untouched. Both are confirmed, with the question only.
+  While the opponent has the turn the slot says "Waiting for opponent" in `ink2`, in place of
+  the button it explains the absence of.
   The figure shown is the server's own count while the marks are untouched — it is the count
   an agreement agrees to — and the device's own count as soon as the user marks something,
   because the server's answer is then about a different set of stones.
@@ -296,12 +302,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   ```
   You (black)              42 + 3 = 45
   kirisame (white)   30 + 2 + 6.5 = 38.5
-  Territory + prisoners + komi
   ```
 
-  The key underneath names the addends in the order they are added, and names only the ones
-  actually on screen — a game with no prisoners and no komi does not promise figures that are
-  not there. Under area scoring the second addend is standing stones rather than prisoners,
+  The addends come in a fixed order — territory, prisoners, komi — and only the ones that
+  are not zero are shown. Under area scoring the second addend is standing stones rather than prisoners,
   and a handicap game adds white's compensation, one point per handicap stone. Dame are not
   shown: they are worth nothing to anyone and a permanently zero row is noise. The opponent
   is named by handle, with the colour in parentheses — the board's territory marks are in
@@ -309,8 +313,8 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **The breakdown is always the device's own arithmetic**, even when the headline is the
   server's: the server sends a result and its territory but no per-side totals, so there is
   nothing of its own to take apart. When the two answers differ by more than rounding — seki,
-  or dame left unfilled under area scoring — a line under the count says so and names both
-  figures, rather than leaving two numbers on screen that refuse to add up.
+  or dame left unfilled under area scoring — the breakdown is left out and only the server's
+  headline stays, rather than leaving numbers on screen that refuse to add up.
 - **A game being counted says so in the list**: the row reads "9x9, counting, 40 min ago"
   rather than naming a move number that nobody is waiting for.
 - **Game info sheet**: everything the server already told us that the board has no room for

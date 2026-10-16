@@ -837,7 +837,9 @@ partly so the project could grow beyond Go (see Naming).
   registration (opens in browser) for users without an account.
 - **Bottom navigation bar from the MVP onward**, with two destinations: **Games** and
   **Settings**. Later destinations (Messages, Archive) slot into the same bar without
-  restructuring navigation.
+  restructuring navigation. An open game hides it (October 2026): the board screen is a
+  detail of the Games tab, left with the back gesture, and in the scoring phase the bar's
+  80dp were what pushed the screen past the height of a phone.
 - **On every app start, fetch the "your move" game list immediately.** No manual step.
 - **"Try moves" is the default board behavior.** Tapping the board never sends anything to
   the server; it only places a local trial stone. The only way a move reaches the server

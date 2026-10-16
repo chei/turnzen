@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -322,7 +323,14 @@ private fun SignedInShell(container: AppContainer) {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f).fillMaxWidth()) { content() }
             outboxLine()
-            TurnzenBottomBar(tab, ::selectTab, gamesLabel, settingsLabel)
+            // An open game is a detail of the Games tab, left with the back gesture, so the
+            // tabs give their 80dp to the board screen, which never has height to spare. The
+            // system navigation bar stays, and the content keeps clear of it instead.
+            if (openGame != null && tab == MainTab.GAMES) {
+                Box(Modifier.navigationBarsPadding())
+            } else {
+                TurnzenBottomBar(tab, ::selectTab, gamesLabel, settingsLabel)
+            }
         }
     }
 }

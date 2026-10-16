@@ -269,9 +269,9 @@ def screen_games(empty=False, offline=False):
 
 
 def action_row_y(above=0):
-    """The Skip / Send row sits at the bottom edge of the board screen, 16 above the bottom bar
-    (and above whatever line sits on that bar, [above] tall)."""
-    return NAV_Y - above - 16 - 48
+    """The Skip / Send row sits at the bottom edge of the board screen, 16 above it (and above
+    whatever line sits at that edge, [above] tall). An open game has no bottom bar."""
+    return H - above - 16 - 48
 
 
 def screen_board(n, stones, last, trial=(), trial_mode=False):
@@ -295,7 +295,7 @@ def screen_board(n, stones, last, trial=(), trial_mode=False):
         s += button(20 + bw + 12, y, bw, 48, f"Send {trial[0][0]}", primary=True)
     else:
         s += button(20 + bw + 12, y, bw, 48, "Send", primary=True, disabled=True)
-    return s + bottom_nav("Games") + "</svg>"
+    return s + "</svg>"
 
 
 def screen_settings():
@@ -445,12 +445,13 @@ def screen_board_header_two_servers():
                     ("G7", "B"), coords=False)
     s += b
     s += text(20, yend + 40, "Game info · Online Go Server · game 7000001", 13, 400, INK2)
-    return s + bottom_nav("Games") + "</svg>"
+    return s + "</svg>"
 
 
-def outbox_line(message, action):
-    """The line above the bottom bar about the move that has just left: flat, a hairline over it."""
-    y = NAV_Y - 44
+def outbox_line(message, action, bottom=NAV_Y):
+    """The line about the move that has just left, above the bottom bar (or, on an open game,
+    which has none, at the bottom edge): flat, a hairline over it."""
+    y = bottom - 44
     s = f'<rect x="0" y="{y}" width="{W}" height="44" fill="{BG}"/>' + hairline(y, 0, W)
     s += text(20, y + 27, message, 14)
     s += text(W - 20, y + 27, action, 14, 500, ACCENT, "end")
@@ -489,7 +490,7 @@ def screen_board_comment(writing=False):
     bw = (W - 40 - 12) / 2
     s += button(20, y, bw, 48, "Skip")
     s += button(20 + bw + 12, y, bw, 48, "Send E6" if writing else "Send", primary=True, disabled=not writing)
-    return s + bottom_nav("Games") + "</svg>"
+    return s + "</svg>"
 
 
 def screen_board_send_failed():
@@ -506,8 +507,8 @@ def screen_board_send_failed():
     bw = (W - 40 - 12) / 2
     s += button(20, y, bw, 48, "Skip")
     s += button(20 + bw + 12, y, bw, 48, "Send", primary=True, disabled=True)
-    s += outbox_line("E6 to mkvtl wasn't sent", "Open")
-    return s + bottom_nav("Games") + "</svg>"
+    s += outbox_line("E6 to mkvtl wasn't sent", "Open", bottom=H)
+    return s + "</svg>"
 
 
 screens = {
