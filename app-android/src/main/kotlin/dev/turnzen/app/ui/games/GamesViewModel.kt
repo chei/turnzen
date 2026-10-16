@@ -204,10 +204,15 @@ class GamesViewModel(
      * Silent: the games already on screen stay put and no spinner appears; rows update when
      * the answer lands. Skipped when a refresh finished moments ago, so walking through a
      * queue of games does not re-ask the server on every step back to the list.
+     *
+     * A refresh made here takes the problem lines down first: they are about an earlier
+     * attempt, often hours old, and the network the user comes back to is usually a
+     * different one. If the server still cannot be reached, the new attempt puts them back.
      */
     fun refreshOnShow() {
         onScreen = true
         if (System.nanoTime() - lastRefreshAt < MIN_AUTO_REFRESH_NANOS) return
+        transient.update { it.copy(problems = emptyList()) }
         start(silent = true)
     }
 

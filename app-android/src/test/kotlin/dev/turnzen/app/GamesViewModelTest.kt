@@ -12,6 +12,7 @@ import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -153,5 +154,45 @@ class GamesViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
 
             assertNull(vm.state.value.problem)
+        }
+
+    @Test
+    fun `problems seen before leaving are taken down when the list is shown again`() =
+        runTest(dispatcher) {
+            // Answers take a second once online, so there is a moment before one lands.
+            val client = FlakyClient(FakeTurnBasedGoServerClient(latencyMillis = 1_000))
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
+            backgroundScope.launch { vm.state.collect {} }
+            vm.refreshOnShow()
+            advanceUntilIdle()
+            assertNotNull(vm.state.value.problem)
+            vm.onHidden()
+
+            // Back online when the app is opened again: the old lines go before the answer lands.
+            client.offline = false
+            vm.refreshOnShow()
+            runCurrent()
+            assertNull(vm.state.value.problem)
+            advanceUntilIdle()
+            assertNull(vm.state.value.problem)
+        }
+
+    @Test
+    fun `problems come back when the server still cannot be reached on return`() =
+        runTest(dispatcher) {
+            val client = FlakyClient()
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
+            backgroundScope.launch { vm.state.collect {} }
+            vm.refreshOnShow()
+            advanceUntilIdle()
+            vm.onHidden()
+
+            vm.refreshOnShow()
+            advanceUntilIdle()
+            assertNotNull(vm.state.value.problem)
         }
 }
