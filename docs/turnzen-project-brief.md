@@ -401,7 +401,7 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   game id)" key; it keeps every existing `GameId` signature in the app, and a saved open game
   is stored as `"server:id"`.
 - **Interface additions** in `TurnBasedGoServerClient`: `serverId`, `signInMethod`
-  (`PASSWORD` / `BROWSER`) with `signInInBrowser(openPage)`, `scoresInApp`, `accountUrl()`;
+  (`PASSWORD` / `BROWSER`) with `signInInBrowser(openPage)`, `accountUrl()`;
   `GameSummary` gains `boardHeight` and `onlyOnWeb`.
 - **App**: `Accounts` holds one `SessionManager` per server (OGS first). The DGS session keeps
   the original secrets file, so an existing sign-in survives the update; OGS has its own.
@@ -949,9 +949,8 @@ partly so the project could grow beyond Go (see Naming).
   **Pass** is a move like any other and takes the same path, but it does not hold a
   permanent place on the board: it lives in the game-info sheet, and is promoted into the
   action row's send slot exactly when the opponent has passed and no trial stone is armed.
-  It keeps a confirmation, which is also where its comment is written (see "Comments"), and
-  which says only that a pass after the opponent's ends the game; after it, it is sent like
-  a stone. **Resign** lives only in that sheet, confirmed and coloured urgent.
+  It keeps a confirmation, "Pass?" alone, which is also where its comment is written (see
+  "Comments"); after it, it is sent like a stone. **Resign** lives only in that sheet, confirmed and coloured urgent.
 - On Send, advance straight to the next "your move" game; if none remain, return to the
   (empty) list. No pause first: stepping on is what says the move went.
 - States: sending, send failed, stale state (the game changed on
@@ -1188,10 +1187,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is
   clock-sensitive, and it is how every game ends — so it is reachable in two taps from the
   sheet and is promoted into the action row's send slot when the opponent has passed and
-  nothing is armed to send. The confirmations are short: "Pass?" alone, or, after the
-  opponent's pass, that this one ends the game and starts counting — on a server Turnzen
-  cannot count for (OGS for now), that the counting is done on its website, named;
-  "Resign?" alone, its urgent confirm button saying the rest.
+  nothing is armed to send. The confirmations are the question alone: "Pass?", even
+  after the opponent's pass (a player knows two passes end the game, and both servers are
+  counted in the app since OGS scoring landed in October 2026); "Resign?", its urgent
+  confirm button saying the rest.
 - **Sent moves go through an app-wide outbox** (`MoveOutbox`, September 2026), not the
   board's view model, because the board has stepped on before the server answers. The move
   is transmitted at once (the undo window it first had was dropped in October 2026, see

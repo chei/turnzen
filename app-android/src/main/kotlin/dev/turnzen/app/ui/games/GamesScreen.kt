@@ -45,7 +45,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -316,15 +315,6 @@ private fun EmptyState(tab: GamesTab) {
         StoneIcon(StoneColor.WHITE, 44.dp)
         Spacer(Modifier.height(28.dp))
         Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Medium)
-        if (tab == GamesTab.YOUR_TURN) {
-            Spacer(Modifier.height(6.dp))
-            Text(
-                stringResource(R.string.games_empty_hint),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink2,
-                textAlign = TextAlign.Center,
-            )
-        }
     }
 }
 

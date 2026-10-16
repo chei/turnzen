@@ -112,13 +112,6 @@ interface TurnBasedGoServerClient {
     )
 
     /**
-     * False when this client cannot take part in the scoring phase, so the UI sends the user
-     * to [gameUrl] for it instead of calling [scoreState] and friends.
-     */
-    val scoresInApp: Boolean
-        get() = true
-
-    /**
      * The scoring phase's current state: the dead stones both players are working from, the
      * territory they leave, and the server's own count — or, on a server that counts nothing
      * until the game is over (OGS), the client's count of the same marks.

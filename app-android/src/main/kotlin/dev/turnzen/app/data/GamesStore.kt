@@ -346,7 +346,7 @@ class GamesStore(
                 } else {
                     session.call { it.game(id) }.also(::cache)
                 }
-            if (detail.summary.pendingAction != PendingAction.SCORE || !session.scoresInApp) return
+            if (detail.summary.pendingAction != PendingAction.SCORE) return
             if (cachedScore(id, detail.summary.moveToken) == null) readScore(detail)
         } catch (e: GoServerException) {
             // Never surfaced: the game is fetched for real when it is opened.
