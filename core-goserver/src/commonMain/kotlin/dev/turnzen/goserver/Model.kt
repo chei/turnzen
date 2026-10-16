@@ -228,6 +228,7 @@ data class ScoreState(
     val result: GameResult? = null,
     val rules: ScoringRules? = null,
     val deadStones: Set<Point> = emptySet(),
+    /** Each side's territory, including the points its opponent's dead stones stand on. */
     val blackTerritory: Set<Point> = emptySet(),
     val whiteTerritory: Set<Point> = emptySet(),
     /** Empty points that belong to neither side. */

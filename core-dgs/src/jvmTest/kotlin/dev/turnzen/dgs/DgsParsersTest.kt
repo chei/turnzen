@@ -311,7 +311,8 @@ class DgsParsersTest {
         assertEquals(StoneColor.BLACK, state.result?.winner)
         assertEquals(7.5, state.result?.margin)
         assertEquals(setOf(SgfCoordinates.decodePoint("cd")), state.deadStones)
-        assertEquals(3, state.blackTerritory.size)
+        // The dead white stone's point is black's, though DGS lists only the empty ones.
+        assertEquals(setOf("aa", "ab", "ac", "cd").map(SgfCoordinates::decodePoint).toSet(), state.blackTerritory)
         assertEquals(2, state.whiteTerritory.size)
         assertEquals(setOf(SgfCoordinates.decodePoint("ee")), state.dame)
     }

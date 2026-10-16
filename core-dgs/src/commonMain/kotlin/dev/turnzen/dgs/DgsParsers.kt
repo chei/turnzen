@@ -220,16 +220,21 @@ internal object DgsScore {
  * `fmt=,` and run together otherwise, so both are accepted.
  */
 internal object ScoreStateParser {
-    fun parse(envelope: JsonObject): ScoreState =
-        ScoreState(
+    fun parse(envelope: JsonObject): ScoreState {
+        val blackDead = points(envelope.string("black_dead"))
+        val whiteDead = points(envelope.string("white_dead"))
+        return ScoreState(
             result = DgsScore.parse(envelope.string("score")),
             rules = DgsRulesets.scoring(envelope.string("ruleset")),
-            deadStones = points(envelope.string("black_dead")) + points(envelope.string("white_dead")),
-            blackTerritory = points(envelope.string("black_territory")),
-            whiteTerritory = points(envelope.string("white_territory")),
+            deadStones = blackDead + whiteDead,
+            // DGS lists only the empty points as territory; a dead stone's point is its
+            // captor's too, as it is in the count made on the device.
+            blackTerritory = points(envelope.string("black_territory")) + whiteDead,
+            whiteTerritory = points(envelope.string("white_territory")) + blackDead,
             // "neutral" points are switchable dame; both are nobody's for counting purposes.
             dame = points(envelope.string("dame")) + points(envelope.string("neutral")),
         )
+    }
 
     /** "bc,ef,nj" or "bcefnj" — a run of two-letter SGF points either way. */
     fun points(value: String?): Set<Point> {
