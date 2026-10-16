@@ -233,18 +233,25 @@ fun BoardScreen(
             // act that ended the game. Its height is reserved whether or not there is anything to
             // say, so that scrubbing through a game never shifts the navigation row under the
             // reader's thumb.
-            Box(
-                Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 20.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                val event = state.eventAtCursor
-                val who = state.headerSummary
-                if (event != null && who != null) {
-                    Text(
-                        boardEventLabel(event, isYou = event.by == who.myColor, opponent = who.opponent.handle),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = colors.ink2,
-                    )
+            //
+            // The count has nothing to put there, and its panel replaces the navigation row
+            // anyway, so the slot shrinks to a margin that keeps the headline off the board.
+            if (state.showingScore) {
+                Spacer(Modifier.height(12.dp))
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    val event = state.eventAtCursor
+                    val who = state.headerSummary
+                    if (event != null && who != null) {
+                        Text(
+                            boardEventLabel(event, isYou = event.by == who.myColor, opponent = who.opponent.handle),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.ink2,
+                        )
+                    }
                 }
             }
 
