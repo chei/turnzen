@@ -356,9 +356,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   sheet, out of sight of the board's field, so the confirmation itself holds an underlined
   field like the board's, placeholder "Comment (optional)", already filled in with whatever
   the board's field holds. What the dialog shows is what is sent; Cancel leaves the board's
-  draft as it was. The dialogs say no more than they must: "Pass?" alone, or "This ends the
-  game and starts counting." when the opponent has passed (on a server Turnzen cannot count
-  for, "This ends the game. You count it on <server>."); "Resign?" alone.
+  draft as it was. The dialogs ask the question and nothing more (principle 6): "Pass?" and
+  "Resign?" alone, even when the opponent has passed.
 - **No confirm, no undo.** Send has no dialog — the button already names the move — and
   no undo window after it (dropped in October 2026: leaving the app inside the window made
   the move fail). Its place at the bottom edge is the guard against a slip. The board steps
@@ -368,9 +367,6 @@ Use tabular figures for time and move counts so columns don't jitter.
   move is back on the board. Flat: a hairline above, the surface below, no card or shadow,
   and in the layout rather than over it, so it never covers the next game's Send. See
   `09c-send-failed.svg`.
-- **Say what the app cannot do, before the move rather than after it.** Passing when the
-  opponent has already passed ends the game and starts scoring, which Turnzen has no screen
-  for; the confirmation says so and names the server where it can be finished.
 - **A game is not a document.** Which game is open survives a configuration change and
   nothing more: after Android kills the app, the next launch starts on the games list, since
   the list and the record cache died with the process and a restored board would have

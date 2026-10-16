@@ -481,14 +481,7 @@ fun BoardScreen(
         PendingConfirmation.PASS -> {
             Confirmation(
                 title = stringResource(R.string.board_pass_question),
-                // A pass needs no explaining, except that a second one ends the game — and,
-                // where counting happens on the web, sends the user there to finish it.
-                text =
-                    when {
-                        !state.opponentPassed -> null
-                        viewModel.scoresInApp -> stringResource(R.string.board_pass_ends_game)
-                        else -> stringResource(R.string.board_pass_ends_game_web, viewModel.serverName)
-                    },
+                text = null,
                 confirmLabel = stringResource(R.string.board_pass),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,

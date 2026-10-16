@@ -73,8 +73,6 @@
     <string name="board_cancel">Cancel</string>
     <string name="board_pass">Pass</string>
     <string name="board_pass_question">Pass?</string>
-    <string name="board_pass_ends_game">This ends the game and starts counting.</string>
-    <string name="board_pass_ends_game_web">This ends the game. You count it on %1$s.</string>
     <string name="board_resign">Resign</string>
     <string name="board_resign_question">Resign?</string>
     <string name="board_sending">Sending…</string>

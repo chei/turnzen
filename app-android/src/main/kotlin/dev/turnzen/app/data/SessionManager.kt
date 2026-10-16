@@ -59,10 +59,6 @@ class SessionManager(
     val signInMethod: SignInMethod
         get() = client.signInMethod
 
-    /** False when scoring this server's games has to happen on its website. */
-    val scoresInApp: Boolean
-        get() = client.scoresInApp
-
     val isSignedIn: Boolean
         get() = _state.value is AuthState.SignedIn
 
