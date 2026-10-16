@@ -260,7 +260,6 @@ fun BoardScreen(
                     scoring = scoring,
                     you = summary.myColor,
                     opponent = summary.opponent.handle,
-                    canMark = state.canMark,
                     waitingForOpponent = !state.isMyTurn,
                     onReset = viewModel::resetMarks,
                 )
@@ -514,7 +513,7 @@ fun BoardScreen(
         PendingConfirmation.SEND_MARKS -> {
             Confirmation(
                 title = stringResource(R.string.score_send_marks_question),
-                text = stringResource(R.string.score_send_marks_explain),
+                text = null,
                 confirmLabel = stringResource(R.string.score_send_marks),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
@@ -524,7 +523,7 @@ fun BoardScreen(
         PendingConfirmation.ACCEPT_SCORE -> {
             Confirmation(
                 title = stringResource(R.string.score_accept_question),
-                text = stringResource(R.string.score_accept_explain),
+                text = null,
                 confirmLabel = stringResource(R.string.score_accept),
                 onConfirm = viewModel::confirm,
                 onDismiss = viewModel::cancelConfirmation,
@@ -777,8 +776,8 @@ private fun ScoreLine(
 
 /**
  * The count, in the space the navigation row usually occupies: whether the reader is winning
- * and by how much, what each side's total is made of, and one line of guidance about what to
- * do next.
+ * and by how much, what each side's total is made of, and — while the opponent has the turn —
+ * that the game waits on them. No guidance on how to mark: the player knows how to count.
  *
  * The headline figure is the server's own while the marks are untouched — it is the count an
  * agreement agrees to — and the device's own count as soon as the user marks something,
@@ -794,7 +793,6 @@ private fun ScorePanel(
     scoring: ScoringUiState,
     you: StoneColor,
     opponent: String,
-    canMark: Boolean,
     waitingForOpponent: Boolean,
     onReset: () -> Unit,
 ) {
@@ -856,17 +854,9 @@ private fun ScorePanel(
                 color = colors.ink2,
             )
         }
-        val hint =
-            when {
-                scoring.guessed -> stringResource(R.string.score_hint_guessed)
-                scoring.changed -> stringResource(R.string.score_hint_changed)
-                waitingForOpponent -> stringResource(R.string.score_hint_waiting)
-                canMark -> stringResource(R.string.score_hint_mark)
-                else -> null
-            }
-        if (hint != null) {
+        if (waitingForOpponent) {
             Text(
-                hint,
+                stringResource(R.string.score_waiting),
                 Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.ink2,

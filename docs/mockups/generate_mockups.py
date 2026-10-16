@@ -243,7 +243,6 @@ def screen_games(empty=False, offline=False):
     if empty:
         s += stone_icon(W / 2, 370, 22, WHITE)
         s += text(W / 2, 430, "No games waiting for you", 17, 500, INK, "middle")
-        s += text(W / 2, 454, "Pull down to check again.", 14, 400, INK2, "middle")
         return s + bottom_nav("Games") + "</svg>"
     if offline:
         # Built like the empty state, not like an error: nothing is red, and the action

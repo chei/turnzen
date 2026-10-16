@@ -30,7 +30,6 @@
     <string name="games_empty_title">No games waiting for you</string>
     <string name="games_empty_all_title">No running games</string>
     <string name="games_empty_finished_title">No finished games yet</string>
-    <string name="games_empty_hint">Pull down to check again.</string>
     <string name="games_move">move %1$d</string>
     <string name="games_moves">%1$d moves</string>
     <string name="games_counting">counting</string>
@@ -90,17 +89,12 @@
     <string name="comment_secret_until_end">secret until the game ends</string>
     <string name="comment_writer_only">only you can see this</string>
 
-    <string name="score_hint_mark">Tap a stone to mark it dead, with every stone of its colour in the same area.</string>
-    <string name="score_hint_guessed">The dead stones are a guess. Tap a stone to flip its whole area.</string>
-    <string name="score_hint_changed">Your marks are on this device until you send them.</string>
-    <string name="score_hint_waiting">Waiting for your opponent to agree.</string>
+    <string name="score_waiting">Waiting for your opponent to agree.</string>
     <string name="score_reset">Reset marks</string>
     <string name="score_send_marks">Send marks</string>
     <string name="score_send_marks_question">Send these marks?</string>
-    <string name="score_send_marks_explain">Your opponent sees the stones you marked and can agree or mark differently.</string>
     <string name="score_accept">Accept score</string>
     <string name="score_accept_question">Accept the score?</string>
-    <string name="score_accept_explain">The game ends at this count once your opponent has agreed too.</string>
     <string name="score_winning">You\'re winning by %1$s</string>
     <string name="score_losing">You\'re losing by %1$s</string>
     <string name="score_draw">A draw</string>

@@ -43,6 +43,10 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
    server, and it always names the move it sends ("Send O15").
 5. **Sentence case everywhere. No all-caps labels, no icon-only actions** on the board
    screen (Pass, Send, Reset are text).
+6. **No help text.** The reader is a Go player who knows what they are doing: no lines that
+   explain how to use a screen ("Tap a stone to…", "Pull down to…"), and confirmations ask
+   their question without a paragraph under it. Text that reports a state — waiting for the
+   opponent, a server that cannot be reached — is not help and stays.
 
 ## Color tokens
 
@@ -241,8 +245,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   and an outlined button), then "No account? Register on …". The one primary button is
   Continue at the bottom, enabled once any server is signed in. Settings shows the same panels
   in place of its old Account group.
-- **Empty state**: one white stone, "No games waiting for you", "Pull down to check
-  again." — this is a good state, not an error.
+- **Empty state**: one white stone and "No games waiting for you" — this is a good state,
+  not an error.
 - **Server problems** come in two tones. The ones the user waits out — the server cannot be
   reached, or it asked us to slow down — are a *state*, not an error: `ink2`, never
   `urgent`, always with a way to retry. A correspondence app that could not reach the server
@@ -272,14 +276,13 @@ Use tabular figures for time and move counts so columns don't jitter.
   marks / Accept are disabled, so what is agreed to is always what is in view. The row's
   current-move button returns to the count with the marks as they were left. The count: the
   headline in title weight, the two sides'
-  sums below it, the key that names their addends, and one quiet line of guidance — "Tap a
-  stone to mark it dead, with every stone of its colour in the same area", "The dead stones
-  are a guess. Tap a stone to flip its whole area", "Your marks are on this device until you
-  send them", or "Waiting for your opponent to agree".
-  A "Reset marks" text action appears beside the count once there is something to undo.
+  sums below it, the key that names their addends, and, while the opponent has the turn, one quiet
+  "Waiting for your opponent to agree". No line explains how to mark (principle 6).
+  A "Reset marks" text action appears beside the count once there is something to undo,
+  without vertical padding so it fits the headline's line and the panel never grows.
   The action row keeps Skip, and the right slot settles the score: **Send marks** while the
   user has marked something (it is a move — the opponent reviews it and the turn passes),
-  **Accept score** when the marks are untouched. Both are confirmed.
+  **Accept score** when the marks are untouched. Both are confirmed, with the question only.
   The figure shown is the server's own count while the marks are untouched — it is the count
   an agreement agrees to — and the device's own count as soon as the user marks something,
   because the server's answer is then about a different set of stones.
