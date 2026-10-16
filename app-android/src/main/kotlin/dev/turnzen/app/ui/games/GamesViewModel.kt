@@ -111,6 +111,15 @@ class GamesViewModel(
     private var lastRefreshAt = 0L
     private var finishedInFlight = false
 
+    /**
+     * Whether the list is on screen. A refresh can still be answered after the user has left
+     * the app, and Android cuts a backgrounded app off the network, so that answer is often
+     * "can't reach" for every server. Nobody saw it happen and it says nothing about the
+     * network the user comes back to; kept, it would flash above the list on return until
+     * the refresh made then landed.
+     */
+    private var onScreen = true
+
     init {
         // A server signed in or out (from Settings, say) changes what the lists should hold:
         // fetch at once rather than wait for the next time the list is shown.
@@ -181,7 +190,7 @@ class GamesViewModel(
         viewModelScope.launch {
             try {
                 val failures = store.refreshFinished()
-                transient.update { it.copy(refreshing = false, problems = problemsFor(failures)) }
+                transient.update { it.copy(refreshing = false, problems = shownProblems(failures)) }
             } finally {
                 finishedInFlight = false
             }
@@ -197,9 +206,18 @@ class GamesViewModel(
      * queue of games does not re-ask the server on every step back to the list.
      */
     fun refreshOnShow() {
+        onScreen = true
         if (System.nanoTime() - lastRefreshAt < MIN_AUTO_REFRESH_NANOS) return
         start(silent = true)
     }
+
+    /** The list went out of view: the app was left, or a game opened over it. */
+    fun onHidden() {
+        onScreen = false
+    }
+
+    private fun shownProblems(failures: Map<ServerId, GoServerException>): List<ServerProblem> =
+        if (onScreen) problemsFor(failures) else emptyList()
 
     private fun start(silent: Boolean) {
         if (inFlight) return
@@ -211,7 +229,7 @@ class GamesViewModel(
                 // one server's part of it, looks unchanged.
                 val failures = store.refresh()
                 if (failures.size < accounts.signedIn.size) lastRefreshAt = System.nanoTime()
-                transient.update { it.copy(refreshing = false, problems = problemsFor(failures)) }
+                transient.update { it.copy(refreshing = false, problems = shownProblems(failures)) }
                 warmFirstGame()
             } finally {
                 inFlight = false

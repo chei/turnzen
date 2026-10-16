@@ -85,7 +85,7 @@ fun GamesScreen(
     // composition so that a game finished while the app was away is not still listed.
     LifecycleResumeEffect(Unit) {
         viewModel.refreshOnShow()
-        onPauseOrDispose {}
+        onPauseOrDispose { viewModel.onHidden() }
     }
 
     // The archive is fetched the first time it is looked at, not with every refresh: a

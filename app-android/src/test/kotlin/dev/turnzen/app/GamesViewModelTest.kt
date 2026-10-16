@@ -134,4 +134,24 @@ class GamesViewModelTest : MainDispatcherTest() {
             assertNull(s.problem)
             assertTrue(!s.yourTurn.isNullOrEmpty())
         }
+
+    @Test
+    fun `a refresh that fails after the list is left is not reported on return`() =
+        runTest(dispatcher) {
+            val client = FlakyClient(offline = false)
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
+            backgroundScope.launch { vm.state.collect {} }
+            vm.refreshOnShow()
+            advanceUntilIdle()
+
+            // Pulled just before the app went to the background, which cut it off the network.
+            vm.refresh()
+            vm.onHidden()
+            client.offline = true
+            advanceUntilIdle()
+
+            assertNull(vm.state.value.problem)
+        }
 }
