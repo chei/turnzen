@@ -332,9 +332,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   the move it branched from stays the one on show, so the message remains readable while the
   answer is worked out. Below everything above them that is operated, with the free space
   under them taking up the difference, because a comment comes and goes while scrubbing and
-  must never move a button under the thumb. Each is headed by its writer
-  in `ink` 600 — "You" or the opponent's handle, never a colour — with the text in body size
-  below; consecutive parts by the same writer share one heading. A part not everyone can
+  must never move a button under the thumb. Each opens with its writer
+  in `ink` 600 and a colon — "You:" or the opponent's handle, never a colour — and the text
+  follows on the same line in body size, so a short message costs one line, not two;
+  consecutive parts by the same writer name them only once. A part not everyone can
   read yet carries one `ink2` line saying so ("hidden until the game ends", "secret until the
   game ends", "only you can see this"), because its writer is the one person who sees it and
   must not mistake it for said; the line goes once the game is over. Public and players-only

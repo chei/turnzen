@@ -77,9 +77,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -1183,17 +1186,21 @@ private fun Comments(
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         comments.forEachIndexed { index, comment ->
             // One writer's parts in a row read as one message, so the name is not repeated.
+            // The name leads the text on its own line, "kirisame: thanks", rather than heading
+            // it: a line saved, on a screen that needs every one.
             val sameWriter = index > 0 && comments[index - 1].by == comment.by
+            val writer = if (comment.by == you) stringResource(R.string.board_comment_you) else opponent
             Column {
-                if (!sameWriter) {
-                    Text(
-                        if (comment.by == you) stringResource(R.string.board_comment_you) else opponent,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = colors.ink,
-                    )
-                }
-                Text(comment.text, style = MaterialTheme.typography.bodyLarge, color = colors.ink)
+                Text(
+                    buildAnnotatedString {
+                        if (!sameWriter) {
+                            withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append("$writer: ") }
+                        }
+                        append(comment.text)
+                    },
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.ink,
+                )
                 commentAudience(comment.visibility, finished)?.let {
                     Text(it, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
                 }

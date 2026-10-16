@@ -480,10 +480,11 @@ def screen_board_comment(writing=False):
     # Comments: below everything above them that is operated, with the free space under them
     # taking up the difference, so they never move a button.
     y += 4 + 18
-    s += text(20, y, "mkvtl", 14, 600)
-    s += text(20, y + 22, "I wasn't sure about that last one.", 16)
-    s += text(20, y + 44, "We'll see. Your move!", 16)
-    assert y + 44 + 16 <= action_row_y(), "comments run into the action row"
+    # The writer leads the text on its line; their next part goes without the name.
+    s += (f'<text x="20" y="{y}" font-family="{FONT}" font-size="16" fill="{INK}">'
+          f'<tspan font-weight="600">mkvtl: </tspan>{esc("Not sure about that one.")}</text>')
+    s += text(20, y + 22, "We'll see. Your move!", 16)
+    assert y + 22 + 16 <= action_row_y(), "comments run into the action row"
     y = action_row_y()
     bw = (W - 40 - 12) / 2
     s += button(20, y, bw, 48, "Skip")
