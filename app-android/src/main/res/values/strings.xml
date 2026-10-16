@@ -87,7 +87,7 @@
     <string name="comment_secret_until_end">secret until the game ends</string>
     <string name="comment_writer_only">only you can see this</string>
 
-    <string name="score_waiting">Waiting for your opponent to agree.</string>
+    <string name="score_waiting">Waiting for opponent</string>
     <string name="score_reset">Reset marks</string>
     <string name="score_send_marks">Send marks</string>
     <string name="score_send_marks_question">Send these marks?</string>

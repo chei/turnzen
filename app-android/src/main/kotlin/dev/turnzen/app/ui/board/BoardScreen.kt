@@ -265,7 +265,6 @@ fun BoardScreen(
                     scoring = scoring,
                     you = summary.myColor,
                     opponent = summary.opponent.handle,
-                    waitingForOpponent = !state.isMyTurn,
                     onReset = viewModel::resetMarks,
                 )
             } else {
@@ -377,7 +376,15 @@ fun BoardScreen(
                                 modifier = Modifier.weight(1f),
                             )
                         } else {
-                            Spacer(Modifier.weight(1f))
+                            // The opponent's turn to agree or mark: the slot says why it holds
+                            // no button, sized like one so the row keeps its height.
+                            Box(Modifier.weight(1f).height(48.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    stringResource(R.string.score_waiting),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = colors.ink2,
+                                )
+                            }
                         }
                     } else if (state.isMyTurn) {
                         // The right slot always holds the move you would send. Normally that is Send
@@ -724,8 +731,9 @@ private fun ScoreLine(
 
 /**
  * The count, in the space the navigation row usually occupies: whether the reader is winning
- * and by how much, what each side's total is made of, and — while the opponent has the turn —
- * that the game waits on them. No guidance on how to mark: the player knows how to count.
+ * and by how much, and what each side's total is made of. No guidance on how to mark: the
+ * player knows how to count. That the game waits on the opponent is said in the action row,
+ * in the slot where the button would be.
  *
  * The headline figure is the server's own while the marks are untouched — it is the count an
  * agreement agrees to — and the device's own count as soon as the user marks something,
@@ -741,7 +749,6 @@ private fun ScorePanel(
     scoring: ScoringUiState,
     you: StoneColor,
     opponent: String,
-    waitingForOpponent: Boolean,
     onReset: () -> Unit,
 ) {
     Column(
@@ -788,14 +795,6 @@ private fun ScorePanel(
                     total = count.pointsOf(color),
                 )
             }
-        }
-        if (waitingForOpponent) {
-            Text(
-                stringResource(R.string.score_waiting),
-                Modifier.padding(top = 4.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = colors.ink2,
-            )
         }
     }
 }
