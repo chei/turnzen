@@ -52,7 +52,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -76,7 +75,6 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -815,16 +813,17 @@ private fun ScorePanel(
                 fontWeight = FontWeight.SemiBold,
             )
             // Only offered once there is something to undo; tapping a group again also works.
-            // Until then it is laid out invisibly: the action is taller than the headline, and
-            // the panel must not grow — pushing everything below it down — on the first mark.
+            // Without TextAction's vertical padding: the label's line is no taller than the
+            // headline's, so the row — and everything below the panel — keeps its height when
+            // the action appears on the first mark.
             if (scoring.changed) {
-                TextAction(stringResource(R.string.score_reset), onReset, color = colors.accent)
-            } else {
-                TextAction(
+                Text(
                     stringResource(R.string.score_reset),
-                    onClick = {},
-                    modifier = Modifier.alpha(0f).clearAndSetSemantics {},
-                    enabled = false,
+                    Modifier
+                        .clickable(role = Role.Button, onClick = onReset)
+                        .padding(horizontal = 4.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = colors.accent,
                 )
             }
         }
@@ -866,14 +865,11 @@ private fun ScorePanel(
                 else -> null
             }
         if (hint != null) {
-            // Two lines held even for a one-line hint, so swapping hints on the first mark
-            // does not move whatever sits below the panel.
             Text(
                 hint,
                 Modifier.padding(top = 4.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.ink2,
-                minLines = 2,
             )
         }
     }
