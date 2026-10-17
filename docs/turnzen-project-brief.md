@@ -1200,6 +1200,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   Android killed the app does not: the games list and the record cache are in memory only,
   so a board restored into a fresh process has no header, no grid and no list behind it —
   which is exactly the screen an offline cold start used to land on.
+  The games list and Settings each keep their saveable state in a
+  `rememberSaveableStateHolder` slot, which navigation-compose would otherwise provide:
+  without it, opening a game dropped the list from composition and its scroll positions with
+  it, so coming back always started at the top (fixed October 2026).
 - **Pass and resign are placed by what they are, not by how often they are used.** Resign is
   an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is
