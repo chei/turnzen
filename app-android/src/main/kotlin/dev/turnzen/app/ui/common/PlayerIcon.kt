@@ -66,11 +66,17 @@ fun PlayerIcon(
     // Sized from the icon rather than the font scale, so a large system font cannot push the
     // letter out of its square; the name beside it scales as usual.
     val letterSize = with(LocalDensity.current) { (size * LETTER_RATIO).toSp() }
+    val loaded = image
+    // The tint only behind the letter. Under a picture it showed as a coloured hairline
+    // where the rounded clip's anti-aliased edge blends the two, and through any
+    // transparent margin the picture has; on OGS a picture sits on the page, so here too.
     Box(
-        modifier.size(size).clip(RoundedCornerShape(CORNER)).background(tint.background),
+        modifier
+            .size(size)
+            .clip(RoundedCornerShape(CORNER))
+            .then(if (loaded == null) Modifier.background(tint.background) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        val loaded = image
         if (loaded != null) {
             Image(loaded, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
         } else {
