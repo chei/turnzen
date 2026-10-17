@@ -143,6 +143,7 @@ fun SettingsScreen(
 
         Group(stringResource(R.string.settings_group_appearance)) {
             ValueRow(stringResource(R.string.settings_theme), themeLabel(settings.theme)) { choosingTheme = true }
+            ToggleRow(stringResource(R.string.settings_player_icons), settings.playerIcons, viewModel::setPlayerIcons)
         }
 
         Group(stringResource(R.string.settings_group_about)) {

@@ -42,6 +42,8 @@ data class AppSettings(
     val board: BoardSettings = BoardSettings(),
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val notifications: NotificationSettings = NotificationSettings(),
+    /** Opponents' icons in the games list: their picture on OGS, their coloured initial elsewhere. */
+    val playerIcons: Boolean = true,
 )
 
 /** The one setting the session layer needs; split out so it can be faked in tests. */
@@ -84,6 +86,7 @@ class SettingsStore internal constructor(
             .putBoolean(KEY_NOTIFY_YOUR_MOVE, next.notifications.yourMove)
             .putBoolean(KEY_NOTIFY_LOW_TIME, next.notifications.lowTime)
             .putString(KEY_CHECK_EVERY, next.notifications.checkEvery.name)
+            .putBoolean(KEY_PLAYER_ICONS, next.playerIcons)
             .apply()
         _settings.value = next
     }
@@ -111,6 +114,7 @@ class SettingsStore internal constructor(
                         runCatching { CheckInterval.valueOf(prefs.getString(KEY_CHECK_EVERY, null) ?: "") }
                             .getOrDefault(CheckInterval.MIN_30),
                 ),
+            playerIcons = prefs.getBoolean(KEY_PLAYER_ICONS, true),
         )
 
     private companion object {
@@ -122,5 +126,6 @@ class SettingsStore internal constructor(
         const val KEY_NOTIFY_YOUR_MOVE = "notify_your_move"
         const val KEY_NOTIFY_LOW_TIME = "notify_low_time"
         const val KEY_CHECK_EVERY = "notify_check_every"
+        const val KEY_PLAYER_ICONS = "player_icons"
     }
 }

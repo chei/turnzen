@@ -75,6 +75,8 @@ fun GamesScreen(
     onOpenGame: (GameId) -> Unit,
     /** Where a server's lapsed sign-in is put right: the account panels in Settings. */
     onSignInAgain: () -> Unit = {},
+    /** Opponents' icons on the rows (a setting, on by default). */
+    showPlayerIcons: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val uriHandler = LocalUriHandler.current
@@ -221,16 +223,12 @@ fun GamesScreen(
                                 }
 
                                 else -> {
-                                    // Opponents' pictures only where a server has them (OGS);
-                                    // then every row gets the slot, an initial standing in
-                                    // where there is no picture, so the names stay in line.
-                                    val showIcons = rows.any { it.opponent.iconUrl != null }
                                     // Keyed by server too: both servers number their games.
                                     items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
                                         GameRow(
                                             game = game,
                                             serverName = viewModel.serverName(game.id),
-                                            showIcon = showIcons,
+                                            showIcon = showPlayerIcons,
                                             arrived = game.id in arrivals,
                                             onArrivalShown = { viewModel.onArrivalShown(game.id) },
                                             onClick = {
@@ -419,7 +417,14 @@ private fun GameRowContent(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (showIcon) {
-            PlayerIcon(game.opponent.iconUrl, game.opponent.handle, ICON_SIZE.dp)
+            PlayerIcon(
+                game.opponent.iconUrl,
+                game.opponent.handle,
+                // A handle is unique on its server and only there: the same name on DGS and
+                // OGS may be two people, so the server is part of the key.
+                colorKey = "${game.id.server.value}:${game.opponent.handle.lowercase()}",
+                size = ICON_SIZE.dp,
+            )
             Spacer(Modifier.width(12.dp))
         }
         // The text and what stands right of it, centred in the row as one block. An outcome

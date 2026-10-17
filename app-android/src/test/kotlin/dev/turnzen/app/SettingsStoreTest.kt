@@ -20,6 +20,14 @@ class SettingsStoreTest {
         assertTrue(settings.board.markLastMove)
         assertTrue(settings.board.numberTrialStones)
         assertEquals(ThemeMode.SYSTEM, settings.theme)
+        assertTrue(settings.playerIcons)
+    }
+
+    @Test
+    fun `turning player icons off survives a restart`() {
+        val prefs = FakeSharedPreferences()
+        SettingsStore(prefs).update { it.copy(playerIcons = false) }
+        assertFalse(SettingsStore(prefs).settings.value.playerIcons)
     }
 
     @Test

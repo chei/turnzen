@@ -344,7 +344,12 @@ for it.
   the Finished tab uses (`ended__isnull=true`), whose player objects do carry icons, and
   remembers every icon on it for the session — also those from the finished list. It asks
   again only when an opponent it has not seen turns up; a failed read is retried on the
-  next refresh. Confirmed on a real account: all three tabs show the icons. Icons are squares with 4dp corners, as OGS shows them: round is for stones. The app fetches the pictures itself
+  next refresh. Confirmed on a real account: all three tabs show the icons. Icons are squares with 4dp corners, as OGS shows them: round is for stones.
+  Every other opponent — all of DGS, an OGS player without a picture — gets a generated
+  icon: the initial on colours hashed from `server:handle` (see DESIGN.md), so the icons
+  identify players on DGS too and are shown whether or not an OGS account is signed in.
+  A setting (Appearance › Player icons, on by default) hides them all; with it off no
+  picture is downloaded. The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's
