@@ -353,7 +353,12 @@ for it.
   The signed-in user's own icon sits beside "Signed in as" in the account panels (Settings):
   `SignedInUser.iconUrl`, from OGS's `ui/config` user block or, when that leaves it out,
   from the user's own game list; stored with the user so an offline start shows it too.
-  DGS users get their generated icon, coloured as an opponent would see it. The app fetches the pictures itself
+  DGS users get their generated icon, coloured as an opponent would see it.
+  Notifications about one game (the your-move notification for a single game, and each
+  low-time alert) carry the opponent's icon as their large icon, the same mark the list
+  shows: the picture from the icon cache (waited for at most 5 s), else the initial drawn on
+  a canvas. A your-move summary of several games has none. The Player icons setting turns
+  these off too. The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's

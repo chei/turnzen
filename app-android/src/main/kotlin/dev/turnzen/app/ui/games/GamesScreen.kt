@@ -60,6 +60,7 @@ import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
+import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
@@ -420,9 +421,7 @@ private fun GameRowContent(
             PlayerIcon(
                 game.opponent.iconUrl,
                 game.opponent.handle,
-                // A handle is unique on its server and only there: the same name on DGS and
-                // OGS may be two people, so the server is part of the key.
-                colorKey = "${game.id.server.value}:${game.opponent.handle.lowercase()}",
+                colorKey = playerColorKey(game.id.server, game.opponent.handle),
                 size = ICON_SIZE.dp,
             )
             Spacer(Modifier.width(12.dp))

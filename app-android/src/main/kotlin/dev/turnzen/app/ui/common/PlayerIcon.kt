@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -92,6 +93,15 @@ fun PlayerIcon(
     }
 }
 
+/**
+ * What a player's colours are made from. A handle is unique on its server and only there:
+ * the same name on DGS and OGS may be two people, so the server is part of the key.
+ */
+internal fun playerColorKey(
+    server: ServerId,
+    handle: String,
+): String = "${server.value}:${handle.lowercase()}"
+
 /** The first letter or digit of [name], so "_kaya" shows K rather than an underscore. */
 internal fun initial(name: String): String =
     (name.firstOrNull { it.isLetterOrDigit() } ?: name.firstOrNull())?.uppercase().orEmpty()
@@ -158,7 +168,7 @@ private val CORNER = 4.dp
  * Plain [HttpURLConnection] rather than an image library: one small picture per opponent
  * does not earn a dependency.
  */
-private object PlayerIcons {
+internal object PlayerIcons {
     /** Largest edge kept in memory; a list row draws the icon well under this. */
     private const val MAX_EDGE = 128
 
