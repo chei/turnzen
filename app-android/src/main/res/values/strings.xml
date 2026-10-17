@@ -173,6 +173,7 @@
     <string name="notify_your_move_one">Your move against %1$s</string>
     <string name="notify_your_move_many">Your move in %1$d games</string>
     <string name="notify_new">new</string>
+    <string name="notify_new_games">%1$d new: %2$s</string>
     <string name="notify_time_left">%1$s left</string>
     <string name="notify_low_time">Low on time vs. %1$s: %2$s left</string>
     <string name="notify_signed_out">Turnzen can\'t check %1$s</string>

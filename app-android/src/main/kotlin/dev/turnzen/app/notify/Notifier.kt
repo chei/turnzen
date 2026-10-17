@@ -153,7 +153,23 @@ class Notifier(
             }
         // Marked only when it tells something: with every game new, the word says nothing.
         val markNew = flagged.size < games.size
-        val lines = games.map { line(it, markNew && it.id in flagged, serverName(it.id.server)) }
+        val newGames = games.filter { it.id in flagged }
+        // Named only when it tells which: with every game on one server, it is the same each line.
+        val nameServer = games.map { it.id.server }.distinct().size > 1
+        val lines =
+            games.map {
+                line(it, markNew && it.id in flagged, if (nameServer) serverName(it.id.server) else null)
+            }
+        val text =
+            if (markNew && newGames.isNotEmpty()) {
+                context.getString(
+                    R.string.notify_new_games,
+                    newGames.size,
+                    newGames.joinToString(", ") { it.opponent.handle },
+                )
+            } else {
+                games.joinToString(", ") { it.opponent.handle }
+            }
         val style = NotificationCompat.InboxStyle().setBigContentTitle(title)
         lines.forEach(style::addLine)
         val open = if (games.size == 1) OpenRequest.Game(games[0].id) else OpenRequest.YourTurn
@@ -163,7 +179,7 @@ class Notifier(
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(accent())
                 .setContentTitle(title)
-                .setContentText(games.joinToString(", ") { it.opponent.handle })
+                .setContentText(text)
                 .setStyle(style)
                 .setNumber(games.size)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -248,13 +264,14 @@ class Notifier(
     }
 
     /**
-     * "opponent · new · 20 h left · server". Plain text: Android drops colour and weight from
-     * the text of a notification that is not colourised, so the server is named, not tinted.
+     * "opponent · new · 20 h left · server", the server only when [serverName] is given. Plain
+     * text: Android drops colour and weight from the text of a notification that is not
+     * colourised, so the server is named, not tinted.
      */
     private fun line(
         game: GameSummary,
         new: Boolean,
-        serverName: String,
+        serverName: String?,
     ): String =
         buildList {
             add(game.opponent.handle)
@@ -265,7 +282,7 @@ class Notifier(
             ) {
                 add(context.getString(R.string.notify_time_left, Formatting.remaining(game.remainingTime)))
             }
-            add(serverName)
+            if (serverName != null) add(serverName)
         }.joinToString(" · ")
 
     private fun pending(

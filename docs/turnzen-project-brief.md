@@ -585,9 +585,13 @@ notification on, and both switches start off. Specified in a design interview on
 - **Your move**: one summary notification for every game on both servers, never one per
   game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
   game has *newly* become the user's move since the last check; otherwise it changes
-  silently. Title "Your move in N games" (one game: "Your move against X"); one line per game
-  — opponent, the user's remaining time only when under a day, server; the games that caused
-  the latest alerts come first, marked "new" unless every game is. Plain text: Android drops
+  silently. Title "Your move in N games" (one game: "Your move against X"). Collapsed, the
+  line under it names only the games that caused the latest alerts ("2 new: Alice, Bob"),
+  or every opponent when all or none of them are new. Expanded, one line per game —
+  opponent, the user's remaining time only when under a day, and the server only when the
+  games are on more than one; the games that caused the latest alerts come first, marked
+  "new" unless every game is. (October 2026: the full name list and "Dragon Go Server" on
+  every line made it too long with many games.) Plain text: Android drops
   colour and weight from the text of an ordinary notification, so the server is named rather
   than shown in its colour, and "new" is a word rather than bold. Tapping opens that game's board
   when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
