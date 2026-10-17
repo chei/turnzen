@@ -334,6 +334,14 @@ for it.
 - **One server failing does not hide the other**: the games that loaded are shown, with a
   quiet line naming the server that did not answer ("Online Go Server didn't answer · Try
   again"). The full-screen unreachable state appears only when every signed-in server fails.
+- **Opponents' avatars** (October 2026): OGS sends an `icon` URL with every full player
+  object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
+  128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
+  it; DGS has no avatars and leaves it null. The app fetches the pictures itself
+  (`PlayerIcon`, plain `HttpURLConnection`, kept in memory for the process, nothing on
+  disk) rather than adding an image library for one small picture per opponent. This is
+  the one request the app makes to a host other than the two servers (Gravatar, OGS's
+  image host); it carries nothing about the user.
 
 ### Formatting
 
@@ -436,7 +444,8 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   it for a fork). A build with an empty id shows the OGS panel with the button disabled and a
   line saying this build cannot sign in.
 - **Fixtures** in `core-ogs/src/test/resources/ogs/` are Chei's public games with players,
-  ids and icons scrubbed (`turnzen-test` is id 1001). `overview.json` is assembled from real
+  ids and icons scrubbed (`turnzen-test` is id 1001; the icons are replaced with fake
+  Gravatar addresses, and opponent 2008's with an uploaded-picture one on `example.invalid`). `overview.json` is assembled from real
   game data in the documented overview shape, because the overview needs a token to record;
   replace it with a real capture after the first sign-in.
 - **Not verified against the live server yet**: the OAuth flow itself,

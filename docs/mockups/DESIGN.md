@@ -140,6 +140,12 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
+- **Opponents' pictures** lead the text where a server has them (OGS sends every player's
+  avatar): a 36dp circle, 12dp before the name, two text lines tall so the row keeps its
+  72dp. Once any row in a list has a picture, every row gets the slot — a row without one
+  (a DGS game, an OGS player with none) shows the initial in `ink2` on a `line` disc — so
+  the names stay in one column. A list with no pictures at all (DGS only) has no slot.
+  Decorative: TalkBack reads the name, not the picture.
 - **New rows flash once.** A refresh that happens while the games list is on screen — the
   one after returning from a game, or on resume — lights the rows it brought in with an
   `accentSoft` wash that arrives in 120ms and drains over 700ms, then plays no more. The

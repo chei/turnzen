@@ -53,6 +53,7 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.OutcomeLabel
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
@@ -219,11 +220,16 @@ fun GamesScreen(
                                 }
 
                                 else -> {
+                                    // Opponents' pictures only where a server has them (OGS);
+                                    // then every row gets the slot, an initial standing in
+                                    // where there is no picture, so the names stay in line.
+                                    val showIcons = rows.any { it.opponent.iconUrl != null }
                                     // Keyed by server too: both servers number their games.
                                     items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
                                         GameRow(
                                             game = game,
                                             serverName = viewModel.serverName(game.id),
+                                            showIcon = showIcons,
                                             arrived = game.id in arrivals,
                                             onArrivalShown = { viewModel.onArrivalShown(game.id) },
                                             onClick = {
@@ -342,6 +348,9 @@ private const val SLIDE_MILLIS = 300
 /** A row narrower than this squeezes the clock into the opponent's name; two fit side by side in landscape. */
 private const val MIN_COLUMN_WIDTH = 340
 
+/** The opponent's picture: two lines of text tall, so the row keeps its height. */
+private const val ICON_SIZE = 36
+
 /** Messages and the empty state run across every column. */
 private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
@@ -349,6 +358,7 @@ private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(
 private fun GameRow(
     game: GameSummary,
     serverName: String,
+    showIcon: Boolean,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -390,20 +400,27 @@ private fun GameRow(
             // The server's mark sits in the margin, so the text keeps its column whether one
             // server is signed in or two.
             ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
-            GameRowContent(game)
+            GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }
 }
 
 @Composable
-private fun GameRowContent(game: GameSummary) {
+private fun GameRowContent(
+    game: GameSummary,
+    showIcon: Boolean,
+) {
     Row(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (showIcon) {
+            PlayerIcon(game.opponent.iconUrl, game.opponent.handle, ICON_SIZE.dp)
+            Spacer(Modifier.width(12.dp))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 Formatting.opponent(game.opponent.handle, game.opponent.rank),
