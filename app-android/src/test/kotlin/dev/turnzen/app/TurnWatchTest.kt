@@ -164,6 +164,57 @@ class TurnWatchTest {
     }
 
     @Test
+    fun `one game with a low-time notice gets no summary, as it would only repeat it`() {
+        val low = game("1", left = 20.hours)
+        val out = TurnWatch.check(WatchState(), input(listOf(low)))
+        assertEquals(listOf(low.id), out.lowTimeAlerts.map { it.id })
+        assertEquals(SummaryAction.Cancel, out.summary)
+    }
+
+    @Test
+    fun `a waiting game whose clock goes low takes its summary down`() {
+        val a = game("1", left = 20.hours)
+        val state = WatchState(known = mapOf(a.id to 10))
+        val out = TurnWatch.check(state, input(listOf(a), shown = true))
+        assertEquals(listOf(a.id), out.lowTimeAlerts.map { it.id })
+        assertEquals(SummaryAction.Cancel, out.summary)
+    }
+
+    @Test
+    fun `one low game keeps its summary while low time is off`() {
+        val low = game("1", left = 20.hours)
+        val out = TurnWatch.check(WatchState(), input(listOf(low), lowTime = false))
+        assertTrue(assertIs<SummaryAction.Post>(out.summary).alert)
+    }
+
+    @Test
+    fun `one low game keeps its summary while another server is silent`() {
+        val low = game("1", left = 20.hours)
+        val out = TurnWatch.check(WatchState(), input(listOf(low), failed = setOf(ogs)))
+        assertIs<SummaryAction.Post>(out.summary)
+    }
+
+    @Test
+    fun `a new game that warns about its clock sounds only there`() {
+        val low = game("1", left = 20.hours)
+        val other = game("2")
+        val state = WatchState(known = mapOf(other.id to 10))
+        val out = TurnWatch.check(state, input(listOf(low, other)))
+        assertEquals(listOf(low.id), out.lowTimeAlerts.map { it.id })
+        val post = assertIs<SummaryAction.Post>(out.summary)
+        assertEquals(false, post.alert)
+        assertEquals(listOf(low.id, other.id), post.games.map { it.id })
+    }
+
+    @Test
+    fun `a new game beside a low one still sounds the summary`() {
+        val low = game("1", left = 20.hours)
+        val fine = game("2")
+        val out = TurnWatch.check(WatchState(), input(listOf(low, fine)))
+        assertTrue(assertIs<SummaryAction.Post>(out.summary).alert)
+    }
+
+    @Test
     fun `a clock the app could not read is never low`() {
         val out = TurnWatch.check(WatchState(), input(listOf(game("1", left = null))))
         assertEquals(emptyList(), out.lowTimeAlerts)

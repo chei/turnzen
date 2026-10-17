@@ -136,11 +136,21 @@ object TurnWatch {
         }
 
         val flagged = (state.flagged + fresh.map { it.id }) intersect currentIds
+        // One game with its own low-time notice: that says it all, so the summary would repeat it.
+        // Not while a server is silent: its games might make it more than one.
+        val onlyLow =
+            input.lowTimeOn &&
+                input.failed.isEmpty() &&
+                current.singleOrNull()?.let { lowAlerted[it.id] == it.moveNumber } == true
+        // One sound per event: a new game warning about its clock right now sounds there.
+        val alert = fresh.any { game -> low.none { it.id == game.id } }
         val summary =
             when {
                 !input.yourMoveOn -> SummaryAction.Cancel
 
-                fresh.isNotEmpty() -> SummaryAction.Post(order(current, flagged), flagged, alert = true)
+                onlyLow -> SummaryAction.Cancel
+
+                fresh.isNotEmpty() -> SummaryAction.Post(order(current, flagged), flagged, alert)
 
                 // A server that did not answer would lose its games from the list: wait.
                 input.failed.isNotEmpty() -> SummaryAction.Keep
