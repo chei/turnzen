@@ -188,7 +188,25 @@ class OgsClient(
         val config = api("/api/v1/ui/config/")
         val user = OgsUser.parse(config.obj("user"))
         tokens = tokens?.copy(userId = user.id.toLong())
-        return user
+        return if (user.iconUrl != null) user else user.copy(iconUrl = ownIcon(user.id.toLong()))
+    }
+
+    /**
+     * The user's icon when the config left it out: from their own game list, whose player
+     * objects carry icons (see [withIcons]); one game names them. Best effort — the account
+     * panel shows the generated initial instead.
+     */
+    private suspend fun ownIcon(me: Long): String? {
+        iconLock.withLock { knownIcons[me] }?.let { return it }
+        return try {
+            val page = api("/api/v1/players/$me/games/?page_size=1")
+            iconLock.withLock {
+                rememberIcons(page.arr("results").orEmpty().mapNotNull { it as? JsonObject })
+                knownIcons[me]
+            }
+        } catch (e: GoServerException) {
+            null
+        }
     }
 
     override suspend fun gamesAwaitingMe(): List<GameSummary> = myRunningGames().filter { it.isMyTurn }

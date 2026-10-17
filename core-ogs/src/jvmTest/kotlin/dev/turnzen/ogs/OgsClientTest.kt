@@ -136,6 +136,34 @@ class OgsClientTest {
         }
 
     @Test
+    fun `the user's own icon comes from the config, or else from their game list`() =
+        runTest {
+            val withIcon =
+                """{"user_jwt":"jwt-1", "user":{"id":1001,"username":"turnzen-test",
+                   "icon":"https://secure.gravatar.com/avatar/ab?s=32"}}"""
+            val fromConfig = FakeHttp(mutableMapOf("/api/v1/ui/config/" to { OgsResponse(200, withIcon) }))
+            assertEquals("https://secure.gravatar.com/avatar/ab?s=128", signedIn(fromConfig).currentUser().iconUrl)
+            assertEquals(1, fromConfig.requests.size)
+
+            val gameList =
+                """{"results": [{"id": 7000001, "players": {
+                     "black": {"id": 2008, "username": "opponent8"},
+                     "white": {"id": 1001, "username": "turnzen-test", "icon": "https://example.invalid/1001-64.png"}}}]}"""
+            val fromList =
+                FakeHttp(
+                    mutableMapOf(
+                        "/api/v1/ui/config/" to { OgsResponse(200, config) },
+                        "/api/v1/players/1001/games/" to { OgsResponse(200, gameList) },
+                    ),
+                )
+            assertEquals("https://example.invalid/1001-64.png", signedIn(fromList).currentUser().iconUrl)
+
+            // Nothing to be found: still signed in, just without a picture.
+            val nowhere = FakeHttp(mutableMapOf("/api/v1/ui/config/" to { OgsResponse(200, config) }))
+            assertEquals(null, signedIn(nowhere).currentUser().iconUrl)
+        }
+
+    @Test
     fun `the two lists share one overview`() =
         runTest {
             val http =

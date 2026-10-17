@@ -59,19 +59,30 @@ class EncryptedCredentialStore internal constructor(
         get() {
             val id = prefs.getString(KEY_USER_ID, null) ?: return null
             val handle = prefs.getString(KEY_USER_HANDLE, null) ?: return null
-            return SignedInUser(id, handle, prefs.getString(KEY_USER_NAME, null), prefs.getString(KEY_USER_RANK, null))
+            return SignedInUser(
+                id,
+                handle,
+                prefs.getString(KEY_USER_NAME, null),
+                prefs.getString(KEY_USER_RANK, null),
+                prefs.getString(KEY_USER_ICON, null),
+            )
         }
         set(value) {
             prefs
                 .edit()
                 .apply {
                     if (value == null) {
-                        remove(KEY_USER_ID).remove(KEY_USER_HANDLE).remove(KEY_USER_NAME).remove(KEY_USER_RANK)
+                        remove(KEY_USER_ID)
+                            .remove(KEY_USER_HANDLE)
+                            .remove(KEY_USER_NAME)
+                            .remove(KEY_USER_RANK)
+                            .remove(KEY_USER_ICON)
                     } else {
                         putString(KEY_USER_ID, value.id)
                         putString(KEY_USER_HANDLE, value.handle)
                         putString(KEY_USER_NAME, value.displayName)
                         putString(KEY_USER_RANK, value.rank)
+                        putString(KEY_USER_ICON, value.iconUrl)
                     }
                 }.apply()
         }
@@ -88,6 +99,7 @@ class EncryptedCredentialStore internal constructor(
         const val KEY_USER_HANDLE = "user_handle"
         const val KEY_USER_NAME = "user_name"
         const val KEY_USER_RANK = "user_rank"
+        const val KEY_USER_ICON = "user_icon"
     }
 }
 

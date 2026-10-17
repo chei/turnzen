@@ -44,6 +44,7 @@ import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.PillButton
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.theme.colors
@@ -66,6 +67,8 @@ fun AccountPanels(
     browserSignInAvailable: Boolean,
     modifier: Modifier = Modifier,
     keepAwake: KeepAwake = KeepAwake.None,
+    /** The user's own icon beside "Signed in as", as the games list shows the opponents'. */
+    showPlayerIcons: Boolean = false,
 ) {
     val states by accounts.states.collectAsStateWithLifecycle(accounts.sessions.map { it.state.value })
     val scope = rememberCoroutineScope()
@@ -81,6 +84,7 @@ fun AccountPanels(
                 state = state,
                 browserSignInAvailable = browserSignInAvailable,
                 keepAwake = keepAwake,
+                showPlayerIcon = showPlayerIcons,
                 onSignOut = { scope.launch { games.signOut(session) } },
             )
             Spacer(Modifier.height(24.dp))
@@ -94,6 +98,7 @@ private fun AccountPanel(
     state: AuthState,
     browserSignInAvailable: Boolean,
     keepAwake: KeepAwake,
+    showPlayerIcon: Boolean,
     onSignOut: () -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
@@ -107,6 +112,17 @@ private fun AccountPanel(
         when (state) {
             is AuthState.SignedIn -> {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (showPlayerIcon) {
+                        PlayerIcon(
+                            state.user.iconUrl,
+                            state.user.handle,
+                            // The key the games list would use, so the user looks the same
+                            // wherever an opponent of theirs might see them in this app.
+                            colorKey = "${session.serverId.value}:${state.user.handle.lowercase()}",
+                            size = 36.dp,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                    }
                     Text(
                         stringResource(R.string.accounts_signed_in_as, state.user.handle),
                         style = MaterialTheme.typography.bodyLarge,

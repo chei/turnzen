@@ -95,7 +95,14 @@ fun SettingsScreen(
 
         // The accounts are the sign-in screen's own panels: adding the second server, or
         // signing one out, looks exactly like signing in did.
-        AccountPanels(accounts, games, browserSignInAvailable, Modifier.padding(horizontal = 20.dp), keepAwake)
+        AccountPanels(
+            accounts,
+            games,
+            browserSignInAvailable,
+            Modifier.padding(horizontal = 20.dp),
+            keepAwake,
+            showPlayerIcons = settings.playerIcons,
+        )
         Spacer(Modifier.height(4.dp))
 
         Group(stringResource(R.string.settings_group_board)) {

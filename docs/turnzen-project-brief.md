@@ -349,7 +349,11 @@ for it.
   icon: the initial on colours hashed from `server:handle` (see DESIGN.md), so the icons
   identify players on DGS too and are shown whether or not an OGS account is signed in.
   A setting (Appearance › Player icons, on by default) hides them all; with it off no
-  picture is downloaded. The app fetches the pictures itself
+  picture is downloaded.
+  The signed-in user's own icon sits beside "Signed in as" in the account panels (Settings):
+  `SignedInUser.iconUrl`, from OGS's `ui/config` user block or, when that leaves it out,
+  from the user's own game list; stored with the user so an offline start shows it too.
+  DGS users get their generated icon, coloured as an opponent would see it. The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's

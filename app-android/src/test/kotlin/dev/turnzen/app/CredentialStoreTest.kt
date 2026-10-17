@@ -30,14 +30,17 @@ class CredentialStoreTest {
         EncryptedCredentialStore(prefs).apply {
             credentials = Credentials("demo", "hunter2")
             session = "sessioncode=abc"
-            user = SignedInUser("42", "demo", "Demo User", "8k")
+            user = SignedInUser("42", "demo", "Demo User", "8k", "https://secure.gravatar.com/avatar/ab?s=128")
         }
 
         // A second store over the same file: this is what the next app start sees.
         val reopened = EncryptedCredentialStore(prefs)
         assertEquals(Credentials("demo", "hunter2"), reopened.credentials)
         assertEquals("sessioncode=abc", reopened.session)
-        assertEquals(SignedInUser("42", "demo", "Demo User", "8k"), reopened.user)
+        assertEquals(
+            SignedInUser("42", "demo", "Demo User", "8k", "https://secure.gravatar.com/avatar/ab?s=128"),
+            reopened.user,
+        )
     }
 
     @Test

@@ -611,6 +611,7 @@ internal object OgsUser {
             handle = user.str("username") ?: throw GoServerException.Protocol("OGS user without username"),
             displayName = null,
             rank = OgsRanks.ofPlayer(user),
+            iconUrl = OgsIcons.url(user),
         )
     }
 }
