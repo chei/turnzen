@@ -153,7 +153,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   icons turns them off (on by default), and the rows then start with the name. The same
   icon, same size, leads the board screen's header (the opponent) and each player's line in
   the game info, after their stone (both players: the user's own from their account), and
-  the user's own sits beside "Signed in as" in Settings.
+  the user's own sits beside "Signed in as" in Settings. A one-game notification carries
+  it as its large icon, drawn at Android's large-icon size with the same proportions.
+  Under a picture nothing is drawn: the tint is only for the letter, since behind a
+  picture it showed as a coloured hairline at the rounded edge.
   Decorative: TalkBack reads the name, not the picture.
 - **The title line never wraps.** A long outcome on the right ("Won by resignation") leaves
   the name little room; the handle is ellipsised and the rank kept, rather than the name
