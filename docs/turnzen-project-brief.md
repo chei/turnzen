@@ -585,19 +585,28 @@ notification on, and both switches start off. Specified in a design interview on
 - **Your move**: one summary notification for every game on both servers, never one per
   game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
   game has *newly* become the user's move since the last check; otherwise it changes
-  silently. Title "Your move in N games" (one game: "Your move against X"); one line per game
-  — opponent, the user's remaining time only when under a day, server; the games that caused
-  the latest alerts come first, marked "new" unless every game is. Plain text: Android drops
-  colour and weight from the text of an ordinary notification, so the server is named rather
-  than shown in its colour, and "new" is a word rather than bold. Tapping opens that game's board
+  silently. Title "Your move in N games" (one game: "Your move against X", with "20 h left"
+  under it only when the clock is low, and nothing to expand: the title says it all). Under
+  the title, only the games that caused the latest alerts are named ("2 new: Alice, Bob";
+  just the names when every game is new; nothing when none is): the title counts the rest,
+  and the "Your turn" list has them all. It expands only when one of those games' clocks is
+  under a day, to a line per new game, opponent and time left. No server: the opponent is
+  what the user goes by, and tapping shows it in its colour (October 2026: every opponent's
+  name and "Dragon Go Server" on every line made it too long with many games). Colour per
+  line is not possible: Android drops colour and weight from the text of an ordinary
+  notification, and only foreground-service or media notifications may be colourised.
+  Tapping opens that game's board
   when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
   (Pixel shows only a dot; the count is in the long-press menu); Android has no badge-number
-  API of its own.
+  API of its own. With a single game that has its own "time running low" notice, there is
+  no summary: that notice says the same and more. And one sound per event: when a new game
+  warns about its clock in the same check, that notice sounds and the summary appears or
+  changes silently, unless another new game is in it (October 2026).
 - **Time running low**: one notification per game, on its own channel at high importance
   (sound and a pop-up), when the user's own remaining main time is at most **24 hours**
   (hardcoded: urgent in correspondence terms, still actionable after a night's sleep). The
-  text names opponent, time left and server. Once per game; it can fire again only after the
-  user has moved in that game. Tapping opens the board. The opponent's clock is never
+  title names opponent and time left, and nothing follows it. Once per game; it can fire
+  again only after the user has moved in that game. Tapping opens the board. The opponent's clock is never
   watched.
 - **Signed out**: when a check finds a server signed the user out and the app cannot sign in
   again by itself, one "Turnzen can't check X — sign in again" notification, once per

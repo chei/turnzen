@@ -142,28 +142,36 @@ class Notifier(
         games: List<GameSummary>,
         flagged: Set<GameId>,
         alert: Boolean,
-        serverName: (ServerId) -> String,
     ) {
         if (games.isEmpty()) return cancelSummary()
+        val single = games.singleOrNull()
         val title =
-            if (games.size == 1) {
-                context.getString(R.string.notify_your_move_one, games[0].opponent.handle)
+            if (single != null) {
+                context.getString(R.string.notify_your_move_one, single.opponent.handle)
             } else {
                 context.getString(R.string.notify_your_move_many, games.size)
             }
-        // Marked only when it tells something: with every game new, the word says nothing.
-        val markNew = flagged.size < games.size
-        val lines = games.map { line(it, markNew && it.id in flagged, serverName(it.id.server)) }
-        val style = NotificationCompat.InboxStyle().setBigContentTitle(title)
-        lines.forEach(style::addLine)
-        val open = if (games.size == 1) OpenRequest.Game(games[0].id) else OpenRequest.YourTurn
+        // Only the games that just came round are named: the title counts the rest.
+        val newGames = games.filter { it.id in flagged }
+        // One game: the title says it all, so a second line only for a low clock.
+        val text = if (single != null) timeLeft(single) else summaryText(games, newGames)
+        // Expandable only when a line would say more than the names already do: a low clock.
+        val style =
+            if (single == null && newGames.any(TurnWatch::isLow)) {
+                NotificationCompat.InboxStyle().setBigContentTitle(title).also { style ->
+                    newGames.forEach { style.addLine(line(it)) }
+                }
+            } else {
+                null
+            }
+        val open = if (single != null) OpenRequest.Game(single.id) else OpenRequest.YourTurn
         val notification =
             NotificationCompat
                 .Builder(context, CHANNEL_YOUR_MOVE)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(accent())
                 .setContentTitle(title)
-                .setContentText(games.joinToString(", ") { it.opponent.handle })
+                .setContentText(text)
                 .setStyle(style)
                 .setNumber(games.size)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -177,10 +185,7 @@ class Notifier(
 
     fun cancelSummary() = manager.cancel(ID_SUMMARY)
 
-    fun postLowTime(
-        game: GameSummary,
-        serverName: String,
-    ) {
+    fun postLowTime(game: GameSummary) {
         val title =
             context.getString(
                 R.string.notify_low_time,
@@ -193,7 +198,6 @@ class Notifier(
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(accent())
                 .setContentTitle(title)
-                .setContentText(serverName)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pending(OpenRequest.Game(game.id), game.id.hashCode()))
@@ -247,26 +251,30 @@ class Notifier(
         }
     }
 
-    /**
-     * "opponent · new · 20 h left · server". Plain text: Android drops colour and weight from
-     * the text of a notification that is not colourised, so the server is named, not tinted.
-     */
-    private fun line(
-        game: GameSummary,
-        new: Boolean,
-        serverName: String,
-    ): String =
-        buildList {
-            add(game.opponent.handle)
-            if (new) add(context.getString(R.string.notify_new))
-            if (TurnWatch.isLow(
-                    game,
-                )
-            ) {
-                add(context.getString(R.string.notify_time_left, Formatting.remaining(game.remainingTime)))
-            }
-            add(serverName)
-        }.joinToString(" · ")
+    /** "2 new: Alice, Bob"; only the names when every game is new; nothing when none is. */
+    private fun summaryText(
+        games: List<GameSummary>,
+        newGames: List<GameSummary>,
+    ): String? {
+        val names = newGames.joinToString(", ") { it.opponent.handle }
+        return when {
+            newGames.isEmpty() -> null
+            newGames.size < games.size -> context.getString(R.string.notify_new_games, newGames.size, names)
+            else -> names
+        }
+    }
+
+    /** "20 h left" when [TurnWatch.isLow], else nothing. */
+    private fun timeLeft(game: GameSummary): String? =
+        if (TurnWatch.isLow(game)) {
+            context.getString(R.string.notify_time_left, Formatting.remaining(game.remainingTime))
+        } else {
+            null
+        }
+
+    /** "opponent · 20 h left". No server: tapping shows it, and the opponent is what the user goes by. */
+    private fun line(game: GameSummary): String =
+        listOfNotNull(game.opponent.handle, timeLeft(game)).joinToString(" · ")
 
     private fun pending(
         request: OpenRequest,
