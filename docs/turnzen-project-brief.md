@@ -338,9 +338,13 @@ for it.
   object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
   128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
   it; DGS has no avatars and leaves it null. The first build showed the pictures on the
-  Finished tab only: the overview's player objects evidently come without `icon`, so the
-  client looks each such opponent up once on `/api/v1/players/{id}/` and remembers the
-  answer for the session (a failed lookup is retried on the next refresh). The app fetches the pictures itself
+  Finished tab only: the overview's player objects evidently come without `icon`. A lookup
+  per opponent on `/api/v1/players/{id}/` did not bring them either (second build), so the
+  client now reads one page of the user's *running* games from the same player game list
+  the Finished tab uses (`ended__isnull=true`), whose player objects do carry icons, and
+  remembers every icon on it for the session — also those from the finished list. It asks
+  again only when an opponent it has not seen turns up; a failed read is retried on the
+  next refresh. Icons are squares with 4dp corners, as OGS shows them: round is for stones. The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's

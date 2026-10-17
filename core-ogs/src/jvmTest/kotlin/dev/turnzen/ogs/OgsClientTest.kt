@@ -104,26 +104,35 @@ class OgsClientTest {
         }
 
     @Test
-    fun `opponents the overview sends without an icon are looked up once`() =
+    fun `icons the overview leaves out come from the player's game list, once`() =
         runTest {
             val overview = Fixtures.text("overview.json").replace(Regex(""",\s*"icon": "[^"]*""""), "")
+            val gameList =
+                """{"results": [{"id": 7000001, "players": {
+                     "black": {"id": 2008, "username": "opponent8", "icon": "https://secure.gravatar.com/avatar/ab?s=32"},
+                     "white": {"id": 1001, "username": "turnzen-test"}}}]}"""
             val http =
                 FakeHttp(
                     mutableMapOf(
                         "/api/v1/ui/overview/" to { OgsResponse(200, overview) },
-                        "/api/v1/players/2008/" to {
-                            OgsResponse(200, """{"id": 2008, "icon": "https://secure.gravatar.com/avatar/ab?s=32"}""")
-                        },
+                        "/api/v1/players/1001/games/" to { OgsResponse(200, gameList) },
                     ),
                 )
-            val client = signedIn(http, now = Instant.fromEpochMilliseconds(1790500000000))
-            val games = client.myRunningGames()
-            val icons = games.associate { it.opponent.handle to it.opponent.iconUrl }
+            val client = signedIn(http)
+            val icons = client.myRunningGames().associate { it.opponent.handle to it.opponent.iconUrl }
             assertEquals("https://secure.gravatar.com/avatar/ab?s=128", icons["opponent8"])
-            val lookups = http.requests.count { "/api/v1/players/" in it.url }
-            // Another refresh asks nothing more: found and missing icons are both remembered.
+            // opponent7 is not on that page: remembered as having none, not asked about again.
+            assertEquals(null, icons["opponent7"])
+            val listReads = http.requests.count { "/games/" in it.url }
+            assertEquals(1, listReads)
+            assertTrue(
+                http.requests
+                    .single { "/games/" in it.url }
+                    .url
+                    .contains("ended__isnull=true"),
+            )
             client.myRunningGames()
-            assertEquals(lookups, http.requests.count { "/api/v1/players/" in it.url })
+            assertEquals(listReads, http.requests.count { "/games/" in it.url })
         }
 
     @Test
