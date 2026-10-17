@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -421,70 +422,88 @@ private fun GameRowContent(
             PlayerIcon(game.opponent.iconUrl, game.opponent.handle, ICON_SIZE.dp)
             Spacer(Modifier.width(12.dp))
         }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            // One line, always: a name wrapped under a long outcome ("Won by resignation")
-            // pushed the line below out of the row. The handle gives way, the rank does not.
-            Row {
-                Text(
-                    game.opponent.handle,
-                    Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        // The text and what stands right of it, centred in the row as one block. An outcome
+        // sits on the name's baseline whether or not a rating line follows it, so the
+        // column of outcomes stays level down the list; a clock, always one line, is
+        // centred against the two lines beside it.
+        Row(Modifier.weight(1f)) {
+            GameRowText(game, Modifier.weight(1f).alignBy(FirstBaseline))
+            Spacer(Modifier.width(12.dp))
+            // A finished game has no clock to show; what it has instead is how it went.
+            if (game.isFinished) {
+                OutcomeLabel(game.result, game.myColor, game.ratingChange, Modifier.alignBy(FirstBaseline))
+            } else {
+                RemainingTimeLabel(
+                    game.remainingTime,
+                    Modifier.align(Alignment.CenterVertically),
+                    muted = !game.isMyTurn,
                 )
-                game.opponent.rank?.takeIf { it.isNotBlank() }?.let { rank ->
-                    Text(
-                        " ($rank)",
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                }
             }
-            // The date is the part a glance at the list is for, so when a long outcome on the
-            // right squeezes this line it is the board and move count that give way, not it.
-            Row {
-                val progress =
-                    when {
-                        // A board this app cannot draw: say where it can be seen.
-                        game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+        }
+    }
+}
 
-                        // A finished game gets nothing here. How long it ran is a detail
-                        // the board shows, and OGS's game list does not say it at all, so a
-                        // count would set the two servers' rows apart; "finished" would say
-                        // what the tab and the outcome beside it already say.
-                        game.isFinished -> null
-
-                        // A game being counted is not waiting for a move either, and
-                        // saying "move 22" would send the user looking for one.
-                        game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
-
-                        else -> stringResource(R.string.games_move, game.moveNumber)
-                    }
+@Composable
+private fun GameRowText(
+    game: GameSummary,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // One line, always: a name wrapped under a long outcome ("Won by resignation")
+        // pushed the line below out of the row. The handle gives way, the rank does not.
+        Row {
+            Text(
+                game.opponent.handle,
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            game.opponent.rank?.takeIf { it.isNotBlank() }?.let { rank ->
                 Text(
-                    listOfNotNull(Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight), progress)
-                        .joinToString(", "),
-                    Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    ", ${Formatting.relative(game.lastMoveAt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
+                    " ($rank)",
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     softWrap = false,
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        // A finished game has no clock to show; what it has instead is how it went.
-        if (game.isFinished) {
-            OutcomeLabel(game.result, game.myColor, game.ratingChange)
-        } else {
-            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+        // The date is the part a glance at the list is for, so when a long outcome on the
+        // right squeezes this line it is the board and move count that give way, not it.
+        Row {
+            val progress =
+                when {
+                    // A board this app cannot draw: say where it can be seen.
+                    game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+
+                    // A finished game gets nothing here. How long it ran is a detail
+                    // the board shows, and OGS's game list does not say it at all, so a
+                    // count would set the two servers' rows apart; "finished" would say
+                    // what the tab and the outcome beside it already say.
+                    game.isFinished -> null
+
+                    // A game being counted is not waiting for a move either, and
+                    // saying "move 22" would send the user looking for one.
+                    game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                    else -> stringResource(R.string.games_move, game.moveNumber)
+                }
+            Text(
+                listOfNotNull(Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight), progress)
+                    .joinToString(", "),
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                ", ${Formatting.relative(game.lastMoveAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                softWrap = false,
+            )
         }
     }
 }

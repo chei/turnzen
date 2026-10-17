@@ -175,7 +175,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   count would only ever be the limit. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
-  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. The line under the name has no move count: just
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty, and the outcome stays on the name's baseline
+  rather than moving to the middle of the row, so the outcomes line up down the list. (A
+  running row's clock, always one line, is centred against the two lines beside it.) The line under the name has no move count: just
   "19x19, 3 d ago". How long the game ran is for the board; OGS's game list does not report
   it, and a count on DGS rows only would set the servers apart. Nor "finished", which the
   tab and the outcome already say. A window wide enough for two
