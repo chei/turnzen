@@ -347,10 +347,10 @@ def games_tabs(y, counts=("3", "7")):
 
 
 def player_icon(cx, cy, name, picture):
-    """The opponent's picture in a circle (a stand-in pattern here); their initial without one."""
-    s = f'<circle cx="{cx}" cy="{cy}" r="18" fill="{LINE}"/>'
+    """The opponent's picture, a square with soft corners (a stand-in pattern here); their initial without one."""
+    s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{LINE}"/>'
     if picture:
-        # A Gravatar-like block pattern, clipped to the circle by staying inside it.
+        # A Gravatar-like block pattern.
         for dx, dy in ((-8, -8), (2, -8), (-8, 2), (2, 2), (-3, -3)):
             s += f'<rect x="{cx + dx}" y="{cy + dy}" width="6" height="6" fill="{INK2}"/>'
         return s

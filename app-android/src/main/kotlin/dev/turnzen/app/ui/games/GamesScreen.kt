@@ -422,10 +422,25 @@ private fun GameRowContent(
             Spacer(Modifier.width(12.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                Formatting.opponent(game.opponent.handle, game.opponent.rank),
-                style = MaterialTheme.typography.titleMedium,
-            )
+            // One line, always: a name wrapped under a long outcome ("Won by resignation")
+            // pushed the line below out of the row. The handle gives way, the rank does not.
+            Row {
+                Text(
+                    game.opponent.handle,
+                    Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                game.opponent.rank?.takeIf { it.isNotBlank() }?.let { rank ->
+                    Text(
+                        " ($rank)",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
+            }
             // The date is the part a glance at the list is for, so when a long outcome on the
             // right squeezes this line it is the board and move count that give way, not it.
             Row {

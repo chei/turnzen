@@ -6,7 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import dev.turnzen.app.ui.theme.colors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
@@ -38,7 +39,8 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The picture a player chose to be shown by, in a circle; their initial on a quiet disc while
+ * The picture a player chose to be shown by, as a square with softened corners — the way OGS
+ * shows it, and unlike a stone, which is the one round thing on these screens; their initial on a quiet disc while
  * it loads, and for good when there is none or it cannot be fetched. Decorative: the name next
  * to it is what TalkBack reads.
  */
@@ -55,7 +57,7 @@ fun PlayerIcon(
         if (value == null && url != null) value = PlayerIcons.load(url, cacheDir)
     }
     Box(
-        modifier.size(size).clip(CircleShape).background(colors.line),
+        modifier.size(size).clip(RoundedCornerShape(CORNER)).background(colors.line),
         contentAlignment = Alignment.Center,
     ) {
         val loaded = image
@@ -70,6 +72,8 @@ fun PlayerIcon(
         }
     }
 }
+
+private val CORNER = 4.dp
 
 /**
  * Fetches and keeps player icons. Decoded pictures stay in memory for as long as the process
