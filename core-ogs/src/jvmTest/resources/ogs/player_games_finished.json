@@ -19,7 +19,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2007,
@@ -35,7 +36,8 @@
      },
      "ranking": 30.628875711301784,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d7?s=32&d=retro"
     }
    },
    "id": 7000003,
@@ -84,7 +86,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2007,
@@ -100,7 +103,8 @@
      "country": "un",
      "ranking": 30.628875711301784,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d7?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -125,7 +129,8 @@
      },
      "ranking": 17.072505393031726,
      "professional": false,
-     "ui_class": "supporter"
+     "ui_class": "supporter",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d4?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -141,7 +146,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000004,
@@ -190,7 +196,8 @@
      "country": "un",
      "ranking": 17.072505393031726,
      "professional": false,
-     "ui_class": "supporter"
+     "ui_class": "supporter",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d4?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -206,7 +213,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -231,7 +239,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2003,
@@ -247,7 +256,8 @@
      },
      "ranking": 11.328921974969514,
      "professional": false,
-     "ui_class": ""
+     "ui_class": "",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d3?s=32&d=retro"
     }
    },
    "id": 7000005,
@@ -296,7 +306,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2003,
@@ -312,7 +323,8 @@
      "country": "un",
      "ranking": 11.328921974969514,
      "professional": false,
-     "ui_class": ""
+     "ui_class": "",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d3?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -337,7 +349,8 @@
      },
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -353,7 +366,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000006,
@@ -402,7 +416,8 @@
      "country": "un",
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -418,7 +433,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -443,7 +459,8 @@
      },
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -459,7 +476,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000007,
@@ -508,7 +526,8 @@
      "country": "un",
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -524,7 +543,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -549,7 +569,8 @@
      },
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -565,7 +586,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000008,
@@ -614,7 +636,8 @@
      "country": "un",
      "ranking": 18.518562539624426,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d2?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -630,7 +653,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -655,7 +679,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2005,
@@ -671,7 +696,8 @@
      },
      "ranking": 19.158541059393844,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d5?s=32&d=retro"
     }
    },
    "id": 7000009,
@@ -720,7 +746,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     },
     "white": {
      "id": 2005,
@@ -736,7 +763,8 @@
      "country": "un",
      "ranking": 19.158541059393844,
      "professional": false,
-     "ui_class": "bot"
+     "ui_class": "bot",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d5?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -761,7 +789,8 @@
      },
      "ranking": 26.239191041958176,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://avatars.example.invalid/2008-0f1e2d3c4b5a6978-32.png"
     },
     "white": {
      "id": 1001,
@@ -777,7 +806,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000001,
@@ -826,7 +856,8 @@
      "country": "un",
      "ranking": 26.239191041958176,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://avatars.example.invalid/2008-0f1e2d3c4b5a6978-32.png"
     },
     "white": {
      "id": 1001,
@@ -842,7 +873,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -867,7 +899,8 @@
      },
      "ranking": 27.034876184213232,
      "professional": false,
-     "ui_class": ""
+     "ui_class": "",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d6?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -883,7 +916,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000010,
@@ -932,7 +966,8 @@
      "country": "un",
      "ranking": 27.034876184213232,
      "professional": false,
-     "ui_class": ""
+     "ui_class": "",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d6?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -948,7 +983,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
@@ -973,7 +1009,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d9?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -989,7 +1026,8 @@
      },
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "id": 7000002,
@@ -1038,7 +1076,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000007d9?s=32&d=retro"
     },
     "white": {
      "id": 1001,
@@ -1054,7 +1093,8 @@
      "country": "un",
      "ranking": 24.303382182144386,
      "professional": false,
-     "ui_class": "provisional"
+     "ui_class": "provisional",
+     "icon": "https://secure.gravatar.com/avatar/000000000000000000000000000003e9?s=32&d=retro"
     }
    },
    "rengo": false,
