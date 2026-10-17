@@ -449,13 +449,11 @@ private fun GameRowContent(
                         // A board this app cannot draw: say where it can be seen.
                         game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
 
-                        // A server that does not say how long a finished game ran (OGS's
-                        // game list) gets nothing here: not "0 moves", and not "finished",
-                        // which the tab and the outcome beside it already say.
-                        game.isFinished && game.moveNumber == 0 -> null
-
-                        // A game that is over is not at a move, it had that many.
-                        game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
+                        // A finished game gets nothing here. How long it ran is a detail
+                        // the board shows, and OGS's game list does not say it at all, so a
+                        // count would set the two servers' rows apart; "finished" would say
+                        // what the tab and the outcome beside it already say.
+                        game.isFinished -> null
 
                         // A game being counted is not waiting for a move either, and
                         // saying "move 22" would send the user looking for one.
