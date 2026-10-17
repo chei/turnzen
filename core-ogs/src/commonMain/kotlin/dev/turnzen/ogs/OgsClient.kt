@@ -21,6 +21,9 @@ import dev.turnzen.ogs.net.OgsRequest
 import dev.turnzen.ogs.net.OgsResponse
 import dev.turnzen.ogs.net.OgsSocketConnector
 import dev.turnzen.ogs.net.OgsTransportException
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -94,6 +97,10 @@ class OgsClient(
     private var tokens: Tokens? = null
     private val renewLock = Mutex()
     private val overviewLock = Mutex()
+
+    /** Opponents' icons found by [withIcons], by player id; a null value means they have none. */
+    private val knownIcons = mutableMapOf<Long, String?>()
+    private val iconLock = Mutex()
     private var overview: Pair<Long, JsonObject>? = null
 
     override val serverId: ServerId = SERVER_ID
@@ -189,13 +196,66 @@ class OgsClient(
     override suspend fun myRunningGames(): List<GameSummary> {
         val me = myId()
         val games = overview().arr("active_games") ?: return emptyList()
-        return games.mapNotNull { element ->
-            val entry = element as? JsonObject ?: return@mapNotNull null
-            val gamedata = entry.obj("json") ?: entry.obj("gamedata") ?: return@mapNotNull null
-            if (!OgsGameData.isCorrespondence(gamedata.obj("time_control"))) return@mapNotNull null
-            OgsGameData.summary(gamedata, entry.obj("black"), entry.obj("white"), me, now())
+        val running =
+            games.mapNotNull { element ->
+                val entry = element as? JsonObject ?: return@mapNotNull null
+                val gamedata = entry.obj("json") ?: entry.obj("gamedata") ?: return@mapNotNull null
+                if (!OgsGameData.isCorrespondence(gamedata.obj("time_control"))) return@mapNotNull null
+                OgsGameData.summary(gamedata, entry.obj("black"), entry.obj("white"), me, now()) to
+                    OgsGameData.opponentId(gamedata, me)
+            }
+        return withIcons(running)
+    }
+
+    /**
+     * Fills in the opponents' icons the overview left out. Its player objects need not carry
+     * one, so each opponent missing an icon is looked up once on their public player page,
+     * and remembered for as long as this client lives. Best effort: a lookup that fails
+     * (no connection, the server busy) leaves that row without a picture and is tried again
+     * on the next refresh.
+     */
+    private suspend fun withIcons(games: List<Pair<GameSummary, Long?>>): List<GameSummary> {
+        val missing = games.filter { (summary, _) -> summary.opponent.iconUrl == null }.mapNotNull { it.second }
+        val icons =
+            iconLock.withLock {
+                coroutineScope {
+                    missing
+                        .distinct()
+                        .filter { it !in knownIcons }
+                        .map { id -> async { id to playerIcon(id) } }
+                        .awaitAll()
+                        .forEach { (id, icon) -> icon?.let { knownIcons[id] = it.value } }
+                }
+                knownIcons.toMap()
+            }
+        return games.map { (summary, opponentId) ->
+            val icon = summary.opponent.iconUrl ?: opponentId?.let { icons[it] }
+            if (icon ==
+                summary.opponent.iconUrl
+            ) {
+                summary
+            } else {
+                summary.copy(opponent = summary.opponent.copy(iconUrl = icon))
+            }
         }
     }
+
+    /**
+     * The player's icon, wrapped so that "has none" is an answer too — as is a page the server
+     * will not give (a closed account). Null when the lookup failed and is worth another try.
+     */
+    private suspend fun playerIcon(id: Long): IconAnswer? =
+        try {
+            IconAnswer(OgsIcons.url(api("/api/v1/players/$id/")))
+        } catch (e: GoServerException.Protocol) {
+            IconAnswer(null)
+        } catch (e: GoServerException) {
+            null
+        }
+
+    private class IconAnswer(
+        val value: String?,
+    )
 
     override suspend fun myFinishedGames(limit: Int): List<GameSummary> {
         val me = myId()

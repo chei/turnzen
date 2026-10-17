@@ -104,6 +104,29 @@ class OgsClientTest {
         }
 
     @Test
+    fun `opponents the overview sends without an icon are looked up once`() =
+        runTest {
+            val overview = Fixtures.text("overview.json").replace(Regex(""",\s*"icon": "[^"]*""""), "")
+            val http =
+                FakeHttp(
+                    mutableMapOf(
+                        "/api/v1/ui/overview/" to { OgsResponse(200, overview) },
+                        "/api/v1/players/2008/" to {
+                            OgsResponse(200, """{"id": 2008, "icon": "https://secure.gravatar.com/avatar/ab?s=32"}""")
+                        },
+                    ),
+                )
+            val client = signedIn(http, now = Instant.fromEpochMilliseconds(1790500000000))
+            val games = client.myRunningGames()
+            val icons = games.associate { it.opponent.handle to it.opponent.iconUrl }
+            assertEquals("https://secure.gravatar.com/avatar/ab?s=128", icons["opponent8"])
+            val lookups = http.requests.count { "/api/v1/players/" in it.url }
+            // Another refresh asks nothing more: found and missing icons are both remembered.
+            client.myRunningGames()
+            assertEquals(lookups, http.requests.count { "/api/v1/players/" in it.url })
+        }
+
+    @Test
     fun `the two lists share one overview`() =
         runTest {
             val http =

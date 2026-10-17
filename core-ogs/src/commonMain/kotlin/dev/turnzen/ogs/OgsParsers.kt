@@ -265,6 +265,17 @@ internal object OgsGameData {
         rengo: Boolean,
     ): Boolean = width != null && width == height && width in BoardSizes.MIN..BoardSizes.MAX && !rengo
 
+    /** The player id of the user's opponent in [gamedata]. */
+    fun opponentId(
+        gamedata: JsonObject,
+        me: Long,
+    ): Long? {
+        val players = gamedata.obj("players")
+        val blackId = gamedata.long("black_player_id") ?: players?.obj("black")?.long("id")
+        val whiteId = gamedata.long("white_player_id") ?: players?.obj("white")?.long("id")
+        return if (blackId == me) whiteId else blackId
+    }
+
     fun summary(
         gamedata: JsonObject,
         blackPlayer: JsonObject?,
@@ -305,7 +316,8 @@ internal object OgsGameData {
                     handle = opponentFull?.str("username") ?: opponentShort?.str("username") ?: "?",
                     displayName = null,
                     rank = OgsRanks.ofPlayer(opponentFull ?: opponentShort),
-                    iconUrl = OgsIcons.url(opponentFull ?: opponentShort),
+                    // Whichever object has it: the full one need not carry the icon.
+                    iconUrl = OgsIcons.url(opponentFull) ?: OgsIcons.url(opponentShort),
                 ),
             myColor = myColor,
             boardSize = width ?: throw GoServerException.Protocol("OGS game $id without width"),

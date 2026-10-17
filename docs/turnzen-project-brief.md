@@ -337,7 +337,10 @@ for it.
 - **Opponents' avatars** (October 2026): OGS sends an `icon` URL with every full player
   object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
   128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
-  it; DGS has no avatars and leaves it null. The app fetches the pictures itself
+  it; DGS has no avatars and leaves it null. The first build showed the pictures on the
+  Finished tab only: the overview's player objects evidently come without `icon`, so the
+  client looks each such opponent up once on `/api/v1/players/{id}/` and remembers the
+  answer for the session (a failed lookup is retried on the next refresh). The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's
