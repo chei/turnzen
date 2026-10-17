@@ -586,16 +586,16 @@ notification on, and both switches start off. Specified in a design interview on
   game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
   game has *newly* become the user's move since the last check; otherwise it changes
   silently. Title "Your move in N games" (one game: "Your move against X", with "20 h left"
-  under it only when the clock is low, and nothing to expand: the title says it all). Collapsed, the
-  line under it names only the games that caused the latest alerts ("2 new: Alice, Bob"),
-  or every opponent when all or none of them are new. Expanded, one line per game —
-  opponent and the user's remaining time only when under a day; the games that caused the
-  latest alerts come first, marked "new" unless every game is. No server: the opponent is
-  what the user goes by, and tapping shows it in its colour (October 2026: the full name
-  list and "Dragon Go Server" on every line made it too long with many games). Colour per
+  under it only when the clock is low, and nothing to expand: the title says it all). Under
+  the title, only the games that caused the latest alerts are named ("2 new: Alice, Bob";
+  just the names when every game is new; nothing when none is): the title counts the rest,
+  and the "Your turn" list has them all. It expands only when one of those games' clocks is
+  under a day, to a line per new game, opponent and time left. No server: the opponent is
+  what the user goes by, and tapping shows it in its colour (October 2026: every opponent's
+  name and "Dragon Go Server" on every line made it too long with many games). Colour per
   line is not possible: Android drops colour and weight from the text of an ordinary
-  notification, and only foreground-service or media notifications may be colourised, so
-  "new" is a word rather than bold. Tapping opens that game's board
+  notification, and only foreground-service or media notifications may be colourised.
+  Tapping opens that game's board
   when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
   (Pixel shows only a dot; the count is in the long-press menu); Android has no badge-number
   API of its own. With a single game that has its own "time running low" notice, there is

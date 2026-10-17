@@ -151,17 +151,18 @@ class Notifier(
             } else {
                 context.getString(R.string.notify_your_move_many, games.size)
             }
-        // One game: the title says it all, so a second line only for a low clock, and nothing to expand.
-        val text = if (single != null) timeLeft(single) else summaryText(games, flagged)
+        // Only the games that just came round are named: the title counts the rest.
+        val newGames = games.filter { it.id in flagged }
+        // One game: the title says it all, so a second line only for a low clock.
+        val text = if (single != null) timeLeft(single) else summaryText(games, newGames)
+        // Expandable only when a line would say more than the names already do: a low clock.
         val style =
-            if (single != null) {
-                null
-            } else {
-                // Marked only when it tells something: with every game new, the word says nothing.
-                val markNew = flagged.size < games.size
+            if (single == null && newGames.any(TurnWatch::isLow)) {
                 NotificationCompat.InboxStyle().setBigContentTitle(title).also { style ->
-                    games.forEach { style.addLine(line(it, markNew && it.id in flagged)) }
+                    newGames.forEach { style.addLine(line(it)) }
                 }
+            } else {
+                null
             }
         val open = if (single != null) OpenRequest.Game(single.id) else OpenRequest.YourTurn
         val notification =
@@ -250,20 +251,18 @@ class Notifier(
         }
     }
 
-    /** "2 new: Alice, Bob", or every opponent when all or none of them are new. */
+    /** "2 new: Alice, Bob"; only the names when every game is new; nothing when none is. */
     private fun summaryText(
         games: List<GameSummary>,
-        flagged: Set<GameId>,
-    ): String {
-        val newGames = games.filter { it.id in flagged }
-        return if (newGames.isNotEmpty() && newGames.size < games.size) {
-            context.getString(R.string.notify_new_games, newGames.size, opponents(newGames))
-        } else {
-            opponents(games)
+        newGames: List<GameSummary>,
+    ): String? {
+        val names = newGames.joinToString(", ") { it.opponent.handle }
+        return when {
+            newGames.isEmpty() -> null
+            newGames.size < games.size -> context.getString(R.string.notify_new_games, newGames.size, names)
+            else -> names
         }
     }
-
-    private fun opponents(games: List<GameSummary>) = games.joinToString(", ") { it.opponent.handle }
 
     /** "20 h left" when [TurnWatch.isLow], else nothing. */
     private fun timeLeft(game: GameSummary): String? =
@@ -273,20 +272,9 @@ class Notifier(
             null
         }
 
-    /**
-     * "opponent · new · 20 h left". No server: tapping shows it, and the opponent is what the
-     * user goes by. Plain text: Android drops weight from the text of a notification that is
-     * not colourised, so "new" is a word, not bold.
-     */
-    private fun line(
-        game: GameSummary,
-        new: Boolean,
-    ): String =
-        buildList {
-            add(game.opponent.handle)
-            if (new) add(context.getString(R.string.notify_new))
-            timeLeft(game)?.let(::add)
-        }.joinToString(" · ")
+    /** "opponent · 20 h left". No server: tapping shows it, and the opponent is what the user goes by. */
+    private fun line(game: GameSummary): String =
+        listOfNotNull(game.opponent.handle, timeLeft(game)).joinToString(" · ")
 
     private fun pending(
         request: OpenRequest,

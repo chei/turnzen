@@ -16,7 +16,7 @@ import kotlin.time.Instant
 data class WatchState(
     /** The user's-move games already accounted for: alerted about, or seen in the app. */
     val known: Map<GameId, Int> = emptyMap(),
-    /** The games of the latest alerts the user has not yet seen; marked "new" in the summary. */
+    /** The games of the latest alerts the user has not yet seen; the ones the summary names. */
     val flagged: Set<GameId> = emptySet(),
     /** Games whose "time running low" has been said, for the move it was said on. */
     val lowAlerted: Map<GameId, Int> = emptyMap(),
