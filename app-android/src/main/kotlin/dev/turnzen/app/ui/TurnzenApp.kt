@@ -278,6 +278,7 @@ private fun SignedInShell(container: AppContainer) {
                     vm,
                     settings.board,
                     onSkip = { advanceFrom(game) },
+                    showPlayerIcons = settings.playerIcons,
                 )
             }
 
@@ -290,6 +291,7 @@ private fun SignedInShell(container: AppContainer) {
                         onTabChange = { gamesTab = it },
                         onOpenGame = { openGameId = encodeGameId(it) },
                         onSignInAgain = { tab = MainTab.SETTINGS },
+                        showPlayerIcons = settings.playerIcons,
                     )
                 }
             }

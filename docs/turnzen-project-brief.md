@@ -334,21 +334,29 @@ for it.
 - **One server failing does not hide the other**: the games that loaded are shown, with a
   quiet line naming the server that did not answer ("Online Go Server didn't answer · Try
   again"). The full-screen unreachable state appears only when every signed-in server fails.
-- **Opponents' avatars** (October 2026): OGS sends an `icon` URL with every full player
-  object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
-  128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
-  it; DGS has no avatars and leaves it null. The first build showed the pictures on the
-  Finished tab only: the overview's player objects evidently come without `icon`. A lookup
-  per opponent on `/api/v1/players/{id}/` did not bring them either (second build), so the
-  client now reads one page of the user's *running* games from the same player game list
-  the Finished tab uses (`ended__isnull=true`), whose player objects do carry icons, and
-  remembers every icon on it for the session — also those from the finished list. It asks
-  again only when an opponent it has not seen turns up; a failed read is retried on the
-  next refresh. Confirmed on a real account: all three tabs show the icons. Icons are squares with 4dp corners, as OGS shows them: round is for stones. The app fetches the pictures itself
-  (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
-  the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
-  the one request the app makes to a host other than the two servers (Gravatar, OGS's
-  image host); it carries nothing about the user.
+- **Every opponent has an icon** at the start of their row: see "Player icons" below.
+- **The row, as revised in October 2026** (rules in DESIGN.md): the name line never wraps
+  (the handle is ellipsised, the rank kept); a finished row has no move count and no
+  "finished" — the board shows how long a game ran, OGS's list does not report it, and a
+  count on DGS rows only would set the servers apart; a finished row's outcome sits on the
+  name's baseline whether or not a rating line follows. Leaving the list for a game and
+  coming back keeps each tab's scroll position (see Implementation decisions).
+- **Considered for the row and left out**, so they need not be proposed again without a
+  new reason:
+  - *A board glyph plus "13" instead of "13x13"*: saves about two characters; the date,
+    the part that matters, never gives way anyway; a non-square OGS board would still need
+    "19x9", and a lone number beside a small square reads less plainly than "13x13".
+  - *Icons for won / lost / draw*: Go has no shared symbol for them, so a tick, cross or
+    cup would have to be learned; the word "Won" is about the size of an icon, and the
+    colour already marks the user's own win.
+  - *Go notation ("B+R", "W+7.5")*: it names the winning colour, which the user would have
+    to translate into "did I win".
+  - *Fetching each finished OGS game for its move count*: fifteen requests for a number the
+    row no longer shows.
+- **Open**: a shorter outcome — "Won" / "Lost" / "Draw" on the first line, and "resign ·
+  +0.23", "time", "7.5 · +0.12" smaller underneath, so a long name keeps its room. Proposed
+  in October 2026, not yet decided; the board header and the game info would keep the full
+  wording.
 
 ### Formatting
 
@@ -457,7 +465,8 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   replace it with a real capture after the first sign-in.
 - **Not verified against the live server yet**: the OAuth flow itself,
   loopback acceptance, the overview's exact shape, the realtime `authenticate` reply, and the
-  rating-history columns.
+  rating-history columns. (Learned on a real account, October 2026: the overview's player
+  objects carry no `icon` — see "Player icons".)
 - The mockup review before UI code was skipped: the user asked for the work to continue
   without waiting. The UI follows the mockups in `docs/mockups/05–08`.
 
@@ -663,6 +672,70 @@ notification on, and both switches start off. Specified in a design interview on
 - Permissions grow by POST_NOTIFICATIONS, plus what WorkManager declares for itself:
   ACCESS_NETWORK_STATE, WAKE_LOCK and RECEIVE_BOOT_COMPLETED (scheduled checks survive a
   restart). All for notifications only.
+
+## Player icons (October 2026)
+
+Every player gets a small square mark, so an opponent is recognised at a glance wherever
+they appear — on DGS as much as on OGS, and whether or not an OGS account is signed in.
+The visual rules (size, colours, letter) are in DESIGN.md; this records where the icons
+come from and why.
+
+### Where they appear
+
+- The games list, all three tabs: the opponent's icon leads every row.
+- The board screen's header (the opponent) and the game info, after each player's stone
+  (both players; the user's own from their account).
+- Settings, beside "Signed in as" on each account panel: the user's own.
+- Notifications about one game — the your-move notification when it names a single game,
+  and each low-time alert — as the large icon. A your-move summary of several games has
+  none: it has no one opponent to show.
+- **Settings › Appearance › Player icons** (on by default) hides them all, the
+  notifications' too; with it off no picture is downloaded.
+
+### What is drawn
+
+- **OGS's own picture where there is one.** OGS sends an `icon` URL with every full player
+  object: an uploaded picture on its image host, or a Gravatar, both at 32 px. `:core-ogs`
+  asks Gravatar for 128 px (it draws any size); an uploaded picture is used as sent, since
+  only some sizes of it exist — it may look soft at 36dp. Only `https` addresses are used.
+- **Otherwise a generated icon**: the first letter or digit of the handle on colours
+  hashed (FNV-1a) from `server:handle` — the server is in the key because the same handle
+  on DGS and OGS may be two people. The same pair in light and dark theme: it is the
+  player's mark, not part of the page. It also stands in while a picture loads, and the
+  tint is drawn only behind the letter: under a picture it showed as a coloured hairline at
+  the rounded edge (and through transparent margins), which OGS's own site does not have.
+- **Squares with 4dp corners, not circles**: OGS shows its pictures square, and round is
+  for stones on these screens.
+- The model carries the address only: `Opponent.iconUrl` and `SignedInUser.iconUrl`, null
+  where a server has none (DGS always). The UI decides what to draw.
+
+### Where OGS's pictures come from (and what did not work)
+
+- **Running games**: the overview's player objects come *without* `icon` — the first build
+  showed pictures on the Finished tab only. A lookup per opponent on
+  `/api/v1/players/{id}/` did not bring them either (second build; why was not found out,
+  as OGS cannot be reached from the build environment). What works, confirmed on a real
+  account: one page of the user's running games from the same player game list the
+  Finished tab uses (`/api/v1/players/{me}/games/?ended__isnull=true`), whose player
+  objects do carry icons. Every icon on it, and on the finished list, is remembered for the
+  session; it is read again only when an opponent turns up that it has not seen, and a
+  failed read is retried on the next refresh.
+- **The user's own**: from `ui/config`'s user block, or when that leaves it out, from one
+  game of their own game list. Stored with the user, so an offline start shows it.
+
+### Fetching and caching
+
+- The app fetches pictures itself (`PlayerIcons` in `PlayerIcon.kt`, plain
+  `HttpURLConnection`) rather than adding an image library for one small picture per
+  opponent. Anything over 512 KB is not downloaded; pictures are decoded at most 128 px.
+- Decoded pictures stay in memory for the process; the files are kept in the app's cache
+  directory (`player-icons/`, named by a hash of the URL) and fetched again after a week,
+  because players change their pictures. A failed refresh keeps using the old file;
+  Android may clear the directory, which costs only a download.
+- A notification waits at most 5 s for a picture, then carries the generated icon.
+- **Privacy**: these are the only requests the app makes to hosts other than the two
+  servers (Gravatar, OGS's image host). They carry nothing about the user beyond what any
+  image request does.
 
 ## Licensing
 

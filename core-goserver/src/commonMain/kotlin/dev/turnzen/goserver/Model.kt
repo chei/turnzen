@@ -48,6 +48,8 @@ data class SignedInUser(
     val handle: String,
     val displayName: String?,
     val rank: String?,
+    /** The user's own picture, as for [Opponent.iconUrl]; null where the server has none. */
+    val iconUrl: String? = null,
 )
 
 data class Opponent(

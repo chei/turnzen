@@ -12,6 +12,7 @@ import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.notify.CheckSchedule
+import dev.turnzen.app.notify.NotificationIcons
 import dev.turnzen.app.notify.Notifier
 import dev.turnzen.app.notify.OpenRequest
 import dev.turnzen.app.notify.TurnCheck
@@ -100,6 +101,7 @@ class AppContainer(
     val accounts = Accounts(listOf(ogs, dgs))
 
     val notifier = Notifier(appContext)
+    private val notificationIcons = NotificationIcons(appContext)
     val checkSchedule = CheckSchedule(appContext)
     private val watchState = WatchStateStore(appContext)
 
@@ -116,6 +118,7 @@ class AppContainer(
             notifier = notifier,
             schedule = checkSchedule,
             inForeground = { inForeground },
+            icon = { game -> if (settings.settings.value.playerIcons) notificationIcons.of(game) else null },
         )
 
     /** Whether the app is on screen; kept by [TurnzenApplication]. */

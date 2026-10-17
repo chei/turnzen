@@ -417,6 +417,10 @@ class BoardViewModel(
     val serverName: String
         get() = session.serverName
 
+    /** The user's own picture on this game's server, for their line in the game info. */
+    val ownIconUrl: String?
+        get() = session.signedInUser?.iconUrl
+
     /** This game's page on the server's website, or null if it has none. */
     val gameUrl: String?
         get() = session.gameUrl(gameId)

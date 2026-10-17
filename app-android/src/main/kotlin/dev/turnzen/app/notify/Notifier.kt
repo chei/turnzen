@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.app.NotificationCompat
@@ -138,10 +139,12 @@ class Notifier(
                 .activeNotifications
                 .any { it.id == ID_SUMMARY && it.tag == null }
 
+    /** [largeIcon]: the opponent's icon, for a summary of one game; null to show none. */
     fun postSummary(
         games: List<GameSummary>,
         flagged: Set<GameId>,
         alert: Boolean,
+        largeIcon: Bitmap? = null,
     ) {
         if (games.isEmpty()) return cancelSummary()
         val single = games.singleOrNull()
@@ -172,6 +175,7 @@ class Notifier(
                 .setColor(accent())
                 .setContentTitle(title)
                 .setContentText(text)
+                .setLargeIcon(largeIcon?.takeIf { single != null })
                 .setStyle(style)
                 .setNumber(games.size)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -185,7 +189,10 @@ class Notifier(
 
     fun cancelSummary() = manager.cancel(ID_SUMMARY)
 
-    fun postLowTime(game: GameSummary) {
+    fun postLowTime(
+        game: GameSummary,
+        largeIcon: Bitmap? = null,
+    ) {
         val title =
             context.getString(
                 R.string.notify_low_time,
@@ -198,6 +205,7 @@ class Notifier(
                 .setSmallIcon(R.drawable.ic_notification)
                 .setColor(accent())
                 .setContentTitle(title)
+                .setLargeIcon(largeIcon)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setContentIntent(pending(OpenRequest.Game(game.id), game.id.hashCode()))

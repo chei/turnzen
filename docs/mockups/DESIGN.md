@@ -140,12 +140,23 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
-- **Opponents' pictures** lead the text where a server has them (OGS sends every player's
-  avatar): a 36dp square with 4dp corners, as OGS shows it (round is
-  for stones), 12dp before the name, two text lines tall so the row keeps its
-  72dp. Once any row in a list has a picture, every row gets the slot — a row without one
-  (a DGS game, an OGS player with none) shows the initial in `ink2` on a `line` square — so
-  the names stay in one column. A list with no pictures at all (DGS only) has no slot.
+- **Every opponent has an icon** leading the text: a 36dp square with 4dp corners, as OGS
+  shows its pictures (round is for stones), 12dp before the name, two text lines tall so
+  the row keeps its 72dp. On OGS it is the player's own picture. Everywhere else — DGS,
+  an OGS player with no picture, and while a picture loads — it is their initial (the first
+  letter or digit of the handle) in SemiBold at half the square's height, on colours made
+  from `server:handle`: a hash picks the hue and a step of saturation and lightness, so the
+  same opponent always looks the same and different ones are told apart at a glance. The
+  background is always light (lightness 0.74–0.86) and the letter the same hue, dark
+  (0.15–0.2), at least 5:1 against it; the pair is the same in light and dark theme,
+  because it is the player's mark, not part of the page. Settings › Appearance › Player
+  icons turns them off (on by default), and the rows then start with the name. The same
+  icon, same size, leads the board screen's header (the opponent) and each player's line in
+  the game info, after their stone (both players: the user's own from their account), and
+  the user's own sits beside "Signed in as" in Settings. A one-game notification carries
+  it as its large icon, drawn at Android's large-icon size with the same proportions.
+  Under a picture nothing is drawn: the tint is only for the letter, since behind a
+  picture it showed as a coloured hairline at the rounded edge.
   Decorative: TalkBack reads the name, not the picture.
 - **The title line never wraps.** A long outcome on the right ("Won by resignation") leaves
   the name little room; the handle is ellipsised and the rank kept, rather than the name
