@@ -17,7 +17,6 @@ import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.NotificationSettings
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
-import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -98,15 +97,14 @@ class TurnCheck(
         lateinit var outcome: CheckOutcome
         store.update { state -> TurnWatch.check(state, input).also { outcome = it }.state }
 
-        val name = { server: ServerId -> accounts.session(server).serverName }
         when (val summary = outcome.summary) {
             SummaryAction.Keep -> Unit
             SummaryAction.Cancel -> notifier.cancelSummary()
-            is SummaryAction.Post -> notifier.postSummary(summary.games, summary.flagged, summary.alert, name)
+            is SummaryAction.Post -> notifier.postSummary(summary.games, summary.flagged, summary.alert)
         }
         outcome.lowTimeCancels.forEach(notifier::cancelLowTime)
-        outcome.lowTimeAlerts.forEach { notifier.postLowTime(it, name(it.id.server)) }
-        outcome.signedOutAlerts.forEach { notifier.postSignedOut(it, name(it)) }
+        outcome.lowTimeAlerts.forEach { notifier.postLowTime(it) }
+        outcome.signedOutAlerts.forEach { notifier.postSignedOut(it, accounts.session(it).serverName) }
         schedule.lowTimeAt(outcome.nextLowTimeCheck, input.now, asLowTimeJob)
     }
 }

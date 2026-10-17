@@ -588,19 +588,20 @@ notification on, and both switches start off. Specified in a design interview on
   silently. Title "Your move in N games" (one game: "Your move against X"). Collapsed, the
   line under it names only the games that caused the latest alerts ("2 new: Alice, Bob"),
   or every opponent when all or none of them are new. Expanded, one line per game —
-  opponent, the user's remaining time only when under a day, and the server only when the
-  games are on more than one; the games that caused the latest alerts come first, marked
-  "new" unless every game is. (October 2026: the full name list and "Dragon Go Server" on
-  every line made it too long with many games.) Plain text: Android drops
-  colour and weight from the text of an ordinary notification, so the server is named rather
-  than shown in its colour, and "new" is a word rather than bold. Tapping opens that game's board
+  opponent and the user's remaining time only when under a day; the games that caused the
+  latest alerts come first, marked "new" unless every game is. No server: the opponent is
+  what the user goes by, and tapping shows it in its colour (October 2026: the full name
+  list and "Dragon Go Server" on every line made it too long with many games). Colour per
+  line is not possible: Android drops colour and weight from the text of an ordinary
+  notification, and only foreground-service or media notifications may be colourised, so
+  "new" is a word rather than bold. Tapping opens that game's board
   when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
   (Pixel shows only a dot; the count is in the long-press menu); Android has no badge-number
   API of its own.
 - **Time running low**: one notification per game, on its own channel at high importance
   (sound and a pop-up), when the user's own remaining main time is at most **24 hours**
   (hardcoded: urgent in correspondence terms, still actionable after a night's sleep). The
-  text names opponent, time left and server. Once per game; it can fire again only after the
+  title names opponent and time left, and nothing follows it. Once per game; it can fire again only after the
   user has moved in that game. Tapping opens the board. The opponent's clock is never
   watched.
 - **Signed out**: when a check finds a server signed the user out and the app cannot sign in
