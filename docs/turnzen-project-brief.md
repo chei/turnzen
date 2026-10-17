@@ -358,7 +358,8 @@ for it.
   low-time alert) carry the opponent's icon as their large icon, the same mark the list
   shows: the picture from the icon cache (waited for at most 5 s), else the initial drawn on
   a canvas. A your-move summary of several games has none. The Player icons setting turns
-  these off too. The app fetches the pictures itself
+  these off too. The board header and the game info show the icons as well — on DGS too, where
+  they are generated: the point is to know the player at a glance, whichever server. The app fetches the pictures itself
   (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
   the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's

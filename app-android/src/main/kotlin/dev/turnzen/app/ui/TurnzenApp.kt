@@ -278,6 +278,7 @@ private fun SignedInShell(container: AppContainer) {
                     vm,
                     settings.board,
                     onSkip = { advanceFrom(game) },
+                    showPlayerIcons = settings.playerIcons,
                 )
             }
 

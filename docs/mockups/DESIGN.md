@@ -150,7 +150,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   background is always light (lightness 0.74–0.86) and the letter the same hue, dark
   (0.15–0.2), at least 5:1 against it; the pair is the same in light and dark theme,
   because it is the player's mark, not part of the page. Settings › Appearance › Player
-  icons turns them off (on by default), and the rows then start with the name.
+  icons turns them off (on by default), and the rows then start with the name. The same
+  icon, same size, leads the board screen's header (the opponent) and each player's line in
+  the game info, after their stone (both players: the user's own from their account), and
+  the user's own sits beside "Signed in as" in Settings.
   Decorative: TalkBack reads the name, not the picture.
 - **The title line never wraps.** A long outcome on the right ("Won by resignation") leaves
   the name little room; the handle is ellipsised and the rank kept, rather than the name
