@@ -338,8 +338,8 @@ for it.
   object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
   128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
   it; DGS has no avatars and leaves it null. The app fetches the pictures itself
-  (`PlayerIcon`, plain `HttpURLConnection`, kept in memory for the process, nothing on
-  disk) rather than adding an image library for one small picture per opponent. This is
+  (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
+  the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
   the one request the app makes to a host other than the two servers (Gravatar, OGS's
   image host); it carries nothing about the user.
 
