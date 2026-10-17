@@ -585,7 +585,8 @@ notification on, and both switches start off. Specified in a design interview on
 - **Your move**: one summary notification for every game on both servers, never one per
   game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
   game has *newly* become the user's move since the last check; otherwise it changes
-  silently. Title "Your move in N games" (one game: "Your move against X"). Collapsed, the
+  silently. Title "Your move in N games" (one game: "Your move against X", with "20 h left"
+  under it only when the clock is low, and nothing to expand: the title says it all). Collapsed, the
   line under it names only the games that caused the latest alerts ("2 new: Alice, Bob"),
   or every opponent when all or none of them are new. Expanded, one line per game —
   opponent and the user's remaining time only when under a day; the games that caused the
