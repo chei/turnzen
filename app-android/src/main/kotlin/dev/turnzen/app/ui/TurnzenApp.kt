@@ -29,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
@@ -243,6 +244,13 @@ private fun SignedInShell(container: AppContainer) {
         tab = selected
     }
 
+    // The screens below take turns in one slot, so each leaves the composition while another
+    // is shown — and what they hold with rememberSaveable (the games list's scroll position
+    // per tab, above all) goes with them. Saveable state only outlives that when something
+    // keeps it, which is what a navigation library would do; this holder does it here, per
+    // screen, so the list comes back from a game where it was left.
+    val screenStates = rememberSaveableStateHolder()
+
     val content: @Composable () -> Unit = {
         val game = openGame
         when {
@@ -275,18 +283,22 @@ private fun SignedInShell(container: AppContainer) {
 
             tab == MainTab.GAMES -> {
                 val vm = viewModel { GamesViewModel(container.accounts, container.games) }
-                GamesScreen(
-                    vm,
-                    tab = gamesTab,
-                    onTabChange = { gamesTab = it },
-                    onOpenGame = { openGameId = encodeGameId(it) },
-                    onSignInAgain = { tab = MainTab.SETTINGS },
-                )
+                screenStates.SaveableStateProvider("games") {
+                    GamesScreen(
+                        vm,
+                        tab = gamesTab,
+                        onTabChange = { gamesTab = it },
+                        onOpenGame = { openGameId = encodeGameId(it) },
+                        onSignInAgain = { tab = MainTab.SETTINGS },
+                    )
+                }
             }
 
             else -> {
                 val vm = viewModel { SettingsViewModel(container.settings) { container.notifier.allowed } }
-                SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
+                screenStates.SaveableStateProvider("settings") {
+                    SettingsScreen(vm, container.accounts, container.games, container.ogsAvailable, container.keepAwake)
+                }
             }
         }
     }

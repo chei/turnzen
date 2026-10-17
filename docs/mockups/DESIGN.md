@@ -140,6 +140,16 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
+- **Opponents' pictures** lead the text where a server has them (OGS sends every player's
+  avatar): a 36dp square with 4dp corners, as OGS shows it (round is
+  for stones), 12dp before the name, two text lines tall so the row keeps its
+  72dp. Once any row in a list has a picture, every row gets the slot — a row without one
+  (a DGS game, an OGS player with none) shows the initial in `ink2` on a `line` square — so
+  the names stay in one column. A list with no pictures at all (DGS only) has no slot.
+  Decorative: TalkBack reads the name, not the picture.
+- **The title line never wraps.** A long outcome on the right ("Won by resignation") leaves
+  the name little room; the handle is ellipsised and the rank kept, rather than the name
+  breaking onto a second line and pushing the details out of the row.
 - **New rows flash once.** A refresh that happens while the games list is on screen — the
   one after returning from a game, or on resume — lights the rows it brought in with an
   `accentSoft` wash that arrives in 120ms and drains over 700ms, then plays no more. The
@@ -165,7 +175,12 @@ Use tabular figures for time and move counts so columns don't jitter.
   count would only ever be the limit. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
-  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. A window wide enough for two
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty, and the outcome stays on the name's baseline
+  rather than moving to the middle of the row, so the outcomes line up down the list. (A
+  running row's clock, always one line, is centred against the two lines beside it.) The line under the name has no move count: just
+  "19x19, 3 d ago". How long the game ran is for the board; OGS's game list does not report
+  it, and a count on DGS rows only would set the servers apart. Nor "finished", which the
+  tab and the outcome already say. A window wide enough for two
   rows of at least 340dp (a phone turned sideways) lays the games out in two columns instead
   of stretching each row across it. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line

@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -53,6 +54,7 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.OutcomeLabel
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
@@ -219,11 +221,16 @@ fun GamesScreen(
                                 }
 
                                 else -> {
+                                    // Opponents' pictures only where a server has them (OGS);
+                                    // then every row gets the slot, an initial standing in
+                                    // where there is no picture, so the names stay in line.
+                                    val showIcons = rows.any { it.opponent.iconUrl != null }
                                     // Keyed by server too: both servers number their games.
                                     items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
                                         GameRow(
                                             game = game,
                                             serverName = viewModel.serverName(game.id),
+                                            showIcon = showIcons,
                                             arrived = game.id in arrivals,
                                             onArrivalShown = { viewModel.onArrivalShown(game.id) },
                                             onClick = {
@@ -342,6 +349,9 @@ private const val SLIDE_MILLIS = 300
 /** A row narrower than this squeezes the clock into the opponent's name; two fit side by side in landscape. */
 private const val MIN_COLUMN_WIDTH = 340
 
+/** The opponent's picture: two lines of text tall, so the row keeps its height. */
+private const val ICON_SIZE = 36
+
 /** Messages and the empty state run across every column. */
 private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
@@ -349,6 +359,7 @@ private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(
 private fun GameRow(
     game: GameSummary,
     serverName: String,
+    showIcon: Boolean,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -390,68 +401,109 @@ private fun GameRow(
             // The server's mark sits in the margin, so the text keeps its column whether one
             // server is signed in or two.
             ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
-            GameRowContent(game)
+            GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }
 }
 
 @Composable
-private fun GameRowContent(game: GameSummary) {
+private fun GameRowContent(
+    game: GameSummary,
+    showIcon: Boolean,
+) {
     Row(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                Formatting.opponent(game.opponent.handle, game.opponent.rank),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            // The date is the part a glance at the list is for, so when a long outcome on the
-            // right squeezes this line it is the board and move count that give way, not it.
-            Row {
-                Text(
-                    "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
-                        when {
-                            // A board this app cannot draw: say where it can be seen.
-                            game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
-
-                            // A server that does not say how long a finished game ran
-                            // (OGS's game list) gets no count rather than "0 moves".
-                            game.isFinished && game.moveNumber == 0 -> stringResource(R.string.games_finished)
-
-                            // A game that is over is not at a move, it had that many.
-                            game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
-
-                            // A game being counted is not waiting for a move either, and
-                            // saying "move 22" would send the user looking for one.
-                            game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
-
-                            else -> stringResource(R.string.games_move, game.moveNumber)
-                        },
-                    Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+        if (showIcon) {
+            PlayerIcon(game.opponent.iconUrl, game.opponent.handle, ICON_SIZE.dp)
+            Spacer(Modifier.width(12.dp))
+        }
+        // The text and what stands right of it, centred in the row as one block. An outcome
+        // sits on the name's baseline whether or not a rating line follows it, so the
+        // column of outcomes stays level down the list; a clock, always one line, is
+        // centred against the two lines beside it.
+        Row(Modifier.weight(1f)) {
+            GameRowText(game, Modifier.weight(1f).alignBy(FirstBaseline))
+            Spacer(Modifier.width(12.dp))
+            // A finished game has no clock to show; what it has instead is how it went.
+            if (game.isFinished) {
+                OutcomeLabel(game.result, game.myColor, game.ratingChange, Modifier.alignBy(FirstBaseline))
+            } else {
+                RemainingTimeLabel(
+                    game.remainingTime,
+                    Modifier.align(Alignment.CenterVertically),
+                    muted = !game.isMyTurn,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameRowText(
+    game: GameSummary,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // One line, always: a name wrapped under a long outcome ("Won by resignation")
+        // pushed the line below out of the row. The handle gives way, the rank does not.
+        Row {
+            Text(
+                game.opponent.handle,
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            game.opponent.rank?.takeIf { it.isNotBlank() }?.let { rank ->
                 Text(
-                    ", ${Formatting.relative(game.lastMoveAt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
+                    " ($rank)",
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     softWrap = false,
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        // A finished game has no clock to show; what it has instead is how it went.
-        if (game.isFinished) {
-            OutcomeLabel(game.result, game.myColor, game.ratingChange)
-        } else {
-            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+        // The date is the part a glance at the list is for, so when a long outcome on the
+        // right squeezes this line it is the board and move count that give way, not it.
+        Row {
+            val progress =
+                when {
+                    // A board this app cannot draw: say where it can be seen.
+                    game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+
+                    // A finished game gets nothing here. How long it ran is a detail
+                    // the board shows, and OGS's game list does not say it at all, so a
+                    // count would set the two servers' rows apart; "finished" would say
+                    // what the tab and the outcome beside it already say.
+                    game.isFinished -> null
+
+                    // A game being counted is not waiting for a move either, and
+                    // saying "move 22" would send the user looking for one.
+                    game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                    else -> stringResource(R.string.games_move, game.moveNumber)
+                }
+            Text(
+                listOfNotNull(Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight), progress)
+                    .joinToString(", "),
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                ", ${Formatting.relative(game.lastMoveAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                softWrap = false,
+            )
         }
     }
 }

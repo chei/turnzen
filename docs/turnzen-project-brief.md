@@ -334,6 +334,21 @@ for it.
 - **One server failing does not hide the other**: the games that loaded are shown, with a
   quiet line naming the server that did not answer ("Online Go Server didn't answer · Try
   again"). The full-screen unreachable state appears only when every signed-in server fails.
+- **Opponents' avatars** (October 2026): OGS sends an `icon` URL with every full player
+  object — an uploaded picture or a Gravatar, both at 32 px. `:core-ogs` asks Gravatar for
+  128 px (it draws any size); an uploaded picture is used as sent. `Opponent.iconUrl` carries
+  it; DGS has no avatars and leaves it null. The first build showed the pictures on the
+  Finished tab only: the overview's player objects evidently come without `icon`. A lookup
+  per opponent on `/api/v1/players/{id}/` did not bring them either (second build), so the
+  client now reads one page of the user's *running* games from the same player game list
+  the Finished tab uses (`ended__isnull=true`), whose player objects do carry icons, and
+  remembers every icon on it for the session — also those from the finished list. It asks
+  again only when an opponent it has not seen turns up; a failed read is retried on the
+  next refresh. Confirmed on a real account: all three tabs show the icons. Icons are squares with 4dp corners, as OGS shows them: round is for stones. The app fetches the pictures itself
+  (`PlayerIcon`, plain `HttpURLConnection`; decoded pictures kept in memory for the process,
+  the files in the app's cache directory, re-fetched after a week) rather than adding an image library for one small picture per opponent. This is
+  the one request the app makes to a host other than the two servers (Gravatar, OGS's
+  image host); it carries nothing about the user.
 
 ### Formatting
 
@@ -436,7 +451,8 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
   it for a fork). A build with an empty id shows the OGS panel with the button disabled and a
   line saying this build cannot sign in.
 - **Fixtures** in `core-ogs/src/test/resources/ogs/` are Chei's public games with players,
-  ids and icons scrubbed (`turnzen-test` is id 1001). `overview.json` is assembled from real
+  ids and icons scrubbed (`turnzen-test` is id 1001; the icons are replaced with fake
+  Gravatar addresses, and opponent 2008's with an uploaded-picture one on `example.invalid`). `overview.json` is assembled from real
   game data in the documented overview shape, because the overview needs a token to record;
   replace it with a real capture after the first sign-in.
 - **Not verified against the live server yet**: the OAuth flow itself,
@@ -1193,6 +1209,10 @@ Decisions taken while building the MVP that refine or amend the sections above.
   Android killed the app does not: the games list and the record cache are in memory only,
   so a board restored into a fresh process has no header, no grid and no list behind it —
   which is exactly the screen an offline cold start used to land on.
+  The games list and Settings each keep their saveable state in a
+  `rememberSaveableStateHolder` slot, which navigation-compose would otherwise provide:
+  without it, opening a game dropped the list from composition and its scroll positions with
+  it, so coming back always started at the top (fixed October 2026).
 - **Pass and resign are placed by what they are, not by how often they are used.** Resign is
   an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is

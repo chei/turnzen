@@ -346,6 +346,17 @@ def games_tabs(y, counts=("3", "7")):
     return s
 
 
+def player_icon(cx, cy, name, picture):
+    """The opponent's picture, a square with soft corners (a stand-in pattern here); their initial without one."""
+    s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{LINE}"/>'
+    if picture:
+        # A Gravatar-like block pattern.
+        for dx, dy in ((-8, -8), (2, -8), (-8, 2), (2, 2), (-3, -3)):
+            s += f'<rect x="{cx + dx}" y="{cy + dy}" width="6" height="6" fill="{INK2}"/>'
+        return s
+    return s + text(cx, cy + 5, name[0].upper(), 14, 400, INK2, "middle")
+
+
 def screen_games_two_servers():
     s = frame_open() + status_bar()
     s += text(20, 92, "Turnzen", 26, 600)
@@ -358,8 +369,10 @@ def screen_games_two_servers():
     y = 160
     for color, opp, rank, line, left, urgent in rows:
         s += server_bar(8, y + 16, 40, color)
-        s += text(20, y + 30, f"{opp} ({rank})", 16, 600)
-        s += text(20, y + 51, line, 13, 400, INK2)
+        # OGS sends each player's picture; DGS has none, so its row shows the initial.
+        s += player_icon(38, y + 36, opp, picture=color == OGS)
+        s += text(68, y + 30, f"{opp} ({rank})", 16, 600)
+        s += text(68, y + 51, line, 13, 400, INK2)
         s += text(W - 20, y + 41, left, 15, 600, URGENT if urgent else INK, "end")
         y += 72
         s += hairline(y)

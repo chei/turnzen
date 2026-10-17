@@ -34,6 +34,26 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 /**
+ * A player's avatar. OGS sends one with every full player object: an uploaded picture on its
+ * own image host, or a Gravatar (which falls back to a generated pattern), both at 32 px.
+ */
+internal object OgsIcons {
+    /** Pixels to ask Gravatar for: a list row draws the icon at 36 dp, ~108 px on a dense screen. */
+    private const val SIZE = 128
+
+    private val gravatarSize = Regex("""([?&])s=\d+""")
+
+    /**
+     * The icon of [player], if any. Gravatar draws any size on request, so its URL is asked
+     * for a sharper one; an uploaded picture is left as sent, since only some sizes of it exist.
+     */
+    fun url(player: JsonObject?): String? {
+        val icon = player?.str("icon")?.takeIf { it.startsWith("https://") } ?: return null
+        return if ("gravatar.com/" in icon) icon.replace(gravatarSize, "$1s=$SIZE") else icon
+    }
+}
+
+/**
  * OGS ranks. The server keeps a Glicko-2 rating; the rank shown for it is derived, the same
  * way the OGS website derives it: `ranking = ln(rating / 525) × 23.15`, where 30 is 1 dan.
  */
@@ -245,6 +265,17 @@ internal object OgsGameData {
         rengo: Boolean,
     ): Boolean = width != null && width == height && width in BoardSizes.MIN..BoardSizes.MAX && !rengo
 
+    /** The player id of the user's opponent in [gamedata]. */
+    fun opponentId(
+        gamedata: JsonObject,
+        me: Long,
+    ): Long? {
+        val players = gamedata.obj("players")
+        val blackId = gamedata.long("black_player_id") ?: players?.obj("black")?.long("id")
+        val whiteId = gamedata.long("white_player_id") ?: players?.obj("white")?.long("id")
+        return if (blackId == me) whiteId else blackId
+    }
+
     fun summary(
         gamedata: JsonObject,
         blackPlayer: JsonObject?,
@@ -285,6 +316,8 @@ internal object OgsGameData {
                     handle = opponentFull?.str("username") ?: opponentShort?.str("username") ?: "?",
                     displayName = null,
                     rank = OgsRanks.ofPlayer(opponentFull ?: opponentShort),
+                    // Whichever object has it: the full one need not carry the icon.
+                    iconUrl = OgsIcons.url(opponentFull) ?: OgsIcons.url(opponentShort),
                 ),
             myColor = myColor,
             boardSize = width ?: throw GoServerException.Protocol("OGS game $id without width"),
@@ -504,6 +537,7 @@ internal object OgsFinishedGames {
                     handle = opponent?.str("username") ?: "?",
                     displayName = null,
                     rank = OgsRanks.ofPlayer(opponent),
+                    iconUrl = OgsIcons.url(opponent),
                 ),
             myColor = myColor,
             boardSize = width,

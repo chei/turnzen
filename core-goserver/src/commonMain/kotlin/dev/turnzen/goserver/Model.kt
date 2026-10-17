@@ -54,6 +54,11 @@ data class Opponent(
     val handle: String,
     val displayName: String?,
     val rank: String?,
+    /**
+     * Address of the picture the player chose to be shown by (OGS's avatar), sized for a
+     * list row. Null for a server that has none (DGS) and when the server left it out.
+     */
+    val iconUrl: String? = null,
 )
 
 /** What the server expects from the user next. */

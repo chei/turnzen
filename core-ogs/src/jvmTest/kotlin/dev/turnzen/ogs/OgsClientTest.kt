@@ -104,6 +104,38 @@ class OgsClientTest {
         }
 
     @Test
+    fun `icons the overview leaves out come from the player's game list, once`() =
+        runTest {
+            val overview = Fixtures.text("overview.json").replace(Regex(""",\s*"icon": "[^"]*""""), "")
+            val gameList =
+                """{"results": [{"id": 7000001, "players": {
+                     "black": {"id": 2008, "username": "opponent8", "icon": "https://secure.gravatar.com/avatar/ab?s=32"},
+                     "white": {"id": 1001, "username": "turnzen-test"}}}]}"""
+            val http =
+                FakeHttp(
+                    mutableMapOf(
+                        "/api/v1/ui/overview/" to { OgsResponse(200, overview) },
+                        "/api/v1/players/1001/games/" to { OgsResponse(200, gameList) },
+                    ),
+                )
+            val client = signedIn(http)
+            val icons = client.myRunningGames().associate { it.opponent.handle to it.opponent.iconUrl }
+            assertEquals("https://secure.gravatar.com/avatar/ab?s=128", icons["opponent8"])
+            // opponent7 is not on that page: remembered as having none, not asked about again.
+            assertEquals(null, icons["opponent7"])
+            val listReads = http.requests.count { "/games/" in it.url }
+            assertEquals(1, listReads)
+            assertTrue(
+                http.requests
+                    .single { "/games/" in it.url }
+                    .url
+                    .contains("ended__isnull=true"),
+            )
+            client.myRunningGames()
+            assertEquals(listReads, http.requests.count { "/games/" in it.url })
+        }
+
+    @Test
     fun `the two lists share one overview`() =
         runTest {
             val http =
