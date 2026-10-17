@@ -33,7 +33,6 @@
     <string name="games_move">move %1$d</string>
     <string name="games_moves">%1$d moves</string>
     <string name="games_counting">counting</string>
-    <string name="games_finished">finished</string>
     <!-- A game on a board Turnzen does not draw (19x9, say): the row opens it on the web. -->
     <string name="games_on_the_web">on the web only</string>
     <string name="games_sign_in_again">Sign in again</string>

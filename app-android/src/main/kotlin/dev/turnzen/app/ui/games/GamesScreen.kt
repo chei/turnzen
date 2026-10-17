@@ -444,25 +444,28 @@ private fun GameRowContent(
             // The date is the part a glance at the list is for, so when a long outcome on the
             // right squeezes this line it is the board and move count that give way, not it.
             Row {
+                val progress =
+                    when {
+                        // A board this app cannot draw: say where it can be seen.
+                        game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+
+                        // A server that does not say how long a finished game ran (OGS's
+                        // game list) gets nothing here: not "0 moves", and not "finished",
+                        // which the tab and the outcome beside it already say.
+                        game.isFinished && game.moveNumber == 0 -> null
+
+                        // A game that is over is not at a move, it had that many.
+                        game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
+
+                        // A game being counted is not waiting for a move either, and
+                        // saying "move 22" would send the user looking for one.
+                        game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                        else -> stringResource(R.string.games_move, game.moveNumber)
+                    }
                 Text(
-                    "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
-                        when {
-                            // A board this app cannot draw: say where it can be seen.
-                            game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
-
-                            // A server that does not say how long a finished game ran
-                            // (OGS's game list) gets no count rather than "0 moves".
-                            game.isFinished && game.moveNumber == 0 -> stringResource(R.string.games_finished)
-
-                            // A game that is over is not at a move, it had that many.
-                            game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
-
-                            // A game being counted is not waiting for a move either, and
-                            // saying "move 22" would send the user looking for one.
-                            game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
-
-                            else -> stringResource(R.string.games_move, game.moveNumber)
-                        },
+                    listOfNotNull(Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight), progress)
+                        .joinToString(", "),
                     Modifier.weight(1f, fill = false),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.ink2,

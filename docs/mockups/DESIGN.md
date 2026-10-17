@@ -175,7 +175,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   count would only ever be the limit. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
-  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. A window wide enough for two
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. The line under the name gives the move count
+  ("19x19, 117 moves, 3 d ago") where the server reports it; OGS's game list does not, and
+  the row then says only "19x19, 3 d ago" — never "finished", which the tab and the outcome
+  already say. A window wide enough for two
   rows of at least 340dp (a phone turned sideways) lays the games out in two columns instead
   of stretching each row across it. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line
