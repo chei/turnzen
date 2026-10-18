@@ -183,7 +183,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   repeated what the launcher showed. Three tabs at the top, directly above the list
   (a content filter, distinct from the bottom destination bar): "Your turn" and "All games",
   each with a count, and "Finished" without one — it holds the last fifteen games, so the
-  count would only ever be the limit. A finished row puts the outcome where a running row
+  count would only ever be the limit. The three lists sit side by side as pages, so a
+  sideways swipe moves to the neighbouring tab as well as a tap on it; the underline moves
+  as the swipe passes halfway, and each list keeps its own scroll position. A finished row puts the outcome where a running row
   has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
   unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty, and the outcome stays on the name's baseline
