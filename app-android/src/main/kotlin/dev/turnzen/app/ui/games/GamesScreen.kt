@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -45,6 +46,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -129,15 +133,36 @@ fun GamesScreen(
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.collect { currentOnTabChange(GamesTab.entries[it]) }
     }
-    // The underline follows the page a swipe is heading for, not the settled one, so it
-    // moves as the finger crosses halfway, and a tapped tab lights up at once rather than
-    // passing over the tabs in between.
+    // The label in the accent colour is the page a swipe is heading for, not the settled
+    // one, so a tapped tab lights up at once rather than passing over the tabs in between.
+    // The underline below it moves with the finger instead, drawn under the row.
     val shownTab = GamesTab.entries[pagerState.targetPage]
 
     // No wordmark above the tabs: it cost a fifth of a landscape screen to repeat the name
     // the launcher already showed, and the tabs say which list this is.
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+        val accent = colors.accent
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .drawWithContent {
+                    drawContent()
+                    // Where the pager is, in pages, mid-swipe included: the underline slides
+                    // under the tabs with the finger, the way Material tabs do. Read while
+                    // drawing, so a swipe redraws this line rather than recomposing the row.
+                    val position =
+                        (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                            .coerceIn(0f, (GamesTab.entries.size - 1).toFloat())
+                    val tabWidth = size.width / GamesTab.entries.size
+                    val thickness = TAB_UNDERLINE.dp.toPx()
+                    drawRect(
+                        accent,
+                        topLeft = Offset(position * tabWidth, size.height - thickness),
+                        size = Size(tabWidth, thickness),
+                    )
+                },
+        ) {
             GamesTab(
                 label = stringResource(R.string.games_tab_your_turn),
                 count = state.yourTurn?.size,
@@ -160,7 +185,17 @@ fun GamesScreen(
             )
         }
 
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+        HorizontalPager(
+            state = pagerState,
+            modifier = Modifier.fillMaxSize(),
+            // A quarter of the page rather than Compose's default half: a short, slow swipe
+            // that is let go of still turns the page. (A fast flick turns it anyway.)
+            flingBehavior =
+                PagerDefaults.flingBehavior(
+                    state = pagerState,
+                    snapPositionalThreshold = PAGE_TURN_THRESHOLD,
+                ),
+        ) { page ->
             // A list per tab, not one list re-filled: a game on both "Your turn" and "All
             // games" keeps its key across a tab switch, and in a shared list the row would
             // animate from its place in one to its place in the other. The scroll position
@@ -350,7 +385,8 @@ private fun RowScope.GamesTab(
                 Text(count.toString(), style = MaterialTheme.typography.bodyMedium, color = color)
             }
         }
-        HorizontalDivider(thickness = 2.dp, color = if (selected) colors.accent else colors.line)
+        // The selected tab's accent underline is drawn over this by the row, so it can slide.
+        HorizontalDivider(thickness = TAB_UNDERLINE.dp, color = colors.line)
     }
 }
 
@@ -405,6 +441,15 @@ private const val SLIDE_MILLIS = 300
 
 /** A row narrower than this squeezes the clock into the opponent's name; two fit side by side in landscape. */
 private const val MIN_COLUMN_WIDTH = 340
+
+/** The line under the tabs, in dp: grey across all three, accent under the selected one. */
+private const val TAB_UNDERLINE = 2
+
+/**
+ * How far, as a fraction of the page, a slow swipe has to go to turn the page when let go.
+ * Compose's default is half, which sent a short swipe back to the page it started from.
+ */
+private const val PAGE_TURN_THRESHOLD = 0.25f
 
 /** The opponent's picture: two lines of text tall, so the row keeps its height. */
 private const val ICON_SIZE = 36
