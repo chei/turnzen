@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -185,17 +184,10 @@ fun GamesScreen(
             )
         }
 
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxSize(),
-            // A quarter of the page rather than Compose's default half: a short, slow swipe
-            // that is let go of still turns the page. (A fast flick turns it anyway.)
-            flingBehavior =
-                PagerDefaults.flingBehavior(
-                    state = pagerState,
-                    snapPositionalThreshold = PAGE_TURN_THRESHOLD,
-                ),
-        ) { page ->
+        // Compose's own page snapping, deliberately left at its defaults (a page turns once
+        // it is half way over, or on a fling): the behaviour Android users expect, rather
+        // than a threshold tuned by feel.
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
             // A list per tab, not one list re-filled: a game on both "Your turn" and "All
             // games" keeps its key across a tab switch, and in a shared list the row would
             // animate from its place in one to its place in the other. The scroll position
@@ -444,12 +436,6 @@ private const val MIN_COLUMN_WIDTH = 340
 
 /** The line under the tabs, in dp: grey across all three, accent under the selected one. */
 private const val TAB_UNDERLINE = 2
-
-/**
- * How far, as a fraction of the page, a slow swipe has to go to turn the page when let go.
- * Compose's default is half, which sent a short swipe back to the page it started from.
- */
-private const val PAGE_TURN_THRESHOLD = 0.25f
 
 /** The opponent's picture: two lines of text tall, so the row keeps its height. */
 private const val ICON_SIZE = 36
