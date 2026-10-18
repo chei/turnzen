@@ -89,5 +89,10 @@ the brief before changing versions.
 
 Run the JVM tests before every commit; the Android build only when UI changed.
 
+Claude Code cloud sessions: `.claude/hooks/session-start.sh` installs the Android SDK and a
+Gradle init script that resolves through Google's Maven Central mirror, because
+`repo.maven.apache.org` often answers 429 Too Many Requests to the shared cloud address. A
+429 that still gets through is the network, not the build: retry, don't change the code.
+
 The six MVP steps are all implemented (September 2026); work continues on the post-MVP
 items listed in the brief (comments, resign, scoring, messages, other servers, live play).
