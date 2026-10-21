@@ -455,6 +455,15 @@ class DgsClientTest {
         }
 
     @Test
+    fun `a maintenance page is Unavailable, not Unreachable`() =
+        runTest {
+            val transport = FakeTransport()
+            transport.on({ true }) { HttpResponse(503, emptyMap(), "<html><h1>Service maintenance</h1></html>") }
+            val client = DgsClient(transport)
+            assertFailsWith<GoServerException.Unavailable> { client.gamesAwaitingMe() }
+        }
+
+    @Test
     fun `sign out clears the session even if the server call fails`() =
         runTest {
             val transport = transportWithHappyPath()

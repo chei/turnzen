@@ -26,10 +26,10 @@ data class ServerProblem(
  * The copy for a server failure. [serverName] is the server's own name, so the message
  * blames the server the user actually chose rather than "the server".
  *
- * Deliberately not told apart by connectivity APIs: distinguishing "your phone is offline"
- * from "the server is down" would cost the ACCESS_NETWORK_STATE permission, and the app
- * claims INTERNET only. The copy says what we know — we could not reach it — and leaves the
- * user to notice which it is.
+ * Connectivity is never probed, so a server that never answered may be down or the phone
+ * offline, and the copy says only that we could not reach it. A server that answered with
+ * an error (HTTP 5xx) was reached, so that copy says it is down rather than blaming the
+ * connection.
  */
 fun problemFor(
     e: GoServerException,
@@ -40,6 +40,14 @@ fun problemFor(
             ServerProblem(
                 title = "Can't reach $serverName",
                 message = "Check your connection and try again.",
+                transient = true,
+            )
+        }
+
+        is GoServerException.Unavailable -> {
+            ServerProblem(
+                title = "$serverName is down",
+                message = "$serverName isn't taking requests right now. Try again later.",
                 transient = true,
             )
         }

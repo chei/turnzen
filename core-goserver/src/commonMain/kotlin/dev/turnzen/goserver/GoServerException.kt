@@ -40,6 +40,11 @@ sealed class GoServerException(
         cause: Throwable? = null,
     ) : GoServerException(message, cause)
 
+    /** The server answered, but only to say it cannot serve requests now (HTTP 5xx: down, maintenance). */
+    class Unavailable(
+        message: String,
+    ) : GoServerException(message)
+
     /** The server answered, but not in the shape this client understands. */
     class Protocol(
         message: String,

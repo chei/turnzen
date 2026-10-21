@@ -556,7 +556,7 @@ class OgsClient(
         when {
             response.status == 429 -> throw GoServerException.RateLimited("$serverName is limiting requests")
 
-            response.status >= 500 -> throw GoServerException.Unreachable(
+            response.status >= 500 -> throw GoServerException.Unavailable(
                 "$serverName answered with HTTP ${response.status}",
             )
 

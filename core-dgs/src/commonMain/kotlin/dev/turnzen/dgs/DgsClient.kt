@@ -358,7 +358,7 @@ class DgsClient(
         if (response.status >=
             500
         ) {
-            throw GoServerException.Unreachable("$serverName answered with HTTP ${response.status}")
+            throw GoServerException.Unavailable("$serverName answered with HTTP ${response.status}")
         }
         if (response.status >=
             400

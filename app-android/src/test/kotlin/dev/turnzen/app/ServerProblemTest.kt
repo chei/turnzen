@@ -3,6 +3,7 @@ package dev.turnzen.app
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.goserver.GoServerException
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -12,6 +13,7 @@ class ServerProblemTest {
     @Test
     fun `failures the user waits out are transient, the rest are errors`() {
         assertTrue(problemFor(GoServerException.Unreachable("offline"), server).transient)
+        assertTrue(problemFor(GoServerException.Unavailable("HTTP 503"), server).transient)
         assertTrue(problemFor(GoServerException.RateLimited("slow down"), server).transient)
 
         assertFalse(problemFor(GoServerException.SessionExpired(), server).transient)
@@ -23,5 +25,12 @@ class ServerProblemTest {
     fun `the copy names the server the user chose`() {
         val problem = problemFor(GoServerException.Unreachable("offline"), "Fake server")
         assertTrue(problem.title.contains("Fake server"))
+    }
+
+    @Test
+    fun `a server that answers with an error is down, not a connection problem`() {
+        val problem = problemFor(GoServerException.Unavailable("HTTP 503"), "Fake server")
+        assertEquals("Fake server is down", problem.title)
+        assertFalse(problem.message.contains("connection"))
     }
 }

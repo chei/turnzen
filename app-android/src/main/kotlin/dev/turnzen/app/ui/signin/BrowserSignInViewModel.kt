@@ -93,6 +93,7 @@ class BrowserSignInViewModel(
         return when (e) {
             is GoServerException.InvalidCredentials -> "$server didn't sign you in. Try again."
             is GoServerException.Unreachable -> "Couldn't reach $server. Check your connection and try again."
+            is GoServerException.Unavailable -> "$server is down right now. Try again later."
             is GoServerException.RateLimited -> "$server is limiting sign-ins right now. Try again in a few minutes."
             is GoServerException.Protocol -> "$server answered in a way Turnzen didn't understand. ${e.message}"
             else -> "Sign-in failed: ${e.message}"

@@ -146,6 +146,14 @@ class OgsClientTest {
         }
 
     @Test
+    fun `a server error is Unavailable, not Unreachable`() =
+        runTest {
+            val http = FakeHttp(mutableMapOf("/api/v1/ui/overview/" to { OgsResponse(503, "") }))
+            val client = signedIn(http)
+            assertFailsWith<GoServerException.Unavailable> { client.myRunningGames() }
+        }
+
+    @Test
     fun `a refused renewal means the user has to sign in again`() =
         runTest {
             val http =
