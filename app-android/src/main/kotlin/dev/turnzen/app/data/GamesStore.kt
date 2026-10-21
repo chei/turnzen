@@ -69,6 +69,8 @@ class GamesStore(
     private val computeContext: CoroutineContext = Dispatchers.Default,
     /** Where the running lists are kept between runs of the app. */
     private val cache: GamesCache = GamesCache.None,
+    /** Where downloaded game records are kept between runs of the app. */
+    private val records: RecordCache = RecordCache.None,
     private val now: () -> Instant = { Clock.System.now() },
     /**
      * Told what each answering server said is awaiting the user, after every [refresh]: the
@@ -242,6 +244,16 @@ class GamesStore(
         val at = now()
         _listedAt.update { it + fresh.keys.associateWith { at } }
         fresh.keys.forEach(::persist)
+        // Records of games that are no longer running there have nothing left to open.
+        for (server in fresh.keys) {
+            records.retain(
+                server,
+                runningList
+                    .filter {
+                        it.id.server == server
+                    }.mapTo(HashSet()) { it.id },
+            )
+        }
         return failures
     }
 
@@ -316,8 +328,18 @@ class GamesStore(
         return failures
     }
 
-    /** The record already held for [id], if one was fetched or prefetched earlier. */
-    fun cachedDetail(id: GameId): GameDetail? = details[id]
+    /**
+     * The record already held for [id], if one was fetched or prefetched earlier — in this
+     * run of the app or, kept on disk, an earlier one. The caller reuses it only while the
+     * list agrees the game has not moved on.
+     */
+    fun cachedDetail(id: GameId): GameDetail? = details[id] ?: records.read(id)?.detail?.also { remember(it) }
+
+    /**
+     * The record kept on disk for [id], however old, and when it was downloaded: what the
+     * board falls back on when the server cannot be reached and nothing current is held.
+     */
+    fun storedRecord(id: GameId): StoredRecord? = records.read(id)
 
     /**
      * [detail] with the user's clock as the games list last reported it. A held record is
@@ -345,6 +367,11 @@ class GamesStore(
 
     /** Remember a record just downloaded, so reopening the game costs nothing. */
     fun cache(detail: GameDetail) {
+        remember(detail)
+        records.write(StoredRecord(detail, now()))
+    }
+
+    private fun remember(detail: GameDetail) {
         val id = detail.summary.id
         details.remove(id)
         details[id] = detail
@@ -399,7 +426,7 @@ class GamesStore(
      * brief's bandwidth-consciousness argues against a silent bulk sync.
      */
     suspend fun prefetch(id: GameId) {
-        val known = details[id]
+        val known = cachedDetail(id)
         val summary = summary(id)
         val session = accounts.session(id.server)
         try {
@@ -424,6 +451,7 @@ class GamesStore(
     fun onMovePlayed(id: GameId) {
         // The cached record predates the move that was just sent, so it is no longer usable.
         details.remove(id)
+        records.remove(id)
         scores.remove(id)
         onArrivalShown(id)
         outgoing = outgoing - id
@@ -441,6 +469,7 @@ class GamesStore(
      */
     fun onGameEnded(id: GameId) {
         details.remove(id)
+        records.remove(id)
         scores.remove(id)
         onArrivalShown(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
@@ -502,6 +531,7 @@ class GamesStore(
         publish()
         _listedAt.update { it - server }
         cache.forget(server)
+        records.forget(server)
     }
 
     fun clear() {
@@ -511,6 +541,7 @@ class GamesStore(
         _arrivals.value = Arrivals()
         _listedAt.value = emptyMap()
         cache.clear()
+        records.clear()
         details.clear()
         scores.clear()
         publish()

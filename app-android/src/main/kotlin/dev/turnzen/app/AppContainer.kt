@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.EncryptedCredentialStore
+import dev.turnzen.app.data.FileRecordCache
 import dev.turnzen.app.data.FixedServer
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
@@ -108,6 +109,7 @@ class AppContainer(
         GamesStore(
             accounts,
             cache = PrefsGamesCache(appContext),
+            records = FileRecordCache(appContext),
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** Sent moves on their way to the server; app-wide, as the board they left is gone. */

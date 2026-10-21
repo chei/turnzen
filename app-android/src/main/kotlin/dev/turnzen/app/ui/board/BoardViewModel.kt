@@ -9,6 +9,7 @@ import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.OutgoingMove
 import dev.turnzen.app.data.ReturnedMove
 import dev.turnzen.app.data.SessionManager
+import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.game.ColoredMove
@@ -495,7 +496,26 @@ class BoardViewModel(
                         clocksFetchedAt = it.summary.moveNumber
                     }
                 } catch (e: GoServerException) {
-                    _state.update { it.copy(loading = false, problem = problemFor(e, session.serverName)) }
+                    val problem = problemFor(e, session.serverName)
+                    // The server cannot be reached for now, but the game was downloaded on an
+                    // earlier visit: show that copy, and say how old it is. Nothing can be
+                    // sent until the server answers, and a move decided on it is refused
+                    // then if the game has moved on.
+                    val stored = if (problem.transient) games.storedRecord(gameId) else null
+                    if (stored != null) {
+                        clocksFetchedAt = null
+                        show(stored.detail, null, back)
+                        _state.update {
+                            it.copy(
+                                problem =
+                                    problem.copy(
+                                        message = "Showing the game from ${Formatting.moment(stored.fetchedAt)}.",
+                                    ),
+                            )
+                        }
+                    } else {
+                        _state.update { it.copy(loading = false, problem = problem) }
+                    }
                     return@launch
                 }
             if (!countsHere(detail)) {

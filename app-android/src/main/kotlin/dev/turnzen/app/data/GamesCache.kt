@@ -120,7 +120,7 @@ internal object GamesCodec {
                 null
             } else {
                 CachedLists(
-                    fetchedAt = Instant.parse(root.string("fetchedAt") ?: return null),
+                    fetchedAt = root.instant("fetchedAt") ?: return null,
                     yourTurn = (root["yourTurn"] as JsonArray).map { summary(server, it as JsonObject) },
                     allRunning = (root["allRunning"] as JsonArray).map { summary(server, it as JsonObject) },
                 )
@@ -130,7 +130,7 @@ internal object GamesCodec {
             null
         }
 
-    private fun game(g: GameSummary): JsonObject =
+    fun game(g: GameSummary): JsonObject =
         buildJsonObject {
             put("id", g.id.value)
             put("handle", g.opponent.handle)
@@ -142,23 +142,14 @@ internal object GamesCodec {
             put("handicap", g.handicap)
             put("moveNumber", g.moveNumber)
             put("lastMoveAt", g.lastMoveAt?.toString())
-            g.remainingTime?.let { time ->
-                put(
-                    "remainingTime",
-                    buildJsonObject {
-                        put("text", time.text)
-                        put("main", time.main?.inWholeMilliseconds)
-                        put("extra", time.extra)
-                    },
-                )
-            }
+            g.remainingTime?.let { put("remainingTime", remainingTime(it)) }
             put("pendingAction", g.pendingAction.name)
             put("isMyTurn", g.isMyTurn)
             put("moveToken", g.moveToken.value)
             put("onlyOnWeb", g.onlyOnWeb)
         }
 
-    private fun summary(
+    fun summary(
         server: ServerId,
         o: JsonObject,
     ): GameSummary =
@@ -166,30 +157,46 @@ internal object GamesCodec {
             id = GameId(server, o.string("id")!!),
             opponent = Opponent(o.string("handle")!!, o.string("displayName"), o.string("rank")),
             myColor = StoneColor.valueOf(o.string("myColor")!!),
-            boardSize = o.long("boardSize")!!.toInt(),
-            boardHeight = o.long("boardHeight")!!.toInt(),
-            handicap = o.long("handicap")!!.toInt(),
-            moveNumber = o.long("moveNumber")!!.toInt(),
-            lastMoveAt = o.string("lastMoveAt")?.let(Instant::parse),
+            boardSize = o.int("boardSize")!!,
+            boardHeight = o.int("boardHeight")!!,
+            handicap = o.int("handicap")!!,
+            moveNumber = o.int("moveNumber")!!,
+            lastMoveAt = o.instant("lastMoveAt"),
             remainingTime =
-                (o["remainingTime"] as? JsonObject)?.let {
-                    RemainingTime(it.string("text")!!, it.long("main")?.milliseconds, it.string("extra"))
-                },
+                (o["remainingTime"] as? JsonObject)?.let(::remainingTime),
             pendingAction = PendingAction.valueOf(o.string("pendingAction")!!),
             isMyTurn = o.boolean("isMyTurn")!!,
             moveToken = MoveToken(o.string("moveToken")!!),
             onlyOnWeb = o.boolean("onlyOnWeb") ?: false,
         )
 
-    private fun JsonObject.primitive(key: String): JsonPrimitive? =
-        when (val v: JsonElement? = this[key]) {
-            null, JsonNull -> null
-            else -> v as JsonPrimitive
+    fun remainingTime(time: RemainingTime): JsonObject =
+        buildJsonObject {
+            put("text", time.text)
+            put("main", time.main?.inWholeMilliseconds)
+            put("extra", time.extra)
         }
 
-    private fun JsonObject.string(key: String): String? = primitive(key)?.content
-
-    private fun JsonObject.long(key: String): Long? = primitive(key)?.content?.toLong()
-
-    private fun JsonObject.boolean(key: String): Boolean? = primitive(key)?.content?.toBooleanStrict()
+    fun remainingTime(o: JsonObject): RemainingTime =
+        RemainingTime(o.string("text")!!, o.long("main")?.milliseconds, o.string("extra"))
 }
+
+// Readers for the stored JSON. Strict: a value of the wrong kind throws, and the entry is a miss.
+
+private fun JsonObject.primitive(key: String): JsonPrimitive? =
+    when (val v: JsonElement? = this[key]) {
+        null, JsonNull -> null
+        else -> v as JsonPrimitive
+    }
+
+internal fun JsonObject.string(key: String): String? = primitive(key)?.content
+
+internal fun JsonObject.long(key: String): Long? = primitive(key)?.content?.toLong()
+
+internal fun JsonObject.int(key: String): Int? = primitive(key)?.content?.toInt()
+
+internal fun JsonObject.double(key: String): Double? = primitive(key)?.content?.toDouble()
+
+internal fun JsonObject.boolean(key: String): Boolean? = primitive(key)?.content?.toBooleanStrict()
+
+internal fun JsonObject.instant(key: String): Instant? = string(key)?.let(Instant::parse)

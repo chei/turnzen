@@ -1181,7 +1181,7 @@ Decisions taken while building the MVP that refine or amend the sections above.
 - **Navigation is hand-rolled** (two tabs plus an open game) instead of navigation-compose;
   three destinations do not justify the dependency yet. The open game is saved with the id
   of the process that opened it, so a configuration change keeps it and a relaunch after
-  Android killed the app does not: the record cache is in memory only,
+  Android killed the app does not: the in-memory record cache and scoring states are gone,
   so a board restored into a fresh process has no header, no grid and no list behind it —
   which is exactly the screen an offline cold start used to land on.
 - **The running lists are kept on disk** (October 2026), one entry per server in the app's
@@ -1191,10 +1191,18 @@ Decisions taken while building the MVP that refine or amend the sections above.
   only err towards less time (a clock paused for a weekend did not run). A server whose
   refresh failed says when its part was fetched, in place of the advice: "Can't reach Dragon
   Go Server. Showing the list from 16:42." Signing out of a server deletes its entry. Not the
-  archive (fetched when its tab opens) and not yet the records, so a stored game opens only
-  while its server answers. Private storage, not shared: a folder of SGF files a file manager
-  can see would be readable by any app with storage access; SGF export (post-MVP item 8) is
-  the way to get a game out.
+  archive, which is fetched when its tab opens.
+- **Downloaded records are kept on disk too** (`RecordCache`, a file per game under the
+  app's files directory: the moves as SGF, the summary, players' details and comments as JSON
+  around it). A stored record is reused, like the in-memory one, while the list agrees the
+  game has not moved on, so a cold start does not download a game again. When the server
+  cannot be reached and nothing current is held, the board opens the stored copy anyway, with
+  "Dragon Go Server is down. Showing the game from 16:42."; a move decided on it is refused
+  before sending if the game has moved on. Only games downloaded on this phone are there —
+  no bulk sync, for DGS's quota. A record goes when the user plays in that game (it predates
+  the move), when the game leaves the running list, and with a sign-out. Private storage,
+  not shared: a folder of SGF files a file manager can see would be readable by any app with
+  storage access; SGF export (post-MVP item 8) is the way to get a game out.
 - **Pass and resign are placed by what they are, not by how often they are used.** Resign is
   an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is

@@ -1,12 +1,16 @@
 package dev.turnzen.app
 
 import dev.turnzen.app.data.Accounts
+import dev.turnzen.app.data.FileRecordCache
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.MoveOutbox
+import dev.turnzen.app.data.RecordCache
+import dev.turnzen.app.data.StoredRecord
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.ui.board.BoardEventKind
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
+import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
 import dev.turnzen.game.DeadStones
@@ -34,6 +38,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -42,6 +47,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BoardViewModelTest : MainDispatcherTest() {
@@ -59,6 +65,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         client: TurnBasedGoServerClient,
         /** Off unless a test is about it, so the others start from the server's own marks. */
         private val guess: Boolean = false,
+        records: RecordCache = RecordCache.None,
     ) {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
@@ -69,6 +76,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                 guessDeadStones = if (guess) ({ DeadStones.guessTaps(it) }) else ({ emptyList() }),
                 // The guess stays on the test dispatcher, so advanceUntilIdle waits for it.
                 computeContext = EmptyCoroutineContext,
+                records = records,
             )
 
         // Main is the test dispatcher, so sends run on virtual time.
@@ -189,6 +197,45 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertNotNull(opened.position)
             advanceUntilIdle()
             assertEquals(1, downloads)
+        }
+
+    /** The demo server, with game downloads failing while [down]: the lists still load. */
+    private class DownClient(
+        private val fake: FakeTurnBasedGoServerClient,
+    ) : TurnBasedGoServerClient by fake {
+        var down = false
+
+        override suspend fun game(id: GameId): GameDetail {
+            if (down) throw GoServerException.Unavailable("HTTP 503")
+            return fake.game(id)
+        }
+    }
+
+    @Test
+    fun `a game downloaded on an earlier run opens from its stored copy while the server is down`() =
+        runTest(dispatcher) {
+            val dir = createTempDirectory().toFile()
+            val first = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0), records = FileRecordCache(dir))
+            first.start(game)
+            advanceUntilIdle()
+            val shown = checkNotNull(first.vm.state.value.detail)
+            // Kept a move behind what the list will say, so it cannot pass for current.
+            val fetchedAt = Instant.fromEpochMilliseconds(1_790_500_000_000)
+            val older = shown.copy(summary = shown.summary.copy(moveNumber = shown.summary.moveNumber - 1))
+            FileRecordCache(dir).write(StoredRecord(older, fetchedAt))
+
+            val client = DownClient(FakeTurnBasedGoServerClient(latencyMillis = 0)).apply { down = true }
+            val next = Harness(client, records = FileRecordCache(dir))
+            next.start(game)
+            advanceUntilIdle()
+
+            val s = next.vm.state.value
+            assertFalse(s.loading)
+            assertEquals(older, s.detail)
+            val problem = assertNotNull(s.problem)
+            assertEquals("Dragon Go Server is down", problem.title.replace(next.session.serverName, "Dragon Go Server"))
+            assertEquals("Showing the game from ${Formatting.moment(fetchedAt)}.", problem.message)
+            dir.deleteRecursively()
         }
 
     /** [client] with every move refused for want of a connection. */
