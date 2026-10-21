@@ -12,6 +12,7 @@ import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.MoveToken
+import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -444,6 +445,15 @@ class DgsClientTest {
             client.restoreSession("123456\ncookie_login=fakeuser; cookie_sessioncode=expired")
             assertFailsWith<GoServerException.SessionExpired> { client.currentUser() }
         }
+
+    @Test
+    fun `the account link is the status page`() {
+        val client = DgsClient(FakeTransport(), "https://dgs.example.test/")
+        assertEquals(
+            "https://dgs.example.test/status.php",
+            client.accountUrl(SignedInUser(id = "123456", handle = "fakeuser", displayName = null, rank = null)),
+        )
+    }
 
     @Test
     fun `transport failures are Unreachable`() =

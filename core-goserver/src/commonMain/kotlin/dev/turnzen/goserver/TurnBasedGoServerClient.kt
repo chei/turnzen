@@ -167,7 +167,10 @@ interface TurnBasedGoServerClient {
      */
     fun gameUrl(id: GameId): String?
 
-    /** The user's own page on the server's website, or null when there is none worth linking. */
+    /**
+     * The user's own place on the server's website — their profile, or the home page a
+     * signed-in user starts from — or null when there is none worth linking.
+     */
     fun accountUrl(user: SignedInUser): String? = null
 
     /**

@@ -310,6 +310,12 @@ class DgsClient(
 
     override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)
 
+    /**
+     * The status page rather than the profile: it is DGS's home once signed in — the games
+     * waiting, messages, invitations — and the profile is one link away from it.
+     */
+    override fun accountUrl(user: SignedInUser): String = url("status.php")
+
     override fun exportSession(): String? {
         if (cookies.isEmpty) return null
         return (userId ?: "") + "\n" + cookies.serialize()
