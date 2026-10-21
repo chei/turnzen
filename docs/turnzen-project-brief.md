@@ -701,7 +701,9 @@ come from and why.
 - **Otherwise a generated icon**: the first letter or digit of the handle on colours
   hashed (FNV-1a) from `server:handle` — the server is in the key because the same handle
   on DGS and OGS may be two people. The same pair in light and dark theme: it is the
-  player's mark, not part of the page. It also stands in while a picture loads, and the
+  player's mark, not part of the page. It does not stand in while a picture loads: the
+  square stays empty, the page showing through, so the letter never flashes up and is
+  replaced a moment later; it shows only when the picture cannot be had. The
   tint is drawn only behind the letter: under a picture it showed as a coloured hairline at
   the rounded edge (and through transparent margins), which OGS's own site does not have.
 - **Squares with 4dp corners, not circles**: OGS shows its pictures square, and round is

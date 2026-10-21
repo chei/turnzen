@@ -45,9 +45,12 @@ import kotlin.time.Duration.Companion.milliseconds
 /**
  * A player's icon: a square with softened corners — the way OGS shows its pictures, and
  * unlike a stone, the one round thing on these screens. The picture they chose where the
- * server has one ([url]); otherwise, and while it loads, their initial in colours made from
- * their name ([PlayerColors]), so every opponent is told apart at a glance on either server.
+ * server has one ([url]); otherwise their initial in colours made from their name
+ * ([PlayerColors]), so every opponent is told apart at a glance on either server.
  * Decorative: the name next to it is what TalkBack reads.
+ *
+ * While a picture loads the square is empty, the page showing through: the initial would
+ * otherwise flash up for a moment and be replaced. It shows only if the picture never comes.
  */
 @Composable
 fun PlayerIcon(
@@ -59,15 +62,19 @@ fun PlayerIcon(
     modifier: Modifier = Modifier,
 ) {
     val cacheDir = LocalContext.current.cacheDir
-    // Starts from the cache, so a row scrolled back into view does not flash its initial.
-    val image by produceState(url?.let(PlayerIcons::cached), url) {
-        if (value == null && url != null) value = PlayerIcons.load(url, cacheDir)
+    // Starts from the cache, so a row scrolled back into view does not start out empty.
+    val image by produceState(url?.let(PlayerIcons::cached)?.let(Picture::Loaded) ?: Picture.Loading, url) {
+        if (value is Picture.Loading) {
+            value =
+                url?.let { PlayerIcons.load(it, cacheDir) }?.let(Picture::Loaded) ?: Picture.None
+        }
     }
     val tint = remember(colorKey) { PlayerColors.of(colorKey) }
     // Sized from the icon rather than the font scale, so a large system font cannot push the
     // letter out of its square; the name beside it scales as usual.
     val letterSize = with(LocalDensity.current) { (size * LETTER_RATIO).toSp() }
-    val loaded = image
+    val loaded = (image as? Picture.Loaded)?.bitmap
+    val letter = image is Picture.None
     // The tint only behind the letter. Under a picture it showed as a coloured hairline
     // where the rounded clip's anti-aliased edge blends the two, and through any
     // transparent margin the picture has; on OGS a picture sits on the page, so here too.
@@ -75,12 +82,12 @@ fun PlayerIcon(
         modifier
             .size(size)
             .clip(RoundedCornerShape(CORNER))
-            .then(if (loaded == null) Modifier.background(tint.background) else Modifier),
+            .then(if (letter) Modifier.background(tint.background) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
         if (loaded != null) {
             Image(loaded, contentDescription = null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else {
+        } else if (letter) {
             Text(
                 initial(name),
                 color = tint.letter,
@@ -91,6 +98,17 @@ fun PlayerIcon(
             )
         }
     }
+}
+
+/** Where a player's picture stands: on its way, drawn, or not to be had (no URL, or the fetch failed). */
+private sealed interface Picture {
+    data object Loading : Picture
+
+    data class Loaded(
+        val bitmap: ImageBitmap,
+    ) : Picture
+
+    data object None : Picture
 }
 
 /**
