@@ -353,7 +353,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   — both players with their rank, captures and *both* clocks (the header can only show the
   one that is running), then board size, handicap, komi, rules, rated, time system, weekend
   clock, start date and the tournament id where there is one. Rows in the Settings screen's
-  vocabulary: label left, value right in `ink2`, hairline between. A modal sheet rather than
+  vocabulary: label left, value right in `ink2`, hairline between. Each player's line starts
+  with their stone on a 26dp square of board (4dp corners, like the player icon beside it):
+  on the bare page a black disc and an outlined one read as radio buttons. Painted by the
+  board's own code (`BoardPaint.kt`), so board and stone skins will reach it. A modal sheet rather than
   a screen, because it is reading material *about* the board behind it and dismissing it is
   a swipe. It opens from the header, which is the game's name plate; a small `ink2` chevron
   after the opponent's name is the only affordance — a disclosure marker is navigation, not

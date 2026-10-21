@@ -43,7 +43,6 @@ import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerDot
-import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.outcomeDetail
 import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
@@ -288,7 +287,7 @@ private fun PlayerLine(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The stone first: which colour the line is about is what the sheet is ordered by.
-        StoneIcon(color, 18.dp, Modifier.padding(end = 12.dp))
+        StoneOnBoard(color, 26.dp, Modifier.padding(end = 12.dp))
         icon?.let {
             PlayerIcon(it.url, name, playerColorKey(it.server, name), size = 36.dp, Modifier.padding(end = 12.dp))
         }

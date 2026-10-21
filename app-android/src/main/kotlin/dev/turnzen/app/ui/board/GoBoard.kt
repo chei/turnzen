@@ -190,7 +190,7 @@ fun GoBoard(
 
         fun center(p: Point) = Offset(off + p.col * cell, off + p.row * cell)
 
-        drawRect(palette.board)
+        drawBoardSurface(palette)
 
         val lineWidth = maxOf(0.8.dp.toPx(), 1f)
         for (i in 0 until n) {
@@ -272,20 +272,6 @@ fun GoBoard(
  * still reads as a stone against the board, since the marks are what the player is checking.
  */
 private const val DEAD_STONE_ALPHA = 0.45f
-
-private fun DrawScope.drawStone(
-    center: Offset,
-    radius: Float,
-    color: StoneColor,
-    palette: TurnzenColors,
-    alpha: Float = 1f,
-) {
-    val fill: Color = if (color == StoneColor.BLACK) palette.stoneBlack else palette.stoneWhite
-    drawCircle(fill, radius, center, alpha = alpha)
-    if (color == StoneColor.WHITE) {
-        drawCircle(palette.stoneBlack, radius, center, alpha = alpha, style = Stroke(0.6.dp.toPx()))
-    }
-}
 
 private fun DrawScope.drawTerritory(
     center: Offset,
