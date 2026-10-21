@@ -1059,8 +1059,14 @@ partly so the project could grow beyond Go (see Naming).
    Not yet: **resuming play** from a disagreement (DGS allows an ordinary `cmd=move` out of
    the scoring phase), and the game-over screen — an accepted score leaves the game list and
    the result is read on the web.
-8. **SGF export** — one overflow-menu item on the board screen; share/save via the
-   Android share sheet.
+8. **SGF export** — done (October 2026): "Share SGF", a row in the game info sheet next to
+   "Open on …" (the board has no overflow menu, and the sheet is where acts *about* the
+   game live). It hands the file to Android's own share sheet through a `FileProvider`
+   content link, so saving, mailing or opening it in a Go app is whatever the phone offers;
+   no storage permission. The file is written from the record on the board, so it works
+   for a stored copy while the server is down; players are filled in from the game's
+   details where the record lacks them. No comments, since some are private to their
+   writer.
 9. **Games — "Waiting for opponent"** — a second view (tab or filter) in the Games
    destination, view-only.
 10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays

@@ -75,6 +75,8 @@ fun GameInfoSheet(
     onPass: () -> Unit,
     onResign: () -> Unit,
     onOpenWeb: (String) -> Unit,
+    /** Null until there is a record on the board to share. */
+    onShareSgf: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val summary = state.headerSummary ?: return
@@ -178,6 +180,10 @@ fun GameInfoSheet(
                         stringResource(R.string.info_open_web, serverName),
                         colors.accent,
                     ) { onOpenWeb(gameUrl) }
+                }
+                // Next to "Open on …": both take the game out of the app.
+                if (onShareSgf != null) {
+                    ActionLine(stringResource(R.string.info_share_sgf), colors.accent, onShareSgf)
                 }
                 // Last, and the only urgent thing in the sheet: giving the game up. Gone
                 // once the game is over — there is nothing left to give up, and an offer to

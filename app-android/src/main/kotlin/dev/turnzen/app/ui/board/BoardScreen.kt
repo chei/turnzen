@@ -71,6 +71,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -96,6 +97,8 @@ import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
+import dev.turnzen.app.ui.common.sgfFile
+import dev.turnzen.app.ui.common.shareSgf
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Position
@@ -117,6 +120,7 @@ fun BoardScreen(
     val state by viewModel.state.collectAsStateWithLifecycle()
     val summary = state.headerSummary
     val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     // Saved, not merely remembered: a rotation with the sheet open should not close it.
     var showingInfo by rememberSaveable { mutableStateOf(false) }
     // Draw the real position once loaded; while it loads, an empty grid at the known board
@@ -488,6 +492,7 @@ fun BoardScreen(
                 viewModel.askResign()
             },
             onOpenWeb = { uriHandler.openUri(it) },
+            onShareSgf = state.detail?.let { detail -> { shareSgf(context, sgfFile(detail)) } },
             onDismiss = { showingInfo = false },
         )
     }

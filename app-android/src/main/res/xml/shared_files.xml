@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The only files Turnzen hands to other apps: an SGF being shared, in the cache. -->
+<paths>
+    <cache-path
+        name="shared"
+        path="shared/" />
+</paths>
