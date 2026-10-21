@@ -265,7 +265,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   cloud, a struck-through signal) belong to a different vocabulary than the stones and rings
   used everywhere else, and the sentence is more precise anyway. With a list already on
   screen the same problem is one quiet line above it instead, and pull-to-refresh is the
-  retry. On the board, a load that produced no position gets that line plus a "Try again";
+  retry. That line says how old the list is in place of the advice ("Can't reach Dragon Go
+  Server. Showing the list from 16:42."), the date added when it is not from today. On the board, a load that produced no position gets that line plus a "Try again";
   a send that failed does not, because Send itself is the retry and the variation is intact.
 - **Counting a finished game** is a mode of the board screen, entered whenever the server
   says the game is in its scoring phase. The board keeps its stones; dead ones are drawn as

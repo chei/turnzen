@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Instant
 
 /**
  * What the last refresh brought into each running list: the rows the Games screen has not
@@ -64,6 +67,9 @@ class GamesStore(
     private val guessDeadStones: (Position) -> List<Point> = { DeadStones.guessTaps(it) },
     /** Where the guess runs: it plays a few hundred games out, too much for the main thread. */
     private val computeContext: CoroutineContext = Dispatchers.Default,
+    /** Where the running lists are kept between runs of the app. */
+    private val cache: GamesCache = GamesCache.None,
+    private val now: () -> Instant = { Clock.System.now() },
     /**
      * Told what each answering server said is awaiting the user, after every [refresh]: the
      * user has now seen those games, so the notifications need not announce them.
@@ -104,6 +110,60 @@ class GamesStore(
 
     /** What the last [refresh] changed, for the screen to highlight. See [Arrivals]. */
     val arrivals: StateFlow<Arrivals> = _arrivals.asStateFlow()
+
+    private val _listedAt = MutableStateFlow<Map<ServerId, Instant>>(emptyMap())
+
+    /**
+     * When each server's part of the running lists was fetched — in this run of the app or
+     * an earlier one — for the screen to say how old a list is that could not be refreshed.
+     */
+    val listedAt: StateFlow<Map<ServerId, Instant>> = _listedAt.asStateFlow()
+
+    init {
+        // The lists from the last run, so the screen opens on the games rather than on a
+        // spinner, and keeps them when a server is down. The first refresh replaces them.
+        val held = cache.load()
+        if (held.isNotEmpty()) {
+            val at = now()
+            _yourTurn.value =
+                held.values.flatMap { aged(it.yourTurn, at - it.fetchedAt) }.sortedByDescending { it.lastMoveAt }
+            _allRunning.value =
+                held.values.flatMap { aged(it.allRunning, at - it.fetchedAt) }.sortedByDescending { it.lastMoveAt }
+            _listedAt.value = held.mapValues { it.value.fetchedAt }
+            publish()
+        }
+    }
+
+    /**
+     * [games] with each clock run down by [elapsed], the time since they were listed: both
+     * players' clocks keep going while the app is not looking. Can only show less time than
+     * the server would (a clock paused for a weekend or a vacation did not run), which is the
+     * safe side to be wrong on. A clock whose wording was not understood is left as it was.
+     */
+    private fun aged(
+        games: List<GameSummary>,
+        elapsed: Duration,
+    ): List<GameSummary> {
+        if (!elapsed.isPositive()) return games
+        return games.map { game ->
+            val time = game.remainingTime
+            val main = time?.main ?: return@map game
+            game.copy(remainingTime = time.copy(main = (main - elapsed).coerceAtLeast(Duration.ZERO)))
+        }
+    }
+
+    /** Writes [server]'s part of the running lists to [cache], under the time it was fetched. */
+    private fun persist(server: ServerId) {
+        val at = _listedAt.value[server] ?: return
+        cache.save(
+            server,
+            CachedLists(
+                fetchedAt = at,
+                yourTurn = _yourTurn.value.orEmpty().filter { it.id.server == server },
+                allRunning = _allRunning.value.orEmpty().filter { it.id.server == server },
+            ),
+        )
+    }
 
     /** Brings the published lists in line with the servers' lists and [outgoing]. */
     private fun publish() {
@@ -179,6 +239,9 @@ class GamesStore(
         _yourTurn.value = turnList
         _allRunning.value = runningList
         publish()
+        val at = now()
+        _listedAt.update { it + fresh.keys.associateWith { at } }
+        fresh.keys.forEach(::persist)
         return failures
     }
 
@@ -369,6 +432,7 @@ class GamesStore(
             list?.map { if (it.id == id) it.copy(isMyTurn = false) else it }
         }
         publish()
+        persist(id.server)
     }
 
     /**
@@ -382,6 +446,7 @@ class GamesStore(
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
         publish()
+        persist(id.server)
         // The game has just joined the archive, which this copy predates: drop it so the
         // Finished tab fetches the list again rather than showing one without this game.
         _finished.value = null
@@ -435,6 +500,8 @@ class GamesStore(
         _allRunning.update { list -> list?.filterNot { it.id.server == server } }
         _finished.update { list -> list?.filterNot { it.id.server == server } }
         publish()
+        _listedAt.update { it - server }
+        cache.forget(server)
     }
 
     fun clear() {
@@ -442,6 +509,8 @@ class GamesStore(
         _allRunning.value = null
         _finished.value = null
         _arrivals.value = Arrivals()
+        _listedAt.value = emptyMap()
+        cache.clear()
         details.clear()
         scores.clear()
         publish()

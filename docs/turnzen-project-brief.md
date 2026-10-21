@@ -1181,9 +1181,20 @@ Decisions taken while building the MVP that refine or amend the sections above.
 - **Navigation is hand-rolled** (two tabs plus an open game) instead of navigation-compose;
   three destinations do not justify the dependency yet. The open game is saved with the id
   of the process that opened it, so a configuration change keeps it and a relaunch after
-  Android killed the app does not: the games list and the record cache are in memory only,
+  Android killed the app does not: the record cache is in memory only,
   so a board restored into a fresh process has no header, no grid and no list behind it —
   which is exactly the screen an offline cold start used to land on.
+- **The running lists are kept on disk** (October 2026), one entry per server in the app's
+  private preferences (`GamesCache`), written after every refresh that server answered. A
+  cold start opens on them rather than on a spinner, and a server that is down leaves its
+  games on screen. Their clocks are run down by the time since they were fetched, which can
+  only err towards less time (a clock paused for a weekend did not run). A server whose
+  refresh failed says when its part was fetched, in place of the advice: "Can't reach Dragon
+  Go Server. Showing the list from 16:42." Signing out of a server deletes its entry. Not the
+  archive (fetched when its tab opens) and not yet the records, so a stored game opens only
+  while its server answers. Private storage, not shared: a folder of SGF files a file manager
+  can see would be readable by any app with storage access; SGF export (post-MVP item 8) is
+  the way to get a game out.
 - **Pass and resign are placed by what they are, not by how often they are used.** Resign is
   an act *about* the game and is irreversible, so it sits in the game-info sheet behind a
   confirmation. A pass is a *move*: it takes the same send path as a stone, it is

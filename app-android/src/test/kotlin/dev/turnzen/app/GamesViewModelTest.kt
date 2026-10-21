@@ -2,7 +2,9 @@ package dev.turnzen.app
 
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.PrefsGamesCache
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.games.GamesTab
 import dev.turnzen.app.ui.games.GamesViewModel
 import dev.turnzen.goserver.Credentials
@@ -112,6 +114,30 @@ class GamesViewModelTest : MainDispatcherTest() {
             val problem = assertNotNull(s.problem)
             assertTrue(problem.transient)
             assertEquals("Can't reach ${session.serverName}", problem.title)
+        }
+
+    @Test
+    fun `games kept from an earlier run stay on screen, with how old they are`() =
+        runTest(dispatcher) {
+            val prefs = FakeSharedPreferences()
+            val client = FlakyClient(offline = false)
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            GamesStore(Accounts(listOf(session)), cache = PrefsGamesCache(prefs)).refresh()
+
+            client.offline = true
+            val store = GamesStore(Accounts(listOf(session)), cache = PrefsGamesCache(prefs))
+            val vm = GamesViewModel(Accounts(listOf(session)), store)
+            backgroundScope.launch { vm.state.collect {} }
+            vm.refresh()
+            advanceUntilIdle()
+
+            val s = vm.state.value
+            assertTrue(s.allRunning.orEmpty().isNotEmpty())
+            val problem = assertNotNull(s.problem)
+            assertEquals("Can't reach ${session.serverName}", problem.title)
+            val at = store.listedAt.value.getValue(session.serverId)
+            assertEquals("Showing the list from ${Formatting.moment(at)}.", problem.message)
         }
 
     @Test

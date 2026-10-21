@@ -8,6 +8,7 @@ import dev.turnzen.app.data.FixedServer
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
 import dev.turnzen.app.data.MoveOutbox
+import dev.turnzen.app.data.PrefsGamesCache
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
@@ -103,7 +104,11 @@ class AppContainer(
     val checkSchedule = CheckSchedule(appContext)
     private val watchState = WatchStateStore(appContext)
 
-    val games = GamesStore(accounts) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
+    val games =
+        GamesStore(
+            accounts,
+            cache = PrefsGamesCache(appContext),
+        ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** Sent moves on their way to the server; app-wide, as the board they left is gone. */
     val outbox = MoveOutbox(accounts, games, MainScope())

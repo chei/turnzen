@@ -116,6 +116,20 @@ object Formatting {
         unit: String,
     ): String = if (count == 1L) "1 $unit ago" else "$count ${unit}s ago"
 
+    /**
+     * A moment earlier today as a clock time ("16:42"), and an earlier one with its date
+     * too ("18 Oct 16:42"): for saying when a list that is still on screen was fetched.
+     */
+    fun moment(
+        instant: Instant,
+        now: Instant = Clock.System.now(),
+        zone: ZoneId = ZoneId.systemDefault(),
+    ): String {
+        val today = now.toJavaInstant().atZone(zone).toLocalDate()
+        val pattern = if (instant.toJavaInstant().atZone(zone).toLocalDate() == today) "HH:mm" else "d MMM HH:mm"
+        return DateTimeFormatter.ofPattern(pattern).withZone(zone).format(instant.toJavaInstant())
+    }
+
     /** An absolute date for something that happened long ago ("24 Jun 2015"). */
     fun date(instant: Instant?): String =
         if (instant == null) {

@@ -6,6 +6,7 @@ import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.Arrivals
 import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
 import dev.turnzen.goserver.GameId
@@ -170,8 +171,20 @@ class GamesViewModel(
             ServerProblem(title = "Signed out", message = reason, transient = false, server = session.serverId)
         }
 
+    /**
+     * A server that could not be refreshed but has games on screen says how old they are,
+     * in place of the advice: the line sits above a list, and pulling it is the retry.
+     */
     private fun problemsFor(failures: Map<ServerId, GoServerException>): List<ServerProblem> =
-        failures.map { (server, e) -> problemFor(e, accounts.session(server).serverName).copy(server = server) }
+        failures.map { (server, e) ->
+            val problem = problemFor(e, accounts.session(server).serverName).copy(server = server)
+            val listedAt = store.listedAt.value[server]
+            if (problem.transient && listedAt != null) {
+                problem.copy(message = "Showing the list from ${Formatting.moment(listedAt)}.")
+            } else {
+                problem
+            }
+        }
 
     /**
      * The user switched to a tab. Only the archive has anything to do here: it is fetched

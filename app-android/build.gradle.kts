@@ -84,6 +84,7 @@ dependencies {
     implementation(project(":core-ogs"))
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     // Custom Tabs, for the OGS sign-in page (see AccountPanels).
     implementation(libs.androidx.browser)
