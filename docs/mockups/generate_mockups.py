@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate Turnzen MVP screen mockups as SVG (390x844 phone frame)."""
+import colorsys
 import os
 
 W, H = 390, 844
@@ -46,7 +47,8 @@ def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
-def text(x, y, s, size=15, weight=400, fill=INK, anchor="start", extra=""):
+def text(x, y, s, size=15, weight=400, fill=None, anchor="start", extra=""):
+    fill = fill or INK  # read at call time, so the dark palette applies
     return (f'<text x="{x}" y="{y}" font-family="{FONT}" font-size="{size}" '
             f'font-weight="{weight}" fill="{fill}" text-anchor="{anchor}" {extra}>{esc(s)}</text>')
 
@@ -346,6 +348,37 @@ def games_tabs(y, counts=("3", "7")):
     return s
 
 
+def player_tint(key):
+    """The app's PlayerColors, ported: a light background and a dark letter from an FNV-1a hash."""
+    h = 2166136261
+    for byte in key.encode("utf-8"):
+        h = ((h ^ byte) * 16777619) & 0xFFFFFFFF
+    hue, bits = h % 360, h // 360
+    sat = (0.6, 0.75, 0.9)[bits % 3]
+    light = (0.74, 0.8, 0.86)[bits // 3 % 3]
+    letter = (0.15, 0.2)[bits // 9 % 2]
+
+    def hexed(l, s_):
+        r, g, b = colorsys.hls_to_rgb(hue / 360, l, s_)
+        return "#%02X%02X%02X" % (round(r * 255), round(g * 255), round(b * 255))
+    return hexed(light, sat), hexed(letter, 0.6)
+
+
+def player_icon(cx, cy, name, picture, server="dgs"):
+    """The opponent's icon: a square with soft corners. A picture where the server has one (a
+    stand-in pattern here); otherwise the initial, in colours made from the player's name —
+    the same in light and dark theme."""
+    if picture:
+        s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{LINE}"/>'
+        # A Gravatar-like block pattern.
+        for dx, dy in ((-8, -8), (2, -8), (-8, 2), (2, 2), (-3, -3)):
+            s += f'<rect x="{cx + dx}" y="{cy + dy}" width="6" height="6" fill="{INK2}"/>'
+        return s
+    bg, fg = player_tint(f"{server}:{name.lower()}")
+    s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{bg}"/>'
+    return s + text(cx, cy + 6, name.lstrip("_")[0].upper(), 18, 600, fg, "middle")
+
+
 def screen_games_two_servers():
     s = frame_open() + status_bar()
     s += text(20, 92, "Turnzen", 26, 600)
@@ -354,12 +387,18 @@ def screen_games_two_servers():
         (OGS, "hana_go", "4k", "13x13, move 34, 18 min ago", "6 h", True),
         (DGS, "mkvtl", "7k", "19x19, move 87, 2 h ago", "3 d 4 h", False),
         (OGS, "kaya_r", "?", "9x9, move 12, yesterday", "2 d 20 h", True),
+        (DGS, "BerndW", "6k", "19x19, move 141, 3 d ago", "5 d 2 h", False),
+        (DGS, "nori_88", "8k", "13x13, move 58, 4 d ago", "6 d", False),
     ]
     y = 160
     for color, opp, rank, line, left, urgent in rows:
         s += server_bar(8, y + 16, 40, color)
-        s += text(20, y + 30, f"{opp} ({rank})", 16, 600)
-        s += text(20, y + 51, line, 13, 400, INK2)
+        # OGS sends each player's picture; DGS has none, and neither has kaya_r, so those rows
+        # show the initial in the player's own colours.
+        s += player_icon(38, y + 36, opp, picture=color == OGS and opp != "kaya_r",
+                         server="ogs" if color == OGS else "dgs")
+        s += text(68, y + 30, f"{opp} ({rank})", 16, 600)
+        s += text(68, y + 51, line, 13, 400, INK2)
         s += text(W - 20, y + 41, left, 15, 600, URGENT if urgent else INK, "end")
         y += 72
         s += hairline(y)

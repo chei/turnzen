@@ -40,17 +40,21 @@ import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.outcomeDetail
+import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameInfo
+import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.LadderStanding
 import dev.turnzen.goserver.PlayerDetail
+import dev.turnzen.goserver.ServerId
 
 /**
  * What the board behind the sheet cannot say for itself: who is playing and how they stand,
@@ -72,6 +76,10 @@ fun GameInfoSheet(
     state: BoardUiState,
     serverName: String,
     gameUrl: String?,
+    /** Each player's icon after their stone (the Player icons setting). */
+    showPlayerIcons: Boolean,
+    /** The user's own picture; the opponent's comes with the game. */
+    ownIconUrl: String?,
     onPass: () -> Unit,
     onResign: () -> Unit,
     onOpenWeb: (String) -> Unit,
@@ -135,6 +143,7 @@ fun GameInfoSheet(
                     color = StoneColor.BLACK,
                     player = info?.black,
                     fallbackName = nameFor(state, StoneColor.BLACK),
+                    icon = iconFor(summary, StoneColor.BLACK, ownIconUrl).takeIf { showPlayerIcons },
                     isYou = summary.myColor == StoneColor.BLACK,
                     isToMove = toMove == StoneColor.BLACK,
                     isFinished = state.isFinished,
@@ -144,6 +153,7 @@ fun GameInfoSheet(
                     color = StoneColor.WHITE,
                     player = info?.white,
                     fallbackName = nameFor(state, StoneColor.WHITE),
+                    icon = iconFor(summary, StoneColor.WHITE, ownIconUrl).takeIf { showPlayerIcons },
                     isYou = summary.myColor == StoneColor.WHITE,
                     isToMove = toMove == StoneColor.WHITE,
                     isFinished = state.isFinished,
@@ -210,6 +220,18 @@ private fun resultLine(result: GameResult?): String {
     )
 }
 
+/** What a side's icon is drawn from: whose picture, and which server its colours belong to. */
+private class LineIcon(
+    val url: String?,
+    val server: ServerId,
+)
+
+private fun iconFor(
+    summary: GameSummary,
+    color: StoneColor,
+    ownIconUrl: String?,
+): LineIcon = LineIcon(if (summary.myColor == color) ownIconUrl else summary.opponent.iconUrl, summary.id.server)
+
 /** The handle to show for a side when the server sent no game info (an offline reopen). */
 private fun nameFor(
     state: BoardUiState,
@@ -236,6 +258,7 @@ private fun PlayerLine(
     color: StoneColor,
     player: PlayerDetail?,
     fallbackName: String,
+    icon: LineIcon?,
     isYou: Boolean,
     isToMove: Boolean,
     isFinished: Boolean = false,
@@ -256,7 +279,11 @@ private fun PlayerLine(
         Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // The stone first: which colour the line is about is what the sheet is ordered by.
         StoneIcon(color, 18.dp, Modifier.padding(end = 12.dp))
+        icon?.let {
+            PlayerIcon(it.url, name, playerColorKey(it.server, name), size = 36.dp, Modifier.padding(end = 12.dp))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 Formatting.opponent(name, player?.rank),

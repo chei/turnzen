@@ -45,6 +45,8 @@ class OgsParsersTest {
         assertEquals(StoneColor.WHITE, summary.myColor)
         assertEquals("opponent8", summary.opponent.handle)
         assertEquals("?", summary.opponent.rank)
+        // An uploaded picture, as sent.
+        assertEquals("https://avatars.example.invalid/2008-0f1e2d3c4b5a6978-32.png", summary.opponent.iconUrl)
         assertEquals(19, summary.boardSize)
         assertEquals(72, summary.moveNumber)
         assertEquals(MoveTokenValue("72"), MoveTokenValue(summary.moveToken.value))
@@ -166,6 +168,24 @@ class OgsParsersTest {
         assertEquals(StoneColor.WHITE, won.myColor)
         assertTrue(won.isFinished)
         assertEquals("opponent9", won.opponent.handle)
+        // A Gravatar, asked for at a size a list row can show sharply.
+        assertEquals(
+            "https://secure.gravatar.com/avatar/000000000000000000000000000007d9?s=128&d=retro",
+            won.opponent.iconUrl,
+        )
+    }
+
+    @Test
+    fun `an icon is read only when it is an https address`() {
+        assertNull(OgsIcons.url(null))
+        assertNull(OgsIcons.url(OgsJson.parseObject("""{"username": "a"}""", "test")))
+        assertNull(OgsIcons.url(OgsJson.parseObject("""{"icon": "http://example.invalid/1-32.png"}""", "test")))
+        assertEquals(
+            "https://secure.gravatar.com/avatar/ab?d=retro&s=128",
+            OgsIcons.url(
+                OgsJson.parseObject("""{"icon": "https://secure.gravatar.com/avatar/ab?d=retro&s=32"}""", "test"),
+            ),
+        )
     }
 
     @Test

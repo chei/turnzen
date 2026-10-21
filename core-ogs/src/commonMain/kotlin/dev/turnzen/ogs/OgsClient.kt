@@ -74,6 +74,9 @@ class OgsClient(
         /** Finished games are filtered to correspondence, so ask for more than will be shown. */
         private const val FINISHED_PAGE = 50
 
+        /** Running games read for their opponents' icons; more than anyone plays at once. */
+        private const val ICON_PAGE = 100
+
         /** The longest a chat history replay is waited for; it normally ends well within a second. */
         private const val CHAT_REPLAY_MILLIS = 8_000L
 
@@ -94,6 +97,10 @@ class OgsClient(
     private var tokens: Tokens? = null
     private val renewLock = Mutex()
     private val overviewLock = Mutex()
+
+    /** Opponents' icons found by [withIcons], by player id; a null value means they have none. */
+    private val knownIcons = mutableMapOf<Long, String?>()
+    private val iconLock = Mutex()
     private var overview: Pair<Long, JsonObject>? = null
 
     override val serverId: ServerId = SERVER_ID
@@ -181,7 +188,25 @@ class OgsClient(
         val config = api("/api/v1/ui/config/")
         val user = OgsUser.parse(config.obj("user"))
         tokens = tokens?.copy(userId = user.id.toLong())
-        return user
+        return if (user.iconUrl != null) user else user.copy(iconUrl = ownIcon(user.id.toLong()))
+    }
+
+    /**
+     * The user's icon when the config left it out: from their own game list, whose player
+     * objects carry icons (see [withIcons]); one game names them. Best effort — the account
+     * panel shows the generated initial instead.
+     */
+    private suspend fun ownIcon(me: Long): String? {
+        iconLock.withLock { knownIcons[me] }?.let { return it }
+        return try {
+            val page = api("/api/v1/players/$me/games/?page_size=1")
+            iconLock.withLock {
+                rememberIcons(page.arr("results").orEmpty().mapNotNull { it as? JsonObject })
+                knownIcons[me]
+            }
+        } catch (e: GoServerException) {
+            null
+        }
     }
 
     override suspend fun gamesAwaitingMe(): List<GameSummary> = myRunningGames().filter { it.isMyTurn }
@@ -189,11 +214,59 @@ class OgsClient(
     override suspend fun myRunningGames(): List<GameSummary> {
         val me = myId()
         val games = overview().arr("active_games") ?: return emptyList()
-        return games.mapNotNull { element ->
-            val entry = element as? JsonObject ?: return@mapNotNull null
-            val gamedata = entry.obj("json") ?: entry.obj("gamedata") ?: return@mapNotNull null
-            if (!OgsGameData.isCorrespondence(gamedata.obj("time_control"))) return@mapNotNull null
-            OgsGameData.summary(gamedata, entry.obj("black"), entry.obj("white"), me, now())
+        val running =
+            games.mapNotNull { element ->
+                val entry = element as? JsonObject ?: return@mapNotNull null
+                val gamedata = entry.obj("json") ?: entry.obj("gamedata") ?: return@mapNotNull null
+                if (!OgsGameData.isCorrespondence(gamedata.obj("time_control"))) return@mapNotNull null
+                OgsGameData.summary(gamedata, entry.obj("black"), entry.obj("white"), me, now()) to
+                    OgsGameData.opponentId(gamedata, me)
+            }
+        return withIcons(me, running)
+    }
+
+    /**
+     * Fills in the opponents' icons the overview leaves out: its player objects come without
+     * one. The player's own game list carries them (the Finished tab is built from it), so
+     * when an opponent's icon is not known yet, one page of the user's running games is read
+     * from there, and every icon on it is remembered for as long as this client lives. An
+     * opponent that page does not name is remembered as having none, so a refresh costs a
+     * request only when a new opponent turns up. Best effort: a failed read leaves the rows
+     * without pictures and is tried again on the next refresh.
+     */
+    private suspend fun withIcons(
+        me: Long,
+        games: List<Pair<GameSummary, Long?>>,
+    ): List<GameSummary> {
+        val missing = games.filter { (summary, _) -> summary.opponent.iconUrl == null }.mapNotNull { it.second }
+        val icons =
+            iconLock.withLock {
+                val unknown = missing.filter { it !in knownIcons }
+                if (unknown.isNotEmpty()) {
+                    try {
+                        val page = api("/api/v1/players/$me/games/?ended__isnull=true&page_size=$ICON_PAGE")
+                        rememberIcons(page.arr("results").orEmpty().mapNotNull { it as? JsonObject })
+                        unknown.forEach { if (it !in knownIcons) knownIcons[it] = null }
+                    } catch (e: GoServerException) {
+                        // Pictures are decoration; the list itself has already loaded.
+                    }
+                }
+                knownIcons.toMap()
+            }
+        return games.map { (summary, opponentId) ->
+            val icon = summary.opponent.iconUrl ?: opponentId?.let { icons[it] } ?: return@map summary
+            summary.copy(opponent = summary.opponent.copy(iconUrl = icon))
+        }
+    }
+
+    /** Keeps the icon of every player in [entries], game-list entries with a `players` object. */
+    private fun rememberIcons(entries: List<JsonObject>) {
+        for (entry in entries) {
+            val players = entry.obj("players") ?: continue
+            for (player in listOfNotNull(players.obj("black"), players.obj("white"))) {
+                val id = player.long("id") ?: continue
+                OgsIcons.url(player)?.let { knownIcons[id] = it }
+            }
         }
     }
 
@@ -210,6 +283,8 @@ class OgsClient(
                 .mapNotNull { it as? JsonObject }
                 .filter { OgsFinishedGames.isCorrespondence(it) }
                 .take(limit)
+        // Free icons for the running lists: an opponent met again is already known.
+        iconLock.withLock { rememberIcons(entries) }
         val changes = ratingChanges(me)
         return entries.mapNotNull { entry ->
             val id = entry.long("id")?.toString()

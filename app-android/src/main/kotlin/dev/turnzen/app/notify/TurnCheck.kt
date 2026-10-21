@@ -1,6 +1,7 @@
 package dev.turnzen.app.notify
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -17,7 +18,6 @@ import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.NotificationSettings
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
-import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -43,6 +43,8 @@ class TurnCheck(
     private val notifier: Notifier,
     private val schedule: CheckSchedule,
     private val inForeground: () -> Boolean,
+    /** The opponent's icon for a notification about one game; null when icons are off. */
+    private val icon: suspend (GameSummary) -> Bitmap? = { null },
 ) {
     private val lock = Mutex()
 
@@ -98,15 +100,23 @@ class TurnCheck(
         lateinit var outcome: CheckOutcome
         store.update { state -> TurnWatch.check(state, input).also { outcome = it }.state }
 
-        val name = { server: ServerId -> accounts.session(server).serverName }
         when (val summary = outcome.summary) {
-            SummaryAction.Keep -> Unit
-            SummaryAction.Cancel -> notifier.cancelSummary()
-            is SummaryAction.Post -> notifier.postSummary(summary.games, summary.flagged, summary.alert, name)
+            SummaryAction.Keep -> {
+                Unit
+            }
+
+            SummaryAction.Cancel -> {
+                notifier.cancelSummary()
+            }
+
+            is SummaryAction.Post -> {
+                val one = summary.games.singleOrNull()
+                notifier.postSummary(summary.games, summary.flagged, summary.alert, one?.let { icon(it) })
+            }
         }
         outcome.lowTimeCancels.forEach(notifier::cancelLowTime)
-        outcome.lowTimeAlerts.forEach { notifier.postLowTime(it, name(it.id.server)) }
-        outcome.signedOutAlerts.forEach { notifier.postSignedOut(it, name(it)) }
+        outcome.lowTimeAlerts.forEach { notifier.postLowTime(it, icon(it)) }
+        outcome.signedOutAlerts.forEach { notifier.postSignedOut(it, accounts.session(it).serverName) }
         schedule.lowTimeAt(outcome.nextLowTimeCheck, input.now, asLowTimeJob)
     }
 }

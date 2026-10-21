@@ -31,9 +31,7 @@
     <string name="games_empty_all_title">No running games</string>
     <string name="games_empty_finished_title">No finished games yet</string>
     <string name="games_move">move %1$d</string>
-    <string name="games_moves">%1$d moves</string>
     <string name="games_counting">counting</string>
-    <string name="games_finished">finished</string>
     <!-- A game on a board Turnzen does not draw (19x9, say): the row opens it on the web. -->
     <string name="games_on_the_web">on the web only</string>
     <string name="games_sign_in_again">Sign in again</string>
@@ -146,6 +144,7 @@
     <string name="settings_group_appearance">Appearance</string>
     <string name="settings_group_about">About</string>
     <string name="settings_theme">Theme</string>
+    <string name="settings_player_icons">Player icons</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
@@ -173,7 +172,7 @@
     <string name="notify_channel_signed_out">Signed out</string>
     <string name="notify_your_move_one">Your move against %1$s</string>
     <string name="notify_your_move_many">Your move in %1$d games</string>
-    <string name="notify_new">new</string>
+    <string name="notify_new_games">%1$d new: %2$s</string>
     <string name="notify_time_left">%1$s left</string>
     <string name="notify_low_time">Low on time vs. %1$s: %2$s left</string>
     <string name="notify_signed_out">Turnzen can\'t check %1$s</string>

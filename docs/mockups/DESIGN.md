@@ -140,6 +140,27 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
+- **Every opponent has an icon** leading the text: a 36dp square with 4dp corners, as OGS
+  shows its pictures (round is for stones), 12dp before the name, two text lines tall so
+  the row keeps its 72dp. On OGS it is the player's own picture. Everywhere else — DGS,
+  an OGS player with no picture, and while a picture loads — it is their initial (the first
+  letter or digit of the handle) in SemiBold at half the square's height, on colours made
+  from `server:handle`: a hash picks the hue and a step of saturation and lightness, so the
+  same opponent always looks the same and different ones are told apart at a glance. The
+  background is always light (lightness 0.74–0.86) and the letter the same hue, dark
+  (0.15–0.2), at least 5:1 against it; the pair is the same in light and dark theme,
+  because it is the player's mark, not part of the page. Settings › Appearance › Player
+  icons turns them off (on by default), and the rows then start with the name. The same
+  icon, same size, leads the board screen's header (the opponent) and each player's line in
+  the game info, after their stone (both players: the user's own from their account), and
+  the user's own sits beside "Signed in as" in Settings. A one-game notification carries
+  it as its large icon, drawn at Android's large-icon size with the same proportions.
+  Under a picture nothing is drawn: the tint is only for the letter, since behind a
+  picture it showed as a coloured hairline at the rounded edge.
+  Decorative: TalkBack reads the name, not the picture.
+- **The title line never wraps.** A long outcome on the right ("Won by resignation") leaves
+  the name little room; the handle is ellipsised and the rank kept, rather than the name
+  breaking onto a second line and pushing the details out of the row.
 - **New rows flash once.** A refresh that happens while the games list is on screen — the
   one after returning from a game, or on resume — lights the rows it brought in with an
   `accentSoft` wash that arrives in 120ms and drains over 700ms, then plays no more. The
@@ -162,10 +183,18 @@ Use tabular figures for time and move counts so columns don't jitter.
   repeated what the launcher showed. Three tabs at the top, directly above the list
   (a content filter, distinct from the bottom destination bar): "Your turn" and "All games",
   each with a count, and "Finished" without one — it holds the last fifteen games, so the
-  count would only ever be the limit. A finished row puts the outcome where a running row
-  has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
+  count would only ever be the limit. The three lists sit side by side as pages, so a
+  sideways swipe moves to the neighbouring tab as well as a tap on it. The accent underline
+  slides with the finger; page snapping is Compose's default (half way over, or a fling),
+  not tuned by feel, and each list keeps its own scroll position. A finished row
+  puts the outcome where a running row has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
-  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty. A window wide enough for two
+  unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty, and the outcome stays on the name's baseline
+  rather than moving to the middle of the row, so the outcomes line up down the list. (A
+  running row's clock, always one line, is centred against the two lines beside it.) The line under the name has no move count: just
+  "19x19, 3 d ago". How long the game ran is for the board; OGS's game list does not report
+  it, and a count on DGS rows only would set the servers apart. Nor "finished", which the
+  tab and the outcome already say. A window wide enough for two
   rows of at least 340dp (a phone turned sideways) lays the games out in two columns instead
   of stretching each row across it. Times are shown as "N h ago" up to 48 h, then "N d ago", then a date.
 - **Board**: full screen width, square, edge to edge. Grid spacing = width / n, first line

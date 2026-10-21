@@ -93,10 +93,12 @@ import dev.turnzen.app.data.BoardSettings
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.OutcomeLabel
 import dev.turnzen.app.ui.common.PillButton
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
+import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.common.sgfFile
 import dev.turnzen.app.ui.common.shareSgf
 import dev.turnzen.app.ui.theme.colors
@@ -116,6 +118,8 @@ fun BoardScreen(
     viewModel: BoardViewModel,
     boardSettings: BoardSettings,
     onSkip: () -> Unit,
+    /** Players' icons in the header and the game info (the Player icons setting). */
+    showPlayerIcons: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val summary = state.headerSummary
@@ -164,6 +168,19 @@ fun BoardScreen(
                 Header(
                     server = summary.id.server,
                     opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
+                    opponentIcon =
+                        if (showPlayerIcons) {
+                            {
+                                PlayerIcon(
+                                    summary.opponent.iconUrl,
+                                    summary.opponent.handle,
+                                    playerColorKey(summary.id.server, summary.opponent.handle),
+                                    size = 36.dp,
+                                )
+                            }
+                        } else {
+                            null
+                        },
                     subtitle =
                         if (state.isFinished) {
                             stringResource(
@@ -481,6 +498,8 @@ fun BoardScreen(
             state = state,
             serverName = viewModel.serverName,
             gameUrl = viewModel.gameUrl,
+            showPlayerIcons = showPlayerIcons,
+            ownIconUrl = viewModel.ownIconUrl,
             // The sheet closes first: both actions ask for confirmation, and a dialog behind
             // a sheet is unreachable.
             onPass = {
@@ -1105,6 +1124,8 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
 private fun Header(
     server: ServerId,
     opponent: String,
+    /** The opponent's icon, leading the header as it leads their row in the list. */
+    opponentIcon: (@Composable () -> Unit)?,
     subtitle: String,
     remaining: RemainingTime?,
     you: StoneColor,
@@ -1129,6 +1150,10 @@ private fun Header(
             ).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (opponentIcon != null) {
+            opponentIcon()
+            Spacer(Modifier.width(12.dp))
+        }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Which server the game is on, in the mark the games list uses.

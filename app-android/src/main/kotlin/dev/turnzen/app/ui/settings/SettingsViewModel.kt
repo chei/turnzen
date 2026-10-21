@@ -50,6 +50,8 @@ class SettingsViewModel(
 
     fun setTheme(mode: ThemeMode) = settingsStore.update { it.copy(theme = mode) }
 
+    fun setPlayerIcons(on: Boolean) = settingsStore.update { it.copy(playerIcons = on) }
+
     fun updateNotifications(transform: (NotificationSettings) -> NotificationSettings) =
         settingsStore.update { it.copy(notifications = transform(it.notifications)) }
 

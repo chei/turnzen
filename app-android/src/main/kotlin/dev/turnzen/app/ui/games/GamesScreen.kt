@@ -21,9 +21,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -33,13 +36,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -53,16 +62,19 @@ import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.OutcomeLabel
+import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
+import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.PendingAction
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,11 +85,10 @@ fun GamesScreen(
     onOpenGame: (GameId) -> Unit,
     /** Where a server's lapsed sign-in is put right: the account panels in Settings. */
     onSignInAgain: () -> Unit = {},
+    /** Opponents' icons on the rows (a setting, on by default). */
+    showPlayerIcons: Boolean = true,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val uriHandler = LocalUriHandler.current
-    val games = state.listFor(tab)
-    val arrivals = state.arrivalsFor(tab)
 
     // Refresh every time the list is shown: on app start, on returning from a game, and on
     // resume after the app was in the background. Tied to the resumed state rather than to
@@ -87,22 +98,135 @@ fun GamesScreen(
         onPauseOrDispose { viewModel.onHidden() }
     }
 
-    // The archive is fetched the first time it is looked at, not with every refresh: a
-    // finished game does not change, so there is nothing to poll for.
-    LaunchedEffect(tab) { viewModel.onTabShown(tab) }
-
     // One scroll position per tab: the lists differ in length, and a single shared
     // LazyGridState re-anchors on its keyed items when the tab switches, which could leave
     // the other list scrolled to the bottom. Each tab now keeps and restores its own place.
     val yourTurnListState = rememberLazyGridState()
     val allListState = rememberLazyGridState()
     val finishedListState = rememberLazyGridState()
-    val listState =
-        when (tab) {
+
+    fun listStateFor(page: GamesTab) =
+        when (page) {
             GamesTab.YOUR_TURN -> yourTurnListState
             GamesTab.ALL -> allListState
             GamesTab.FINISHED -> finishedListState
         }
+
+    // The tabs are pages side by side, so a sideways swipe moves to the next list. The page
+    // the pager comes to rest on is reported back as [tab], which the shell holds (Skip and
+    // auto-advance step through that list); a tapped tab scrolls the pager there, and so
+    // does a [tab] set from outside, such as by a notification that asks for "Your turn".
+    // A plain remember rather than rememberPagerState, which is saved: a page restored from
+    // before the list was last shown could disagree with [tab] and win.
+    val pagerState = remember { PagerState(currentPage = tab.ordinal) { GamesTab.entries.size } }
+    val scope = rememberCoroutineScope()
+
+    fun showTab(target: GamesTab) {
+        scope.launch { pagerState.animateScrollToPage(target.ordinal) }
+    }
+
+    LaunchedEffect(tab) {
+        if (pagerState.targetPage != tab.ordinal) pagerState.animateScrollToPage(tab.ordinal)
+    }
+    val currentOnTabChange by rememberUpdatedState(onTabChange)
+    LaunchedEffect(pagerState) {
+        snapshotFlow { pagerState.settledPage }.collect { currentOnTabChange(GamesTab.entries[it]) }
+    }
+    // The label in the accent colour is the page a swipe is heading for, not the settled
+    // one, so a tapped tab lights up at once rather than passing over the tabs in between.
+    // The underline below it moves with the finger instead, drawn under the row.
+    val shownTab = GamesTab.entries[pagerState.targetPage]
+
+    // No wordmark above the tabs: it cost a fifth of a landscape screen to repeat the name
+    // the launcher already showed, and the tabs say which list this is.
+    Column(Modifier.fillMaxSize().statusBarsPadding()) {
+        val accent = colors.accent
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .drawWithContent {
+                    drawContent()
+                    // Where the pager is, in pages, mid-swipe included: the underline slides
+                    // under the tabs with the finger, the way Material tabs do. Read while
+                    // drawing, so a swipe redraws this line rather than recomposing the row.
+                    val position =
+                        (pagerState.currentPage + pagerState.currentPageOffsetFraction)
+                            .coerceIn(0f, (GamesTab.entries.size - 1).toFloat())
+                    val tabWidth = size.width / GamesTab.entries.size
+                    val thickness = TAB_UNDERLINE.dp.toPx()
+                    drawRect(
+                        accent,
+                        topLeft = Offset(position * tabWidth, size.height - thickness),
+                        size = Size(tabWidth, thickness),
+                    )
+                },
+        ) {
+            GamesTab(
+                label = stringResource(R.string.games_tab_your_turn),
+                count = state.yourTurn?.size,
+                selected = shownTab == GamesTab.YOUR_TURN,
+                onClick = { showTab(GamesTab.YOUR_TURN) },
+            )
+            GamesTab(
+                label = stringResource(R.string.games_tab_all),
+                count = state.allRunning?.size,
+                selected = shownTab == GamesTab.ALL,
+                onClick = { showTab(GamesTab.ALL) },
+            )
+            // No count: this tab shows the last few finished games rather than all of them,
+            // so any number next to it would count what happened to fit on the screen.
+            GamesTab(
+                label = stringResource(R.string.games_tab_finished),
+                count = null,
+                selected = shownTab == GamesTab.FINISHED,
+                onClick = { showTab(GamesTab.FINISHED) },
+            )
+        }
+
+        // Compose's own page snapping, deliberately left at its defaults (a page turns once
+        // it is half way over, or on a fling): the behaviour Android users expect, rather
+        // than a threshold tuned by feel.
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+            // A list per tab, not one list re-filled: a game on both "Your turn" and "All
+            // games" keeps its key across a tab switch, and in a shared list the row would
+            // animate from its place in one to its place in the other. The scroll position
+            // survives a page leaving the screen, since each tab's LazyGridState is held
+            // above the pager.
+            val pageTab = GamesTab.entries[page]
+            GamesPage(
+                viewModel = viewModel,
+                state = state,
+                tab = pageTab,
+                listState = listStateFor(pageTab),
+                onOpenGame = onOpenGame,
+                onSignInAgain = onSignInAgain,
+                showPlayerIcons = showPlayerIcons,
+            )
+        }
+    }
+}
+
+/** One tab's list: a page of the pager on the games screen. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GamesPage(
+    viewModel: GamesViewModel,
+    state: GamesUiState,
+    tab: GamesTab,
+    listState: LazyGridState,
+    onOpenGame: (GameId) -> Unit,
+    onSignInAgain: () -> Unit,
+    showPlayerIcons: Boolean,
+) {
+    val uriHandler = LocalUriHandler.current
+    val games = state.listFor(tab)
+    val arrivals = state.arrivalsFor(tab)
+
+    // The archive is fetched the first time it is looked at, not with every refresh: a
+    // finished game does not change, so there is nothing to poll for. A page is composed
+    // as soon as a swipe brings it into view, so the fetch starts before the swipe ends.
+    LaunchedEffect(tab) { viewModel.onTabShown(tab) }
 
     // The rows the list draws. It trails [games] so that a new game is never slipped in
     // somewhere out of sight: the list is first taken to its top, and only then does the new
@@ -110,7 +234,7 @@ fun GamesScreen(
     // was scrolled to, since a new game is what the user should look at next; any other
     // change goes straight in, and a list scrolled down keeps its place. A tab opened with
     // new rows waiting starts without them, so they come in the same way.
-    var shown by remember(tab) { mutableStateOf(games?.filterNot { it.id in arrivals }) }
+    var shown by remember { mutableStateOf(games?.filterNot { it.id in arrivals }) }
     LaunchedEffect(listState, games) {
         val shownIds = shown?.mapTo(HashSet()) { it.id }
         if (shownIds != null && games.orEmpty().any { it.id in arrivals && it.id !in shownIds }) {
@@ -133,127 +257,94 @@ fun GamesScreen(
         onDispose {}
     }
 
-    // No wordmark above the tabs: it cost a fifth of a landscape screen to repeat the name
-    // the launcher already showed, and the tabs say which list this is.
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-            GamesTab(
-                label = stringResource(R.string.games_tab_your_turn),
-                count = state.yourTurn?.size,
-                selected = tab == GamesTab.YOUR_TURN,
-                onClick = { onTabChange(GamesTab.YOUR_TURN) },
-            )
-            GamesTab(
-                label = stringResource(R.string.games_tab_all),
-                count = state.allRunning?.size,
-                selected = tab == GamesTab.ALL,
-                onClick = { onTabChange(GamesTab.ALL) },
-            )
-            // No count: this tab shows the last few finished games rather than all of them,
-            // so any number next to it would count what happened to fit on the screen.
-            GamesTab(
-                label = stringResource(R.string.games_tab_finished),
-                count = null,
-                selected = tab == GamesTab.FINISHED,
-                onClick = { onTabChange(GamesTab.FINISHED) },
-            )
-        }
-
-        PullToRefreshBox(
-            isRefreshing = state.refreshing && games != null,
-            onRefresh = { viewModel.refresh(tab) },
+    PullToRefreshBox(
+        isRefreshing = state.refreshing && games != null,
+        onRefresh = { viewModel.refresh(tab) },
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        // A grid rather than a column so that a wide window — a phone turned sideways —
+        // shows games side by side instead of stretching each row across the screen and
+        // fitting three. A portrait phone is narrower than two columns, so it keeps one.
+        LazyVerticalGrid(
+            columns = GridCells.Adaptive(minSize = MIN_COLUMN_WIDTH.dp),
+            state = listState,
             modifier = Modifier.fillMaxSize(),
         ) {
-            // A list per tab, not one list re-filled: a game on both "Your turn" and "All
-            // games" keeps its key across a tab switch, and without this the row would
-            // animate from its place in one list to its place in the other. The scroll
-            // position survives, since each tab's LazyGridState is held outside this.
-            //
-            // A grid rather than a column so that a wide window — a phone turned sideways —
-            // shows games side by side instead of stretching each row across the screen and
-            // fitting three. A portrait phone is narrower than two columns, so it keeps one.
-            key(tab) {
-                LazyVerticalGrid(
-                    columns = GridCells.Adaptive(minSize = MIN_COLUMN_WIDTH.dp),
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    val problem = state.problem
-                    val rows = shown
+            val problem = state.problem
+            val rows = shown
+            when {
+                // Nothing has ever loaded, so the problem is the whole screen: give
+                // it the empty state's shape and an explicit Try again, rather than a
+                // line of red text over an otherwise blank list.
+                rows == null && problem != null -> {
+                    item(span = fullLine) { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
+                }
+
+                else -> {
+                    // A list is on screen, so a problem is only why it — or one
+                    // server's part of it — has not changed; one line each above it,
+                    // and pull-to-refresh is the retry. A server that signed the user
+                    // out says so, with the way back in.
+                    state.allProblems.forEach { line ->
+                        item(span = fullLine) {
+                            val signedOut = line in state.signedOut
+                            ProblemMessage(
+                                line,
+                                Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                                onRetry = if (signedOut) onSignInAgain else null,
+                                retryLabel =
+                                    if (signedOut) {
+                                        stringResource(
+                                            R.string.games_sign_in_again,
+                                        )
+                                    } else {
+                                        null
+                                    },
+                            )
+                        }
+                    }
                     when {
-                        // Nothing has ever loaded, so the problem is the whole screen: give
-                        // it the empty state's shape and an explicit Try again, rather than a
-                        // line of red text over an otherwise blank list.
-                        rows == null && problem != null -> {
-                            item(span = fullLine) { ProblemState(problem, onRetry = { viewModel.refresh(tab) }) }
+                        rows == null -> {
+                            item(span = fullLine) { LoadingRow() }
+                        }
+
+                        rows.isEmpty() -> {
+                            item(span = fullLine) { EmptyState(tab) }
                         }
 
                         else -> {
-                            // A list is on screen, so a problem is only why it — or one
-                            // server's part of it — has not changed; one line each above it,
-                            // and pull-to-refresh is the retry. A server that signed the user
-                            // out says so, with the way back in.
-                            state.allProblems.forEach { line ->
-                                item(span = fullLine) {
-                                    val signedOut = line in state.signedOut
-                                    ProblemMessage(
-                                        line,
-                                        Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                                        onRetry = if (signedOut) onSignInAgain else null,
-                                        retryLabel =
-                                            if (signedOut) {
-                                                stringResource(
-                                                    R.string.games_sign_in_again,
-                                                )
-                                            } else {
-                                                null
-                                            },
-                                    )
-                                }
-                            }
-                            when {
-                                rows == null -> {
-                                    item(span = fullLine) { LoadingRow() }
-                                }
-
-                                rows.isEmpty() -> {
-                                    item(span = fullLine) { EmptyState(tab) }
-                                }
-
-                                else -> {
-                                    // Keyed by server too: both servers number their games.
-                                    items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
-                                        GameRow(
-                                            game = game,
-                                            serverName = viewModel.serverName(game.id),
-                                            arrived = game.id in arrivals,
-                                            onArrivalShown = { viewModel.onArrivalShown(game.id) },
-                                            onClick = {
-                                                // A board Turnzen cannot draw opens where it can be played.
-                                                if (game.onlyOnWeb) {
-                                                    viewModel.gameUrl(game.id)?.let(uriHandler::openUri)
-                                                } else {
-                                                    onOpenGame(game.id)
-                                                }
-                                            },
-                                            // Placement only. A row that appears or leaves
-                                            // does so at once: with a fade here, every row
-                                            // would also fade in on arriving at the screen
-                                            // and on every tab switch, on top of the
-                                            // navigation transition already playing.
-                                            modifier =
-                                                Modifier.animateItem(
-                                                    fadeInSpec = null,
-                                                    fadeOutSpec = null,
-                                                    placementSpec =
-                                                        tween(
-                                                            SLIDE_MILLIS,
-                                                            easing = FastOutSlowInEasing,
-                                                        ),
+                            // Keyed by server too: both servers number their games.
+                            items(rows, key = { "${it.id.server.value}:${it.id.value}" }) { game ->
+                                GameRow(
+                                    game = game,
+                                    serverName = viewModel.serverName(game.id),
+                                    showIcon = showPlayerIcons,
+                                    arrived = game.id in arrivals,
+                                    onArrivalShown = { viewModel.onArrivalShown(game.id) },
+                                    onClick = {
+                                        // A board Turnzen cannot draw opens where it can be played.
+                                        if (game.onlyOnWeb) {
+                                            viewModel.gameUrl(game.id)?.let(uriHandler::openUri)
+                                        } else {
+                                            onOpenGame(game.id)
+                                        }
+                                    },
+                                    // Placement only. A row that appears or leaves
+                                    // does so at once: with a fade here, every row
+                                    // would also fade in on arriving at the screen
+                                    // and on every tab switch, on top of the
+                                    // navigation transition already playing.
+                                    modifier =
+                                        Modifier.animateItem(
+                                            fadeInSpec = null,
+                                            fadeOutSpec = null,
+                                            placementSpec =
+                                                tween(
+                                                    SLIDE_MILLIS,
+                                                    easing = FastOutSlowInEasing,
                                                 ),
-                                        )
-                                    }
-                                }
+                                        ),
+                                )
                             }
                         }
                     }
@@ -288,7 +379,8 @@ private fun RowScope.GamesTab(
                 Text(count.toString(), style = MaterialTheme.typography.bodyMedium, color = color)
             }
         }
-        HorizontalDivider(thickness = 2.dp, color = if (selected) colors.accent else colors.line)
+        // The selected tab's accent underline is drawn over this by the row, so it can slide.
+        HorizontalDivider(thickness = TAB_UNDERLINE.dp, color = colors.line)
     }
 }
 
@@ -344,6 +436,12 @@ private const val SLIDE_MILLIS = 300
 /** A row narrower than this squeezes the clock into the opponent's name; two fit side by side in landscape. */
 private const val MIN_COLUMN_WIDTH = 340
 
+/** The line under the tabs, in dp: grey across all three, accent under the selected one. */
+private const val TAB_UNDERLINE = 2
+
+/** The opponent's picture: two lines of text tall, so the row keeps its height. */
+private const val ICON_SIZE = 36
+
 /** Messages and the empty state run across every column. */
 private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(maxLineSpan) }
 
@@ -351,6 +449,7 @@ private val fullLine: LazyGridItemSpanScope.() -> GridItemSpan = { GridItemSpan(
 private fun GameRow(
     game: GameSummary,
     serverName: String,
+    showIcon: Boolean,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -392,68 +491,114 @@ private fun GameRow(
             // The server's mark sits in the margin, so the text keeps its column whether one
             // server is signed in or two.
             ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
-            GameRowContent(game)
+            GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }
 }
 
 @Composable
-private fun GameRowContent(game: GameSummary) {
+private fun GameRowContent(
+    game: GameSummary,
+    showIcon: Boolean,
+) {
     Row(
         Modifier
             .fillMaxSize()
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                Formatting.opponent(game.opponent.handle, game.opponent.rank),
-                style = MaterialTheme.typography.titleMedium,
+        if (showIcon) {
+            PlayerIcon(
+                game.opponent.iconUrl,
+                game.opponent.handle,
+                colorKey = playerColorKey(game.id.server, game.opponent.handle),
+                size = ICON_SIZE.dp,
             )
-            // The date is the part a glance at the list is for, so when a long outcome on the
-            // right squeezes this line it is the board and move count that give way, not it.
-            Row {
-                Text(
-                    "${Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight)}, " +
-                        when {
-                            // A board this app cannot draw: say where it can be seen.
-                            game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
-
-                            // A server that does not say how long a finished game ran
-                            // (OGS's game list) gets no count rather than "0 moves".
-                            game.isFinished && game.moveNumber == 0 -> stringResource(R.string.games_finished)
-
-                            // A game that is over is not at a move, it had that many.
-                            game.isFinished -> stringResource(R.string.games_moves, game.moveNumber)
-
-                            // A game being counted is not waiting for a move either, and
-                            // saying "move 22" would send the user looking for one.
-                            game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
-
-                            else -> stringResource(R.string.games_move, game.moveNumber)
-                        },
-                    Modifier.weight(1f, fill = false),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+            Spacer(Modifier.width(12.dp))
+        }
+        // The text and what stands right of it, centred in the row as one block. An outcome
+        // sits on the name's baseline whether or not a rating line follows it, so the
+        // column of outcomes stays level down the list; a clock, always one line, is
+        // centred against the two lines beside it.
+        Row(Modifier.weight(1f)) {
+            GameRowText(game, Modifier.weight(1f).alignBy(FirstBaseline))
+            Spacer(Modifier.width(12.dp))
+            // A finished game has no clock to show; what it has instead is how it went.
+            if (game.isFinished) {
+                OutcomeLabel(game.result, game.myColor, game.ratingChange, Modifier.alignBy(FirstBaseline))
+            } else {
+                RemainingTimeLabel(
+                    game.remainingTime,
+                    Modifier.align(Alignment.CenterVertically),
+                    muted = !game.isMyTurn,
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameRowText(
+    game: GameSummary,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // One line, always: a name wrapped under a long outcome ("Won by resignation")
+        // pushed the line below out of the row. The handle gives way, the rank does not.
+        Row {
+            Text(
+                game.opponent.handle,
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            game.opponent.rank?.takeIf { it.isNotBlank() }?.let { rank ->
                 Text(
-                    ", ${Formatting.relative(game.lastMoveAt)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.ink2,
+                    " ($rank)",
+                    style = MaterialTheme.typography.titleMedium,
                     maxLines = 1,
                     softWrap = false,
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        // A finished game has no clock to show; what it has instead is how it went.
-        if (game.isFinished) {
-            OutcomeLabel(game.result, game.myColor, game.ratingChange)
-        } else {
-            RemainingTimeLabel(game.remainingTime, muted = !game.isMyTurn)
+        // The date is the part a glance at the list is for, so when a long outcome on the
+        // right squeezes this line it is the board and move count that give way, not it.
+        Row {
+            val progress =
+                when {
+                    // A board this app cannot draw: say where it can be seen.
+                    game.onlyOnWeb -> stringResource(R.string.games_on_the_web)
+
+                    // A finished game gets nothing here. How long it ran is a detail
+                    // the board shows, and OGS's game list does not say it at all, so a
+                    // count would set the two servers' rows apart; "finished" would say
+                    // what the tab and the outcome beside it already say.
+                    game.isFinished -> null
+
+                    // A game being counted is not waiting for a move either, and
+                    // saying "move 22" would send the user looking for one.
+                    game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+
+                    else -> stringResource(R.string.games_move, game.moveNumber)
+                }
+            Text(
+                listOfNotNull(Formatting.boardSize(game.boardSize, game.handicap, game.boardHeight), progress)
+                    .joinToString(", "),
+                Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                ", ${Formatting.relative(game.lastMoveAt)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.ink2,
+                maxLines = 1,
+                softWrap = false,
+            )
         }
     }
 }
