@@ -137,7 +137,7 @@
     <string name="info_open_web">Open on %1$s</string>
     <string name="info_share_sgf">Share SGF</string>
     <string name="info_save_sgf">Save SGF</string>
-    <string name="info_save_sgf_failed">The SGF wasn't saved</string>
+    <string name="info_save_sgf_failed">The SGF wasn\'t saved</string>
 
     <string name="settings_title">Settings</string>
     <string name="settings_group_account">Account</string>
