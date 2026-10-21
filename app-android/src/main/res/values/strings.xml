@@ -22,7 +22,7 @@
     <string name="signin_channel">Sign-in</string>
     <string name="signin_keep_awake">Waiting for your sign-in to finish in the browser</string>
     <string name="accounts_signed_in_as">Signed in as %1$s</string>
-    <string name="accounts_open_on_web">Open your account on the web</string>
+    <string name="accounts_open_on_web">Open on %1$s</string>
 
     <string name="games_tab_your_turn">Your turn</string>
     <string name="games_tab_all">All games</string>

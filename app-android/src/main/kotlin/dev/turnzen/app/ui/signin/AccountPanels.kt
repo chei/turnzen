@@ -133,7 +133,7 @@ private fun AccountPanel(
                 }
                 session.accountUrl?.let { url ->
                     TextAction(
-                        stringResource(R.string.accounts_open_on_web),
+                        stringResource(R.string.accounts_open_on_web, session.serverName),
                         { uriHandler.openUri(url) },
                         color = colors.accent,
                     )
