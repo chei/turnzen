@@ -69,6 +69,7 @@ import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.playerColorKey
+import dev.turnzen.app.ui.common.scrollIndicator
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
@@ -268,7 +269,7 @@ private fun GamesPage(
         LazyVerticalGrid(
             columns = GridCells.Adaptive(minSize = MIN_COLUMN_WIDTH.dp),
             state = listState,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().scrollIndicator(listState),
         ) {
             val problem = state.problem
             val rows = shown

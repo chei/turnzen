@@ -186,7 +186,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   count would only ever be the limit. The three lists sit side by side as pages, so a
   sideways swipe moves to the neighbouring tab as well as a tap on it. The accent underline
   slides with the finger; page snapping is Compose's default (half way over, or a fling),
-  not tuned by feel, and each list keeps its own scroll position. A finished row
+  not tuned by feel, and each list keeps its own scroll position. While a list scrolls, a
+  thin `ink2` bar at the right edge shows where it is and fades out after it stops, with
+  Android's own delay and fade (as its view-based lists do); none on a list that fits. A finished row
   puts the outcome where a running row has its clock, on one line: "Won by 12.5" in `accent` for the reader's own win, "Lost by
   resignation" in `ink2` otherwise. Under it, what the game did to their rating, in DGS's own
   unit of hundredths of a rank: "rating +0.23". An unrated game leaves that line empty, and the outcome stays on the name's baseline
