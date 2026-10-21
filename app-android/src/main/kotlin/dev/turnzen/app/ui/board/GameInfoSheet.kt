@@ -85,6 +85,8 @@ fun GameInfoSheet(
     onOpenWeb: (String) -> Unit,
     /** Null until there is a record on the board to share. */
     onShareSgf: (() -> Unit)?,
+    /** Null under the same condition as [onShareSgf]. */
+    onSaveSgf: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
     val summary = state.headerSummary ?: return
@@ -194,6 +196,11 @@ fun GameInfoSheet(
                 // Next to "Open on …": both take the game out of the app.
                 if (onShareSgf != null) {
                     ActionLine(stringResource(R.string.info_share_sgf), colors.accent, onShareSgf)
+                }
+                // Saving apart from sharing: the share sheet lists apps that take a file, and on
+                // a stock phone none of them saves an SGF to the phone itself.
+                if (onSaveSgf != null) {
+                    ActionLine(stringResource(R.string.info_save_sgf), colors.accent, onSaveSgf)
                 }
                 // Last, and the only urgent thing in the sheet: giving the game up. Gone
                 // once the game is over — there is nothing left to give up, and an offer to

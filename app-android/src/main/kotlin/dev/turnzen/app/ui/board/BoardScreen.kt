@@ -1,6 +1,8 @@
 package dev.turnzen.app.ui.board
 
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -96,9 +98,11 @@ import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.RemainingTimeLabel
+import dev.turnzen.app.ui.common.SGF_MIME_TYPE
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.common.playerColorKey
+import dev.turnzen.app.ui.common.saveSgf
 import dev.turnzen.app.ui.common.sgfFile
 import dev.turnzen.app.ui.common.shareSgf
 import dev.turnzen.app.ui.theme.colors
@@ -125,6 +129,14 @@ fun BoardScreen(
     val summary = state.headerSummary
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    // Android's "Save as" picker. The file is made from the record on the board when the
+    // picker answers, so it survives the screen being rebuilt while the picker is up.
+    val currentDetail by rememberUpdatedState(state.detail)
+    val saveSgfAs =
+        rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(SGF_MIME_TYPE)) { target ->
+            val detail = currentDetail
+            if (target != null && detail != null) saveSgf(context, target, sgfFile(detail))
+        }
     // Saved, not merely remembered: a rotation with the sheet open should not close it.
     var showingInfo by rememberSaveable { mutableStateOf(false) }
     // Draw the real position once loaded; while it loads, an empty grid at the known board
@@ -512,6 +524,7 @@ fun BoardScreen(
             },
             onOpenWeb = { uriHandler.openUri(it) },
             onShareSgf = state.detail?.let { detail -> { shareSgf(context, sgfFile(detail)) } },
+            onSaveSgf = state.detail?.let { detail -> { saveSgfAs.launch(sgfFile(detail).name) } },
             onDismiss = { showingInfo = false },
         )
     }

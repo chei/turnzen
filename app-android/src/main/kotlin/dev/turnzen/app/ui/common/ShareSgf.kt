@@ -3,11 +3,15 @@ package dev.turnzen.app.ui.common
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
 import androidx.core.content.FileProvider
+import dev.turnzen.app.R
 import dev.turnzen.game.PlayerInfo
 import dev.turnzen.game.sgf.SgfGameRecords
 import dev.turnzen.goserver.GameDetail
 import java.io.File
+import java.io.IOException
 
 /** A game as an SGF file: the name it is offered under and its text. */
 data class SgfFile(
@@ -68,5 +72,27 @@ fun shareSgf(
     context.startActivity(Intent.createChooser(send, null))
 }
 
+/**
+ * Writes [sgf] to [target], a file the user just created in Android's own "Save as" picker —
+ * Downloads, a Drive folder, anywhere a document provider offers. Nothing but that one file
+ * is reachable, so no storage permission is needed. Says so when the write fails; success
+ * needs no word, the picker closing on it is the answer.
+ */
+fun saveSgf(
+    context: Context,
+    target: Uri,
+    sgf: SgfFile,
+) {
+    val written =
+        try {
+            context.contentResolver.openOutputStream(target, "wt")?.use { it.write(sgf.text.toByteArray()) } != null
+        } catch (e: IOException) {
+            false
+        } catch (e: SecurityException) {
+            false
+        }
+    if (!written) Toast.makeText(context, R.string.info_save_sgf_failed, Toast.LENGTH_LONG).show()
+}
+
 /** The type Go programs register for SGF files. */
-private const val SGF_MIME_TYPE = "application/x-go-sgf"
+const val SGF_MIME_TYPE = "application/x-go-sgf"

@@ -1166,7 +1166,10 @@ partly so the project could grow beyond Go (see Naming).
    no storage permission. The file is written from the record on the board, so it works
    for a stored copy while the server is down; players are filled in from the game's
    details where the record lacks them. No comments, since some are private to their
-   writer.
+   writer. "Save SGF" beside it opens Android's own "Save as" picker (`CreateDocument`),
+   because the share sheet on a stock phone has no target that saves an SGF locally (Files'
+   "Save to Downloads" takes only some types); the picker reaches Downloads or any document
+   provider, again with no permission.
 9. **Games — "Waiting for opponent"** — a second view (tab or filter) in the Games
    destination, view-only.
 10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays
