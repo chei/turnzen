@@ -35,7 +35,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
@@ -274,7 +277,6 @@ private fun PlayerLine(
     val displayName = player?.let { Formatting.displayName(it.handle, it.displayName) }
     val details =
         buildList {
-            if (isYou) add(stringResource(R.string.info_you))
             player?.prisoners?.let { add(stringResource(R.string.info_captures, it)) }
             // Only worth a word when the rank actually moved during the game.
             player?.rankAtStart?.takeIf { it != player.rank }?.let {
@@ -292,8 +294,17 @@ private fun PlayerLine(
             PlayerIcon(it.url, name, playerColorKey(it.server, name), size = 36.dp, Modifier.padding(end = 12.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            // "you" on the name's own line rather than a line of its own: as the only detail
+            // it gave the user's name a second line the opponent's lacks, and the name sat
+            // off centre beside the stone and the clock.
+            val you = stringResource(R.string.info_you)
+            val secondary = colors.ink2
+            val small = MaterialTheme.typography.bodyMedium.fontSize
             Text(
-                Formatting.opponent(name, player?.rank),
+                buildAnnotatedString {
+                    append(Formatting.opponent(name, player?.rank))
+                    if (isYou) withStyle(SpanStyle(color = secondary, fontSize = small)) { append(" · $you") }
+                },
                 style = MaterialTheme.typography.titleMedium,
             )
             // Secondary to the handle, which is what identifies a player on the server.
