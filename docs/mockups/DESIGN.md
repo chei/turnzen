@@ -258,7 +258,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   Connectivity is never probed: telling "your phone is offline" from "the server is down"
   would need a network-state check the app does not make, so the copy says only what we know.
   A server that answered with an HTTP 5xx was reached, so it gets its own line:
-  "Dragon Go Server is down" / "… isn't taking requests right now. Try again later."
+  "Dragon Go Server is down" / "Try again later."
 - **Server problem with nothing else on screen** (the games list before its first successful
   load): built like the empty state — centered title ("Can't reach Dragon Go Server"), one
   explanatory line, and a "Try again" pill. No icon: the offline pictograms (a crossed-out

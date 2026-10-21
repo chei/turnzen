@@ -47,7 +47,7 @@ fun problemFor(
         is GoServerException.Unavailable -> {
             ServerProblem(
                 title = "$serverName is down",
-                message = "$serverName isn't taking requests right now. Try again later.",
+                message = "Try again later.",
                 transient = true,
             )
         }
