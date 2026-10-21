@@ -102,6 +102,7 @@ import dev.turnzen.app.ui.common.SGF_MIME_TYPE
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
 import dev.turnzen.app.ui.common.playerColorKey
+import dev.turnzen.app.ui.common.saveInShareSheet
 import dev.turnzen.app.ui.common.saveSgf
 import dev.turnzen.app.ui.common.sgfFile
 import dev.turnzen.app.ui.common.shareSgf
@@ -524,7 +525,11 @@ fun BoardScreen(
             },
             onOpenWeb = { uriHandler.openUri(it) },
             onShareSgf = state.detail?.let { detail -> { shareSgf(context, sgfFile(detail)) } },
-            onSaveSgf = state.detail?.let { detail -> { saveSgfAs.launch(sgfFile(detail).name) } },
+            // From Android 14 the share sheet has "Save to device" itself.
+            onSaveSgf =
+                state.detail?.takeUnless { saveInShareSheet }?.let { detail ->
+                    { saveSgfAs.launch(sgfFile(detail).name) }
+                },
             onDismiss = { showingInfo = false },
         )
     }

@@ -5,12 +5,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import dev.turnzen.app.notify.OpenRequest
 import dev.turnzen.app.ui.TurnzenApp
+import dev.turnzen.app.ui.common.ACTION_SAVE_SGF
+import dev.turnzen.app.ui.common.SGF_MIME_TYPE
+import dev.turnzen.app.ui.common.lastSharedSgf
+import dev.turnzen.app.ui.common.saveSgf
 
 class MainActivity : ComponentActivity() {
     private val container: AppContainer
         get() = (application as TurnzenApplication).container
+
+    /** Android's "Save as" picker, for the share sheet's "Save to device" (see [shareSgf]). */
+    private val saveSgfAs =
+        registerForActivityResult(ActivityResultContracts.CreateDocument(SGF_MIME_TYPE)) { target ->
+            val sgf = lastSharedSgf(this)
+            if (target != null && sgf != null) saveSgf(this, target, sgf)
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -29,6 +41,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun openFrom(intent: Intent?) {
+        if (intent?.action == ACTION_SAVE_SGF) {
+            lastSharedSgf(this)?.let { saveSgfAs.launch(it.name) }
+            return
+        }
         OpenRequest.fromIntent(intent)?.let { container.openRequests.value = it }
     }
 }

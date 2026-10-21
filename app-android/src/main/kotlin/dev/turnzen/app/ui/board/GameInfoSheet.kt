@@ -85,7 +85,7 @@ fun GameInfoSheet(
     onOpenWeb: (String) -> Unit,
     /** Null until there is a record on the board to share. */
     onShareSgf: (() -> Unit)?,
-    /** Null under the same condition as [onShareSgf]. */
+    /** Null under the same condition as [onShareSgf], and where the share sheet saves too. */
     onSaveSgf: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
@@ -197,8 +197,9 @@ fun GameInfoSheet(
                 if (onShareSgf != null) {
                     ActionLine(stringResource(R.string.info_share_sgf), colors.accent, onShareSgf)
                 }
-                // Saving apart from sharing: the share sheet lists apps that take a file, and on
-                // a stock phone none of them saves an SGF to the phone itself.
+                // Saving apart from sharing, before Android 14 only: the share sheet lists apps
+                // that take a file, and on a stock phone none of them saves an SGF to the phone
+                // itself. From 14 on the sheet carries a "Save to device" action instead.
                 if (onSaveSgf != null) {
                     ActionLine(stringResource(R.string.info_save_sgf), colors.accent, onSaveSgf)
                 }
