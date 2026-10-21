@@ -192,11 +192,10 @@ fun GoBoard(
 
         drawBoardSurface(palette)
 
-        val lineWidth = maxOf(0.8.dp.toPx(), 1f)
         for (i in 0 until n) {
             val p = off + i * cell
-            drawLine(palette.boardLine, Offset(off, p), Offset(size.width - off, p), lineWidth)
-            drawLine(palette.boardLine, Offset(p, off), Offset(p, size.height - off), lineWidth)
+            drawBoardLine(Offset(off, p), Offset(size.width - off, p), palette)
+            drawBoardLine(Offset(p, off), Offset(p, size.height - off), palette)
         }
         for (h in BoardSizes.hoshi(n)) drawCircle(palette.boardLine, cell * 0.1f, center(h))
 

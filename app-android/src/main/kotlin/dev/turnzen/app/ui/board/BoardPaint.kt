@@ -28,6 +28,17 @@ internal fun DrawScope.drawBoardSurface(palette: TurnzenColors) {
     drawRect(palette.board)
 }
 
+/** One of the board's grid lines, from [start] to [end]. */
+internal fun DrawScope.drawBoardLine(
+    start: Offset,
+    end: Offset,
+    palette: TurnzenColors,
+) {
+    drawLine(palette.boardLine, start, end, boardLineWidth())
+}
+
+private fun DrawScope.boardLineWidth(): Float = maxOf(0.8.dp.toPx(), 1f)
+
 internal fun DrawScope.drawStone(
     center: Offset,
     radius: Float,
@@ -43,12 +54,12 @@ internal fun DrawScope.drawStone(
 }
 
 /**
- * A stone on a square of the board: how a player's colour is shown beside their name. On the
- * page alone a black disc and an outlined one read as a pair of radio buttons; on the wood
- * they read as stones.
+ * A stone on a point of the board: how a player's colour is shown beside their name. On the
+ * page alone a black disc and an outlined one read as a pair of radio buttons; on the wood,
+ * sitting on the crossing of two lines, they read as stones.
  *
- * Corners as softened as a player icon's, which it sits next to. The stone takes about two
- * thirds of the square, so a margin of wood shows round it.
+ * Corners as softened as a player icon's, which it sits next to. The square is barely larger
+ * than the stone: enough wood round it to read as a board, and the lines' ends showing.
  */
 @Composable
 fun StoneOnBoard(
@@ -59,8 +70,10 @@ fun StoneOnBoard(
     val palette = colors
     Canvas(modifier.size(size).clip(RoundedCornerShape(4.dp))) {
         drawBoardSurface(palette)
+        drawBoardLine(Offset(0f, center.y), Offset(this.size.width, center.y), palette)
+        drawBoardLine(Offset(center.x, 0f), Offset(center.x, this.size.height), palette)
         drawStone(center, this.size.minDimension * STONE_SHARE / 2f, color, palette)
     }
 }
 
-private const val STONE_SHARE = 0.68f
+private const val STONE_SHARE = 0.8f

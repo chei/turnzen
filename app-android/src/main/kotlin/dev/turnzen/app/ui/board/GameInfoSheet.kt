@@ -287,7 +287,7 @@ private fun PlayerLine(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // The stone first: which colour the line is about is what the sheet is ordered by.
-        StoneOnBoard(color, 26.dp, Modifier.padding(end = 12.dp))
+        StoneOnBoard(color, 22.dp, Modifier.padding(end = 12.dp))
         icon?.let {
             PlayerIcon(it.url, name, playerColorKey(it.server, name), size = 36.dp, Modifier.padding(end = 12.dp))
         }
