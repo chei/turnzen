@@ -123,8 +123,10 @@ fun GamesScreen(
     // the LazyColumn keeps the row that was first in view where it is, which pushes the new
     // row up out of sight. Run on apply, before the layout that takes in the new rows, so
     // the request replaces that anchoring. It asks for the position the list already has,
-    // so the rows below still slide down rather than jump.
-    DisposableEffect(listState, shown) {
+    // so the rows below still slide down rather than jump. The problem lines go in above the
+    // first row too: a pull-to-refresh takes them down and a failed one puts them back, which
+    // would otherwise land them just above the screen on a list long enough to scroll.
+    DisposableEffect(listState, shown, state.allProblems) {
         if (listState.firstVisibleItemIndex == 0 && listState.firstVisibleItemScrollOffset == 0) {
             listState.requestScrollToItem(0)
         }
