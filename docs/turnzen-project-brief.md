@@ -1204,6 +1204,11 @@ partly so the project could grow beyond Go (see Naming).
 16. **Scoring marks without the delay** — the board opens in scoring mode about 0.3 s
     before its marks appear, probably the time the dead-stone guess takes (item 7). Cut that
     to little or nothing: speed up the guess, or work it out before the board is shown.
+17. **Resume the last variation** — opening a game still starts at the current position,
+    but the variation tried there the last time the game was open waits ahead of the cursor,
+    so stepping forward (the button, or tapping its next stone) plays it again, stone by
+    stone. Not decided: what happens to it once the game has moved on in the meantime
+    (dropped, or kept when the opponent played the reply it expected).
 
 ### Explicitly out of scope for the MVP
 
