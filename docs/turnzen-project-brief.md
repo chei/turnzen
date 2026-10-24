@@ -1207,8 +1207,10 @@ partly so the project could grow beyond Go (see Naming).
 17. **Resume the last variation** — opening a game still starts at the current position,
     but the variation tried there the last time the game was open waits ahead of the cursor,
     so stepping forward (the button, or tapping its next stone) plays it again, stone by
-    stone. Not decided: what happens to it once the game has moved on in the meantime
-    (dropped, or kept when the opponent played the reply it expected).
+    stone. When the game has moved on in the meantime, the moves played since are checked
+    against the variation: while they match it (the user sent its first stone and the
+    opponent answered with the reply it expected), the rest of it waits ahead of the new
+    current position; once they differ, it is dropped.
 
 ### Explicitly out of scope for the MVP
 
