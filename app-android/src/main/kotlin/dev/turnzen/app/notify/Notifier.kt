@@ -139,7 +139,14 @@ class Notifier(
                 .activeNotifications
                 .any { it.id == ID_SUMMARY && it.tag == null }
 
-    /** [largeIcon]: the opponent's icon, for a summary of one game; null to show none. */
+    /**
+     * The news leads: the title names the games that just came round, and the line under it
+     * counts the rest ("Your move against Joe" / "3 games in all"). With nothing new — a game
+     * left the list — it falls back to the count.
+     *
+     * [largeIcon]: the opponent's icon, for a summary about one game ([SummaryAction.Post.lead]);
+     * null to show none.
+     */
     fun postSummary(
         games: List<GameSummary>,
         flagged: Set<GameId>,
@@ -147,27 +154,34 @@ class Notifier(
         largeIcon: Bitmap? = null,
     ) {
         if (games.isEmpty()) return cancelSummary()
-        val single = games.singleOrNull()
+        val newGames = games.filter { it.id in flagged }
+        val lead = SummaryAction.lead(games, flagged)
         val title =
-            if (single != null) {
-                context.getString(R.string.notify_your_move_one, single.opponent.handle)
+            if (newGames.isNotEmpty() || lead != null) {
+                val named = newGames.ifEmpty { games }
+                context.getString(R.string.notify_your_move_one, named.joinToString(", ") { it.opponent.handle })
             } else {
                 context.getString(R.string.notify_your_move_many, games.size)
             }
-        // Only the games that just came round are named: the title counts the rest.
-        val newGames = games.filter { it.id in flagged }
-        // One game: the title says it all, so a second line only for a low clock.
-        val text = if (single != null) timeLeft(single) else summaryText(games, newGames)
+        // Under the news: the lead game's low clock, and how many games wait in all when the
+        // title did not name every one of them.
+        val total = games.size.takeIf { newGames.isNotEmpty() && it > newGames.size }
+        val text =
+            listOfNotNull(
+                lead?.let(::timeLeft),
+                total?.let { context.getString(R.string.notify_games_in_all, it) },
+            ).joinToString(" · ").ifEmpty { null }
         // Expandable only when a line would say more than the names already do: a low clock.
         val style =
-            if (single == null && newGames.any(TurnWatch::isLow)) {
+            if (newGames.size > 1 && newGames.any(TurnWatch::isLow)) {
                 NotificationCompat.InboxStyle().setBigContentTitle(title).also { style ->
                     newGames.forEach { style.addLine(line(it)) }
+                    total?.let { style.setSummaryText(context.getString(R.string.notify_games_in_all, it)) }
                 }
             } else {
                 null
             }
-        val open = if (single != null) OpenRequest.Game(single.id) else OpenRequest.YourTurn
+        val open = if (lead != null) OpenRequest.Game(lead.id) else OpenRequest.YourTurn
         val notification =
             NotificationCompat
                 .Builder(context, CHANNEL_YOUR_MOVE)
@@ -175,7 +189,7 @@ class Notifier(
                 .setColor(accent())
                 .setContentTitle(title)
                 .setContentText(text)
-                .setLargeIcon(largeIcon?.takeIf { single != null })
+                .setLargeIcon(largeIcon?.takeIf { lead != null })
                 .setStyle(style)
                 .setNumber(games.size)
                 .setCategory(NotificationCompat.CATEGORY_REMINDER)
@@ -256,19 +270,6 @@ class Notifier(
             manager.notify(tag, id, notification)
         } catch (e: SecurityException) {
             // The permission went away between the check and the post: nothing to show.
-        }
-    }
-
-    /** "2 new: Alice, Bob"; only the names when every game is new; nothing when none is. */
-    private fun summaryText(
-        games: List<GameSummary>,
-        newGames: List<GameSummary>,
-    ): String? {
-        val names = newGames.joinToString(", ") { it.opponent.handle }
-        return when {
-            newGames.isEmpty() -> null
-            newGames.size < games.size -> context.getString(R.string.notify_new_games, newGames.size, names)
-            else -> names
         }
     }
 

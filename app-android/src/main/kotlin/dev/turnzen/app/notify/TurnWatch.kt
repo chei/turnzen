@@ -52,7 +52,22 @@ sealed interface SummaryAction {
         val games: List<GameSummary>,
         val flagged: Set<GameId>,
         val alert: Boolean,
-    ) : SummaryAction
+    ) : SummaryAction {
+        /** See [SummaryAction.lead]. */
+        val lead: GameSummary? get() = lead(games, flagged)
+    }
+
+    companion object {
+        /**
+         * The one game a summary is about, when there is one: the only game that just came
+         * round, or else the only game there is. It gets the opponent's picture, and tapping
+         * opens its board; a summary about several games opens the list.
+         */
+        fun lead(
+            games: List<GameSummary>,
+            flagged: Set<GameId>,
+        ): GameSummary? = games.filter { it.id in flagged }.singleOrNull() ?: games.singleOrNull()
+    }
 }
 
 data class CheckOutcome(

@@ -610,18 +610,21 @@ notification on, and both switches start off. Specified in a design interview on
 - **Your move**: one summary notification for every game on both servers, never one per
   game or per server. It alerts (sound, channel at default importance, no pop-up) only when a
   game has *newly* become the user's move since the last check; otherwise it changes
-  silently. Title "Your move in N games" (one game: "Your move against X", with "20 h left"
-  under it only when the clock is low, and nothing to expand: the title says it all). Under
-  the title, only the games that caused the latest alerts are named ("2 new: Alice, Bob";
-  just the names when every game is new; nothing when none is): the title counts the rest,
-  and the "Your turn" list has them all. It expands only when one of those games' clocks is
-  under a day, to a line per new game, opponent and time left. No server: the opponent is
+  silently. **The news leads** (October 2026; it used to be the count, with the new games
+  named under it): the title names the games that caused the latest alerts, "Your move
+  against Joe" (several: "Your move against Joe, Ann"), and the line under it counts all the
+  waiting games, "3 games in all", when the title did not name every one; "20 h left" joins
+  that line when the one new game's clock is low. With nothing new (a game left the list)
+  the title falls back to "Your move in N games", or the one game's name. It expands only
+  when several games are new and one of their clocks is under a day, to a line per new game,
+  opponent and time left. A summary about one game — the only new one, or the only one —
+  carries that opponent's picture and opens that game's board. No server: the opponent is
   what the user goes by, and tapping shows it in its colour (October 2026: every opponent's
   name and "Dragon Go Server" on every line made it too long with many games). Colour per
   line is not possible: Android drops colour and weight from the text of an ordinary
   notification, and only foreground-service or media notifications may be colourised.
   Tapping opens that game's board
-  when there is exactly one, the "Your turn" list otherwise. The launcher dot comes with it
+  when the summary is about one game, the "Your turn" list otherwise. The launcher dot comes with it
   (Pixel shows only a dot; the count is in the long-press menu); Android has no badge-number
   API of its own. With a single game that has its own "time running low" notice, there is
   no summary: that notice says the same and more. And one sound per event: when a new game

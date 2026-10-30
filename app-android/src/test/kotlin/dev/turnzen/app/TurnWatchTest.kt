@@ -87,6 +87,20 @@ class TurnWatchTest {
     }
 
     @Test
+    fun `the summary is about the one game that just came round, not about all of them`() {
+        val a = game("1")
+        val b = game("2")
+        val c = game("3")
+        // One new game among three: that one leads (its picture, its board on tap).
+        assertEquals(b, SummaryAction.Post(listOf(b, a, c), setOf(b.id), alert = true).lead)
+        // Two new games: about neither in particular, so the list opens.
+        assertNull(SummaryAction.Post(listOf(a, b, c), setOf(a.id, b.id), alert = true).lead)
+        // Nothing new: a single game still leads; several do not.
+        assertEquals(a, SummaryAction.Post(listOf(a), emptySet(), alert = false).lead)
+        assertNull(SummaryAction.Post(listOf(a, b), emptySet(), alert = false).lead)
+    }
+
+    @Test
     fun `nothing new does not alert, and a hidden summary stays hidden`() {
         val a = game("1")
         val state = WatchState(known = mapOf(a.id to 10))

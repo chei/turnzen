@@ -110,8 +110,7 @@ class TurnCheck(
             }
 
             is SummaryAction.Post -> {
-                val one = summary.games.singleOrNull()
-                notifier.postSummary(summary.games, summary.flagged, summary.alert, one?.let { icon(it) })
+                notifier.postSummary(summary.games, summary.flagged, summary.alert, summary.lead?.let { icon(it) })
             }
         }
         outcome.lowTimeCancels.forEach(notifier::cancelLowTime)
