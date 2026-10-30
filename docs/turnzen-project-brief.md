@@ -314,12 +314,11 @@ for it.
   light sand of its web pages. Both need muted dark-theme variants. Values are to be chosen
   in `DESIGN.md` against the existing tokens, because both sit close to something already
   there: the light blue next to `accentSoft` (the refresh wash), the sand next to `board`.
-- **The colour is a small dot in the leading margin of every game row**, centred on the
-  icon — never a row background, so it competes neither with the refresh wash nor
-  with the board. It is shown **always**, even when only one server is signed in; with a
-  single server it reads as a design accent rather than a label. The player icon's shape
-  marks the server as well: square on OGS, circle on DGS. (Until October 2026 a 4dp bar at
-  the row's leading edge did this; the user found it beside a coloured square too busy.)
+- **The colour is a 4dp rounded bar at the leading edge of every game row**, in the server's
+  colour — never a row background, so it competes neither with the refresh wash nor with the
+  board. It is shown **always**, even when only one server is signed in; with a single server
+  it reads as a design accent rather than a label. The player icon's shape marks the server
+  as well: square on OGS, circle on DGS (October 2026).
 - **The same bar or dot marks a server everywhere** a game or account appears: the Running
   and Finished tabs, the board screen (a dot beside the opponent's name), the game info sheet,
   the sign-in panels, the Settings account sections, and error lines.

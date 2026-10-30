@@ -43,10 +43,7 @@ fun ServerBar(
     )
 }
 
-/** Where a list row's dot sits: centred in the 20dp margin before the icon or text. */
-val DOT_INSET = 6.dp
-
-/** The mark beside a name or a heading, or in a list row's margin: a small dot. */
+/** The mark beside a name or a heading: a small dot. */
 @Composable
 fun ServerDot(
     server: ServerId,

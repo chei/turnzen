@@ -123,7 +123,7 @@ internal fun playerColorKey(
 /**
  * Whether [server]'s players get a square icon. OGS shows its pictures as squares, so its
  * players get one; DGS has no pictures, and its players' initials sit in a circle. The shape
- * is what tells the servers apart in a list, where a row has no other server mark.
+ * tells the servers apart at a glance, beside the row's server bar.
  */
 internal fun iconIsSquare(server: ServerId): Boolean = server.value != "dgs"
 
