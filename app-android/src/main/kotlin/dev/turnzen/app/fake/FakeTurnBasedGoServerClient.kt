@@ -21,7 +21,13 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.InboxMessage
+import dev.turnzen.goserver.InvitationColor
+import dev.turnzen.goserver.InvitationSettings
 import dev.turnzen.goserver.LadderStanding
+import dev.turnzen.goserver.MessageAuthor
+import dev.turnzen.goserver.MessageId
+import dev.turnzen.goserver.MessageTopic
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
@@ -306,6 +312,52 @@ class FakeTurnBasedGoServerClient(
         } else {
             emptyMap()
         }
+
+    /**
+     * The demo mailbox, on the password-signed-in server only (messages are a DGS feature):
+     * one of each kind the new-messages block tells apart. Only in the demo build's pair of
+     * servers ([shareGames]): a test double of its own starts with an empty mailbox.
+     */
+    private val inbox: MutableList<InboxMessage> =
+        if (shareGames && !browserSignIn) demoMessages(serverId).toMutableList() else mutableListOf()
+
+    /** Puts [message] in the mailbox, for a test. */
+    fun deliver(message: InboxMessage) {
+        inbox.add(0, message)
+    }
+
+    override suspend fun newMessages(): List<InboxMessage> {
+        delay(latencyMillis)
+        requireSession()
+        return inbox.toList()
+    }
+
+    override suspend fun dismissMessage(id: MessageId) {
+        delay(latencyMillis)
+        requireSession()
+        val message = inbox.firstOrNull { it.id == id } ?: return
+        if (message.awaitsAnswer) throw GoServerException.ServerError("move_msg", "$serverName kept the message")
+        inbox.remove(message)
+    }
+
+    override suspend fun replyToMessage(
+        message: InboxMessage,
+        text: String,
+    ) {
+        delay(latencyMillis)
+        requireSession()
+        inbox.removeAll { it.id == message.id }
+    }
+
+    override suspend fun answerInvitation(
+        message: InboxMessage,
+        accept: Boolean,
+        text: String?,
+    ) {
+        delay(latencyMillis)
+        requireSession()
+        inbox.removeAll { it.id == message.id }
+    }
 
     override fun gameUrl(id: GameId): String =
         if (browserSignIn) {
@@ -669,6 +721,71 @@ class FakeTurnBasedGoServerClient(
                 result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),
                 finished = true,
                 ratingChange = -0.25,
+            )
+        }
+
+        fun demoMessages(server: ServerId): List<InboxMessage> {
+            val now = Clock.System.now()
+
+            fun id(n: Int) = MessageId(server, "demo-msg-$n")
+            return listOf(
+                InboxMessage(
+                    id = id(4),
+                    from = null,
+                    sentAt = now.minus(2.hours),
+                    subject = "Challenge started for tournament #119",
+                    text = "",
+                    topic =
+                        MessageTopic.LadderChallenge(
+                            "119",
+                            GameId(server, "demo-13"),
+                            challengerRank = 12,
+                            yourRank = 7,
+                        ),
+                    canReply = false,
+                ),
+                InboxMessage(
+                    id = id(3),
+                    from = MessageAuthor("31", "kito", "Kito Sato", "7k"),
+                    sentAt = now.minus(5.hours),
+                    subject = "Game invitation",
+                    text = "Fancy a quick 13x13?",
+                    topic =
+                        MessageTopic.GameInvitation(
+                            GameId(server, "demo-invited"),
+                            InvitationSettings(
+                                boardSize = 13,
+                                rated = true,
+                                ruleset = "Japanese",
+                                timeLimit = "F: 10d + 1d",
+                                handicap = 1,
+                                komi = 0.5,
+                                myColor = InvitationColor.BLACK,
+                            ),
+                        ),
+                    canReply = true,
+                    awaitsAnswer = true,
+                ),
+                InboxMessage(
+                    id = id(2),
+                    from = MessageAuthor("22", "mkvtl", "Mika", "5k"),
+                    sentAt = now.minus(1.days),
+                    subject = "Our game",
+                    text =
+                        "Thanks for the game! I'll be travelling next week, so my moves may be slow.\n" +
+                            "See you on the board.",
+                    topic = MessageTopic.Conversation,
+                    canReply = true,
+                ),
+                InboxMessage(
+                    id = id(1),
+                    from = null,
+                    sentAt = now.minus(9.days),
+                    subject = "Game result",
+                    text = "The result in the game: tsuke_42 (B) vs. Demo User (W) was: Black wins by resignation",
+                    topic = MessageTopic.GameEnded(GameId(server, "demo-done-loss")),
+                    canReply = false,
+                ),
             )
         }
     }

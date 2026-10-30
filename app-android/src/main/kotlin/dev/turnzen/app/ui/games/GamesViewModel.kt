@@ -6,13 +6,21 @@ import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.Arrivals
 import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.GamesStore
+import dev.turnzen.app.data.MessagesStore
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.ServerProblem
 import dev.turnzen.app.ui.common.problemFor
+import dev.turnzen.app.ui.messages.MessageText
+import dev.turnzen.app.ui.messages.MessageWording
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.InboxMessage
+import dev.turnzen.goserver.MessageId
+import dev.turnzen.goserver.MessageTopic
+import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.ServerId
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,7 +57,19 @@ data class GamesUiState(
     val problems: List<ServerProblem> = emptyList(),
     /** Sign-in problems of individual servers, kept apart from [problems] because they outlive a refresh. */
     val signedOut: List<ServerProblem> = emptyList(),
+    /** The new messages, worded, newest first: the block above the "Your turn" list. */
+    val messages: List<MessageRow> = emptyList(),
+    /** The message open in the sheet, if any. */
+    val openMessage: MessageId? = null,
+    /** An act on the open message is on its way to the server. */
+    val messageBusy: Boolean = false,
+    /** Why the last act on the open message did not work. */
+    val messageError: String? = null,
 ) {
+    /** The row of [openMessage], while it is still on the list. */
+    val openRow: MessageRow?
+        get() = openMessage?.let { id -> messages.firstOrNull { it.message.id == id } }
+
     /** The first problem: the one a screen with nothing else to show puts in the middle. */
     val problem: ServerProblem?
         get() = (problems + signedOut).firstOrNull()
@@ -77,25 +97,43 @@ data class GamesUiState(
         }
 }
 
+/**
+ * One message of the new-messages block: the message, Turnzen's words for it, and where it
+ * leads — the game it is about, or the server's page where it has to be answered.
+ */
+data class MessageRow(
+    val message: InboxMessage,
+    val text: MessageText,
+    val game: GameId?,
+    val webUrl: String?,
+    /**
+     * Whose picture leads the row: the writer of a player's message, or for the server's own
+     * message the opponent in the game it is about. Null when neither is known.
+     */
+    val person: Opponent? = null,
+)
+
 class GamesViewModel(
     private val accounts: Accounts,
     private val store: GamesStore,
+    private val inbox: MessagesStore = MessagesStore(accounts),
 ) : ViewModel() {
     private val transient = MutableStateFlow(GamesUiState())
 
     val state: StateFlow<GamesUiState> =
         combine(
             combine(store.yourTurn, store.allRunning, store.finished, ::Triple),
-            store.arrivals,
+            combine(store.arrivals, inbox.messages, ::Pair),
             accounts.states,
             transient,
-        ) { (yourTurn, allRunning, finished), arrivals, auth, t ->
+        ) { (yourTurn, allRunning, finished), (arrivals, messages), auth, t ->
             t.copy(
                 yourTurn = yourTurn,
                 allRunning = allRunning,
                 finished = finished,
                 arrivals = arrivals,
                 signedOut = signedOutLines(auth),
+                messages = messages.map(::row),
             )
         }.stateIn(
             viewModelScope,
@@ -156,7 +194,9 @@ class GamesViewModel(
     fun onArrivalShown(id: GameId) = store.onArrivalShown(id)
 
     /** The name of the server [id] is on, for what the screen says about it. */
-    fun serverName(id: GameId): String = accounts.session(id.server).serverName
+    fun serverName(id: GameId): String = serverName(id.server)
+
+    fun serverName(server: ServerId): String = accounts.session(server).serverName
 
     /** The web page of a game Turnzen lists but cannot show ([GameSummary.onlyOnWeb]). */
     fun gameUrl(id: GameId): String? = accounts.session(id.server).gameUrl(id)
@@ -245,12 +285,119 @@ class GamesViewModel(
             try {
                 // Failures are shown for a silent refresh too: they explain why the list, or
                 // one server's part of it, looks unchanged.
+                // The messages alongside the games: they explain the list, a new game or one
+                // gone, so the two should land together. Their failures go unsaid: a server
+                // that is down is already named by the games' own.
+                val messages = async { inbox.refresh() }
                 val failures = store.refresh()
+                messages.await()
                 if (failures.size < accounts.signedIn.size) lastRefreshAt = System.nanoTime()
                 transient.update { it.copy(refreshing = false, problems = shownProblems(failures)) }
+                loadEndedGames()
                 warmFirstGame()
             } finally {
                 inFlight = false
+            }
+        }
+    }
+
+    /**
+     * A "game result" message is worded from the finished game itself, which is on the archive
+     * the Finished tab fetches — so a message about a game the app does not know as finished
+     * fetches it, once, rather than leaving the message to say only that a game has ended.
+     */
+    private fun loadEndedGames() {
+        val ended =
+            inbox.messages.value.mapNotNull { (it.topic as? MessageTopic.GameEnded)?.game }
+        if (ended.any { store.summary(it)?.isFinished != true }) loadFinished(silent = true)
+    }
+
+    private fun row(message: InboxMessage): MessageRow {
+        val game =
+            when (val topic = message.topic) {
+                is MessageTopic.LadderChallenge -> topic.game
+
+                is MessageTopic.GameEnded -> topic.game
+
+                is MessageTopic.Notice -> topic.game
+
+                // Not a game yet: it starts when the invitation is accepted.
+                is MessageTopic.GameInvitation -> null
+
+                MessageTopic.Conversation, is MessageTopic.TournamentInvitation -> null
+            }
+        // A tournament invitation is answered on the website, whose status page lists it.
+        val web =
+            if (message.topic is MessageTopic.TournamentInvitation) {
+                accounts
+                    .session(
+                        message.id.server,
+                    ).accountUrl
+            } else {
+                null
+            }
+        val person =
+            message.from?.let { Opponent(it.handle, it.displayName, it.rank) }
+                ?: game?.let(store::summary)?.opponent
+        return MessageRow(message, MessageWording.describe(message, store::summary), game, web, person)
+    }
+
+    fun openMessage(id: MessageId) = transient.update { it.copy(openMessage = id, messageError = null) }
+
+    fun closeMessage() = transient.update { it.copy(openMessage = null, messageError = null, messageBusy = false) }
+
+    /** Off the new pile, here and on the server. */
+    fun dismissMessage(id: MessageId) = act(id, "Couldn't mark it as read") { inbox.dismiss(it) }
+
+    fun reply(
+        id: MessageId,
+        text: String,
+    ) = act(id, "Couldn't send the reply") { inbox.reply(it, text) }
+
+    /** Accepting starts a game, so the lists are fetched again to show it. */
+    fun answerInvitation(
+        id: MessageId,
+        accept: Boolean,
+        text: String?,
+    ) = act(id, if (accept) "Couldn't accept the invitation" else "Couldn't decline the invitation") {
+        inbox.answerInvitation(it, accept, text)
+        if (accept) {
+            lastRefreshAt = 0L
+            start(silent = true)
+        }
+    }
+
+    /**
+     * Runs [block] on the message [id]. The sheet closes once it has worked — the message has
+     * left the list; a failure keeps it open with [failure] and the server's reason.
+     */
+    private fun act(
+        id: MessageId,
+        failure: String,
+        block: suspend (InboxMessage) -> Unit,
+    ) {
+        val message = inbox.message(id) ?: return
+        transient.update { it.copy(messageBusy = true, messageError = null) }
+        viewModelScope.launch {
+            try {
+                block(message)
+                transient.update {
+                    if (it.openMessage ==
+                        id
+                    ) {
+                        it.copy(openMessage = null, messageBusy = false)
+                    } else {
+                        it.copy(messageBusy = false)
+                    }
+                }
+            } catch (e: GoServerException) {
+                val reason = problemFor(e, accounts.session(id.server).serverName).title
+                transient.update {
+                    it.copy(
+                        messageBusy = false,
+                        messageError = listOfNotNull(failure, reason).joinToString(". "),
+                    )
+                }
             }
         }
     }

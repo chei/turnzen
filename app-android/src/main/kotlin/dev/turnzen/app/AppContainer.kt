@@ -8,6 +8,7 @@ import dev.turnzen.app.data.FileRecordCache
 import dev.turnzen.app.data.FixedServer
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
+import dev.turnzen.app.data.MessagesStore
 import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.PrefsGamesCache
 import dev.turnzen.app.data.SessionManager
@@ -113,6 +114,9 @@ class AppContainer(
             cache = PrefsGamesCache(appContext),
             records = FileRecordCache(appContext),
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
+
+    /** The new messages on every server, for the block above "Your turn". */
+    val messages = MessagesStore(accounts)
 
     /** Sent moves on their way to the server; app-wide, as the board they left is gone. */
     val outbox = MoveOutbox(accounts, games, MainScope())

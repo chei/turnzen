@@ -762,6 +762,32 @@ and they explain the list — "Challenge started for tournament #119" is why a g
 - Later: the game rows explain themselves (post-MVP items 13 and 14), which takes the game
   messages out of the block; and a full Messages destination for older messages.
 
+### As built (October 2026)
+
+- **The block**: "New messages · N" over the rows, then a "Games" heading over the games
+  (the two kinds of row are shaped alike and must not read as one list). Only on "Your turn",
+  only while there is something new. A row is shaped like a game row: the server's bar, a
+  picture, a title and a detail line, and how long ago. The picture is the writer's, or for
+  a server message the opponent in the game it is about (a challenge from hana_go carries
+  hana_go's picture); a server message about nobody known gets a blank square in the
+  server's colour, so it is not mistaken for a player's initial.
+- **Turnzen's own wording** for server messages (`MessageWording`), from the topic and the
+  games the app holds: "hana_go challenged you" / "Ladder #119 · you #7, hana_go #12";
+  "You lost against tsuke_42" / "by resignation"; "kito invites you to a game" / "13x13,
+  rated, you play black, handicap 1, komi 0.5, F: 10d + 1d". A result message about a game
+  the archive does not hold yet fetches the archive once, so it can say how the game went.
+  A player's message shows their name and the subject and first line; a "Re:" subject is
+  dropped as saying nothing.
+- **Tapping a row opens a sheet** with all of it and the acts that apply, one button each:
+  Mark as read; Send reply (with a reply field) for a player's message; Accept / Decline
+  (with an optional message) for an open invitation; Open game for a message about one;
+  Open website for a tournament invitation, which only the website can answer. **Open game
+  also marks the message read**: opening the game is what the message was for. An act takes
+  the message off the list at once and puts it back, with the reason in the sheet, if the
+  server refuses. Accepting an invitation refreshes the lists, where the new game appears.
+- Fetched with the games on every refresh (one more request per refresh), side by side.
+  Failures are not shown separately: the games' own problem line already names the server.
+
 ### What the server sends (recorded 30 October 2026, server 1.20.5)
 
 - `obj=folder&cmd=list` gives the folders: 1 main ("All"), 2 New, 3 "New reply!", 4 trash,
@@ -1249,7 +1275,8 @@ partly so the project could grow beyond Go (see Naming).
 9. **Games — "Waiting for opponent"** — a second view (tab or filter) in the Games
    destination, view-only.
 10. **Messages and invitations** — inbox, accept/decline invitations, reply. Game creation
-    stays "open in browser". *Specified (October 2026), not built*: see "Messages".
+    stays "open in browser". *The new-messages block is done (October 2026)*: see
+    "Messages". Not yet: older messages, threads, writing a new message.
 11. **Finished games** — *the recent tail is done (September 2026)*: the "Finished" tab on
     the Games screen, described under screen 2 above, plus the read-only board it opens. Not
     yet: a full browsable archive (paging past what fits on one screen, searching or

@@ -283,7 +283,7 @@ private fun SignedInShell(container: AppContainer) {
             }
 
             tab == MainTab.GAMES -> {
-                val vm = viewModel { GamesViewModel(container.accounts, container.games) }
+                val vm = viewModel { GamesViewModel(container.accounts, container.games, container.messages) }
                 screenStates.SaveableStateProvider("games") {
                     GamesScreen(
                         vm,

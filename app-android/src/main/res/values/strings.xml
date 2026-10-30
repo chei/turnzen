@@ -180,4 +180,14 @@
     <string name="notify_low_time">Low on time vs. %1$s: %2$s left</string>
     <string name="notify_signed_out">Turnzen can\'t check %1$s</string>
     <string name="notify_signed_out_text">Sign in again</string>
+    <string name="messages_heading">New messages · %1$d</string>
+    <string name="messages_games_heading">Games</string>
+    <string name="messages_reply_label">Reply</string>
+    <string name="messages_answer_label">Message with your answer (optional)</string>
+    <string name="messages_mark_read">Mark as read</string>
+    <string name="messages_send_reply">Send reply</string>
+    <string name="messages_open_game">Open game</string>
+    <string name="messages_open_web">Open website</string>
+    <string name="messages_accept">Accept</string>
+    <string name="messages_decline">Decline</string>
 </resources>

@@ -70,6 +70,10 @@ import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.common.scrollIndicator
+import dev.turnzen.app.ui.messages.GamesHeading
+import dev.turnzen.app.ui.messages.MessageListRow
+import dev.turnzen.app.ui.messages.MessageSheet
+import dev.turnzen.app.ui.messages.MessagesHeading
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
@@ -206,6 +210,28 @@ fun GamesScreen(
             )
         }
     }
+
+    // The open message, over whichever tab is showing.
+    state.openRow?.let { row ->
+        val uriHandler = LocalUriHandler.current
+        MessageSheet(
+            row = row,
+            serverName = viewModel.serverName(row.message.id.server),
+            busy = state.messageBusy,
+            error = state.messageError,
+            onOpenGame = { id ->
+                // Opening the game is what the message was for: it is dealt with.
+                viewModel.closeMessage()
+                viewModel.dismissMessage(row.message.id)
+                onOpenGame(id)
+            },
+            onOpenWeb = uriHandler::openUri,
+            onMarkRead = { viewModel.dismissMessage(row.message.id) },
+            onReply = { viewModel.reply(row.message.id, it) },
+            onAnswerInvitation = { accept, text -> viewModel.answerInvitation(row.message.id, accept, text) },
+            onClose = viewModel::closeMessage,
+        )
+    }
 }
 
 /** One tab's list: a page of the pager on the games screen. */
@@ -304,13 +330,37 @@ private fun GamesPage(
                             )
                         }
                     }
+                    // The new messages lead "Your turn", as on the DGS status page: they say
+                    // why a game has appeared in the list below, or gone from it.
+                    val messages = if (tab == GamesTab.YOUR_TURN) state.messages else emptyList()
+                    if (messages.isNotEmpty()) {
+                        item(span = fullLine, key = "messages-heading") { MessagesHeading(messages.size) }
+                        items(
+                            messages,
+                            key = { "message:${it.message.id.server.value}:${it.message.id.value}" },
+                            span = { fullLine() },
+                        ) { row ->
+                            MessageListRow(
+                                row = row,
+                                serverName = viewModel.serverName(row.message.id.server),
+                                showIcon = showPlayerIcons,
+                                onClick = { viewModel.openMessage(row.message.id) },
+                                modifier = Modifier.animateItem(fadeInSpec = null, fadeOutSpec = null),
+                            )
+                        }
+                    }
+                    // Under the messages, a heading of the games' own, so the two kinds of row
+                    // (they are shaped alike) are not read as one list.
+                    if (messages.isNotEmpty() && !rows.isNullOrEmpty()) {
+                        item(span = fullLine, key = "games-heading") { GamesHeading() }
+                    }
                     when {
                         rows == null -> {
                             item(span = fullLine) { LoadingRow() }
                         }
 
                         rows.isEmpty() -> {
-                            item(span = fullLine) { EmptyState(tab) }
+                            item(span = fullLine) { EmptyState(tab, compact = messages.isNotEmpty()) }
                         }
 
                         else -> {
@@ -396,7 +446,11 @@ private fun LoadingRow() {
 }
 
 @Composable
-private fun EmptyState(tab: GamesTab) {
+private fun EmptyState(
+    tab: GamesTab,
+    /** Messages stand above it: no need to bring it down to the middle of the screen. */
+    compact: Boolean = false,
+) {
     val title =
         when (tab) {
             GamesTab.YOUR_TURN -> stringResource(R.string.games_empty_title)
@@ -404,7 +458,7 @@ private fun EmptyState(tab: GamesTab) {
             GamesTab.FINISHED -> stringResource(R.string.games_empty_finished_title)
         }
     Column(
-        Modifier.fillMaxWidth().padding(top = 160.dp, start = 20.dp, end = 20.dp),
+        Modifier.fillMaxWidth().padding(top = if (compact) 48.dp else 160.dp, start = 20.dp, end = 20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         StoneIcon(StoneColor.WHITE, 44.dp)
