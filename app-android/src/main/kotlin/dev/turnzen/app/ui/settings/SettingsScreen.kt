@@ -139,6 +139,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(12.dp))
                     Text(
                         stringResource(R.string.settings_notifications_blocked),
+                        Modifier.padding(horizontal = 20.dp),
                         style = MaterialTheme.typography.bodyMedium,
                         color = colors.urgent,
                     )
@@ -209,8 +210,16 @@ private fun Group(
     title: String,
     content: @Composable () -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 20.dp)) {
-        Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium, color = colors.ink2)
+    // Full width, each row padding its own text: a row's tap highlight runs edge to edge
+    // rather than stopping flush against the label and the value.
+    Column {
+        Text(
+            title,
+            Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = colors.ink2,
+        )
         Spacer(Modifier.height(4.dp))
         content()
         Spacer(Modifier.height(28.dp))
@@ -229,7 +238,8 @@ private fun SettingsRow(
             Modifier
                 .fillMaxWidth()
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-                .height(48.dp),
+                .height(48.dp)
+                .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -241,7 +251,7 @@ private fun SettingsRow(
             )
             trailing()
         }
-        Hairline()
+        Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
     }
 }
 
