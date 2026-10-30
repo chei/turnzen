@@ -613,7 +613,7 @@ notification on, and both switches start off. Specified in a design interview on
   silently. **The news leads** (October 2026; it used to be the count, with the new games
   named under it): the title names the games that caused the latest alerts, "Your move
   against Joe" (several: "Your move against Joe, Ann"), and the line under it counts all the
-  waiting games, "3 games in all", when the title did not name every one; "20 h left" joins
+  waiting games, "3 waiting", when the title did not name every one; "20 h left" joins
   that line when the one new game's clock is low. With nothing new (a game left the list)
   the title falls back to "Your move in N games", or the one game's name. It expands only
   when several games are new and one of their clocks is under a day, to a line per new game,

@@ -178,7 +178,7 @@
     <string name="notify_messages_many">%1$d new messages</string>
     <string name="notify_your_move_one">Your move against %1$s</string>
     <string name="notify_your_move_many">Your move in %1$d games</string>
-    <string name="notify_games_in_all">%1$d games in all</string>
+    <string name="notify_waiting">%1$d waiting</string>
     <string name="notify_time_left">%1$s left</string>
     <string name="notify_low_time">Low on time vs. %1$s: %2$s left</string>
     <string name="notify_signed_out">Turnzen can\'t check %1$s</string>

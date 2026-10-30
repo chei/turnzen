@@ -168,7 +168,7 @@ class Notifier(
 
     /**
      * The news leads: the title names the games that just came round, and the line under it
-     * counts the rest ("Your move against Joe" / "3 games in all"). With nothing new — a game
+     * counts the rest ("Your move against Joe" / "3 waiting"). With nothing new — a game
      * left the list — it falls back to the count.
      *
      * [largeIcon]: the opponent's icon, for a summary about one game ([SummaryAction.Post.lead]);
@@ -190,20 +190,20 @@ class Notifier(
             } else {
                 context.getString(R.string.notify_your_move_many, games.size)
             }
-        // Under the news: the lead game's low clock, and how many games wait in all when the
-        // title did not name every one of them.
+        // Under the news: the lead game's low clock, and how many games wait, the lead one
+        // included, when the title did not name every one of them.
         val total = games.size.takeIf { newGames.isNotEmpty() && it > newGames.size }
         val text =
             listOfNotNull(
                 lead?.let(::timeLeft),
-                total?.let { context.getString(R.string.notify_games_in_all, it) },
+                total?.let { context.getString(R.string.notify_waiting, it) },
             ).joinToString(" · ").ifEmpty { null }
         // Expandable only when a line would say more than the names already do: a low clock.
         val style =
             if (newGames.size > 1 && newGames.any(TurnWatch::isLow)) {
                 NotificationCompat.InboxStyle().setBigContentTitle(title).also { style ->
                     newGames.forEach { style.addLine(line(it)) }
-                    total?.let { style.setSummaryText(context.getString(R.string.notify_games_in_all, it)) }
+                    total?.let { style.setSummaryText(context.getString(R.string.notify_waiting, it)) }
                 }
             } else {
                 null
