@@ -162,6 +162,38 @@ interface TurnBasedGoServerClient {
     suspend fun ladderStandings(tournament: TournamentRef): Map<GameId, LadderStanding> = emptyMap()
 
     /**
+     * The messages the user has not dealt with yet — what the server's own front page shows
+     * above the games — newest first. The default answers nothing, for a server with no
+     * mailbox. Reading them changes nothing on the server; [dismissMessage] does.
+     */
+    suspend fun newMessages(): List<InboxMessage> = emptyList()
+
+    /**
+     * Takes a message off the new pile, on the server too, so the server's website agrees
+     * that it has been dealt with. Not possible for one that [InboxMessage.awaitsAnswer].
+     */
+    suspend fun dismissMessage(id: MessageId): Unit = throw UnsupportedOperationException("$serverName has no messages")
+
+    /**
+     * Answers [message] (one whose [InboxMessage.canReply] is true) with [text]. Answering
+     * also takes it off the new pile, as [dismissMessage] would.
+     */
+    suspend fun replyToMessage(
+        message: InboxMessage,
+        text: String,
+    ): Unit = throw UnsupportedOperationException("$serverName has no messages")
+
+    /**
+     * Accepts or declines the game invitation in [message], with [text] as the answer to its
+     * sender when there is one. Accepting starts the game, so the caller should confirm it.
+     */
+    suspend fun answerInvitation(
+        message: InboxMessage,
+        accept: Boolean,
+        text: String? = null,
+    ): Unit = throw UnsupportedOperationException("$serverName has no invitations")
+
+    /**
      * The game's page on the server's website, for an "open on the web" link — the escape
      * hatch for everything this client cannot do yet. Null when the server has no such page.
      */

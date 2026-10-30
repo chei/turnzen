@@ -1,5 +1,6 @@
 package dev.turnzen.dgs
 
+import dev.turnzen.dgs.QuickSuite.int
 import dev.turnzen.dgs.http.HttpMethod
 import dev.turnzen.dgs.http.HttpRequest
 import dev.turnzen.dgs.http.HttpResponse
@@ -15,7 +16,9 @@ import dev.turnzen.goserver.GameDetail
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.InboxMessage
 import dev.turnzen.goserver.LadderStanding
+import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.ServerId
@@ -39,6 +42,11 @@ class DgsClient(
 
         /** The largest page DGS returns from a game list; it falls back to 10 outside 1..100. */
         private const val RUNNING_LIMIT = 100
+
+        /** DGS's standard message folders (`obj=folder&cmd=list`); the names are localised, the ids are not. */
+        private const val FOLDER_MAIN = 1
+        private const val FOLDER_NEW = 2
+        private const val FOLDER_REPLY = 3
     }
 
     private val baseUrl = if (baseUrl.endsWith("/")) baseUrl else "$baseUrl/"
@@ -306,6 +314,79 @@ class DgsClient(
             return emptyMap()
         }
         return DgsLadderPage.standings(response.body)
+    }
+
+    /**
+     * The New and "New reply!" folders (2 and 3): the two the status page shows (`on_status`
+     * in the folder list), and `limit=all` is allowed for exactly these two. Listing marks
+     * nothing as read.
+     */
+    override suspend fun newMessages(): List<InboxMessage> =
+        DgsMessages.parseList(
+            quickDo(
+                "obj" to "message",
+                "cmd" to "list",
+                "filter_folders" to "$FOLDER_NEW,$FOLDER_REPLY",
+                "limit" to "all",
+                "lstyle" to "json",
+                "with" to "user_id",
+            ),
+        )
+
+    /** Into the main folder, where the website's own "mark as read" puts a message. */
+    override suspend fun dismissMessage(id: MessageId) {
+        val answer =
+            quickDo(
+                method = HttpMethod.POST,
+                "obj" to "message",
+                "cmd" to "move_msg",
+                "mid" to id.value,
+                "folder" to FOLDER_MAIN.toString(),
+            )
+        // DGS answers success: it just counts a message it would not move (one that still
+        // needs a reply) as a failure.
+        if ((answer.int("failure_count") ?: 0) > 0) {
+            throw GoServerException.ServerError("move_msg", "$serverName kept message ${id.value} in place")
+        }
+    }
+
+    /**
+     * A reply names no recipient (DGS takes the sender of [message]) and, without a folder,
+     * DGS moves [message] into the main folder, as the website does on replying.
+     */
+    override suspend fun replyToMessage(
+        message: InboxMessage,
+        text: String,
+    ) {
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "message",
+            "cmd" to "send_msg",
+            "mid" to message.id.value,
+            "subj" to replySubject(message.subject),
+            "msg" to text.trim(),
+        )
+    }
+
+    override suspend fun answerInvitation(
+        message: InboxMessage,
+        accept: Boolean,
+        text: String?,
+    ) {
+        val answer = text?.trim().orEmpty()
+        quickDo(
+            method = HttpMethod.POST,
+            "obj" to "message",
+            "cmd" to if (accept) "accept_inv" else "decline_inv",
+            "mid" to message.id.value,
+            *(if (answer.isEmpty()) emptyArray() else arrayOf("msg" to answer)),
+        )
+    }
+
+    /** "Re: " once, however long the exchange has been going on. */
+    private fun replySubject(subject: String): String {
+        val trimmed = subject.trim()
+        return if (trimmed.startsWith("re:", ignoreCase = true)) trimmed else "Re: $trimmed"
     }
 
     override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)

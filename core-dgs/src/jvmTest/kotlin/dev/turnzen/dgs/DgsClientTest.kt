@@ -11,6 +11,7 @@ import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.SignedInUser
 import dev.turnzen.goserver.TournamentRef
@@ -454,6 +455,104 @@ class DgsClientTest {
             client.accountUrl(SignedInUser(id = "123456", handle = "fakeuser", displayName = null, rank = null)),
         )
     }
+
+    @Test
+    fun `new messages are the status page's two folders, all of them`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.routes.add(
+                0,
+                { r: HttpRequest -> r.has("obj=message") && r.has("cmd=list") } to
+                    { _: HttpRequest -> ok(Fixtures.text("message_list.json")) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            val messages = client.newMessages()
+            assertEquals(8, messages.size)
+            val list = transport.requests.last()
+            assertEquals(HttpMethod.GET, list.method)
+            assertTrue(list.url.contains("filter_folders=2%2C3"), list.url)
+            assertTrue(list.has("limit=all") && list.has("lstyle=json") && list.has("with=user_id"), list.url)
+        }
+
+    @Test
+    fun `dismissing moves the message into the main folder`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            var refuse = false
+            transport.routes.add(
+                0,
+                { r: HttpRequest -> r.form["cmd"] == "move_msg" } to
+                    { _: HttpRequest ->
+                        ok(Fixtures.text(if (refuse) "message_move_refused.json" else "message_move_ok.json"))
+                    },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+
+            client.dismissMessage(MessageId(DgsClient.SERVER_ID, "9000008"))
+            val move = transport.requests.last()
+            assertEquals(HttpMethod.POST, move.method)
+            assertEquals("message", move.form["obj"])
+            assertEquals("9000008", move.form["mid"])
+            assertEquals("1", move.form["folder"])
+
+            // DGS reports a message it would not move as a count, not an error.
+            refuse = true
+            assertFailsWith<GoServerException.ServerError> {
+                client.dismissMessage(MessageId(DgsClient.SERVER_ID, "9000008"))
+            }
+        }
+
+    @Test
+    fun `a reply names the message, not the recipient, and says Re once`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.routes.add(
+                0,
+                { r: HttpRequest -> r.form["cmd"] == "send_msg" } to
+                    { _: HttpRequest -> ok(Fixtures.text("message_send_ok.json")) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val messages = DgsMessages.parseList(QuickSuite.parse(Fixtures.text("message_list.json")))
+
+            client.replyToMessage(messages.single { it.id.value == "9000003" }, "  Sure, any time.  ")
+            val reply = transport.requests.last()
+            assertEquals("9000003", reply.form["mid"])
+            assertEquals("Re: Hello", reply.form["subj"])
+            assertEquals("Sure, any time.", reply.form["msg"])
+            assertNull(reply.form["ouid"])
+            assertNull(reply.form["ouser"])
+
+            client.replyToMessage(messages.single { it.id.value == "9000002" }, "Yes")
+            assertEquals("Re: game", transport.requests.last().form["subj"])
+        }
+
+    @Test
+    fun `an invitation is accepted or declined by its message`() =
+        runTest {
+            val transport = transportWithHappyPath()
+            transport.routes.add(
+                0,
+                { r: HttpRequest -> r.form["cmd"] == "accept_inv" || r.form["cmd"] == "decline_inv" } to
+                    { _: HttpRequest -> ok(Fixtures.text("message_send_ok.json")) },
+            )
+            val client = DgsClient(transport, "https://dgs.example.test")
+            client.signIn(Credentials("fakeuser", "secret"))
+            val invitation =
+                DgsMessages.parseList(QuickSuite.parse(Fixtures.text("message_list_invitation.json"))).first()
+
+            client.answerInvitation(invitation, accept = true)
+            assertEquals("accept_inv", transport.requests.last().form["cmd"])
+            assertEquals("9000021", transport.requests.last().form["mid"])
+            assertNull(transport.requests.last().form["msg"])
+
+            client.answerInvitation(invitation, accept = false, text = "Sorry, too many games")
+            assertEquals("decline_inv", transport.requests.last().form["cmd"])
+            assertEquals("Sorry, too many games", transport.requests.last().form["msg"])
+        }
 
     @Test
     fun `transport failures are Unreachable`() =

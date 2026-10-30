@@ -640,8 +640,8 @@ notification on, and both switches start off. Specified in a design interview on
   game that is the user's move then counts as seen: it does not alert again. A game that
   stops being the user's move (played on the website, ended) is removed silently; at zero
   games the notification goes.
-- Not notified: finished games, messages, comments (messages later, with the messages
-  feature). No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
+- Not notified: finished games, comments. Messages: decided to notify (October 2026),
+  see "Messages". No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
   silences everything alike; Android offers no way to read the user's bedtime.
 
 ### How it checks
@@ -738,6 +738,76 @@ come from and why.
 - **Privacy**: these are the only requests the app makes to hosts other than the two
   servers (Gravatar, OGS's image host). They carry nothing about the user beyond what any
   image request does.
+
+## Messages (October 2026)
+
+The last reason to open the DGS website: its status page lists new messages above the games,
+and they explain the list — "Challenge started for tournament #119" is why a game appeared,
+"Game result" why one went. Post-MVP item 10, specified on 30 October 2026. DGS only for now.
+
+### Decisions
+
+- **A "new messages" block at the top of the "Your turn" tab**, mirroring the status page,
+  gone when nothing is new. One compact row per message (sender or "DGS", subject, first line,
+  time); tapping expands it; a message about a game offers "Open game".
+- **Dismissing a message clears it on DGS too** (moves it out of the New folder), so the
+  website's status page agrees. A deliberate act, like Send: reading a row does not dismiss it.
+- **Replying happens in the app** (`send_msg`).
+- **Invitations are handled in the app** (accept / decline), although they are rare.
+- **New messages count in the background check** and notify, as a notification of their
+  own rather than a line in the "Your move" summary.
+- Later: the game rows explain themselves (post-MVP items 13 and 14), which takes the game
+  messages out of the block; and a full Messages destination for older messages.
+
+### What the server sends (recorded 30 October 2026, server 1.20.5)
+
+- `obj=folder&cmd=list` gives the folders: 1 main ("All"), 2 New, 3 "New reply!", 4 trash,
+  5 sent. Names come in the account's language; `on_status=1` marks the ones the status page
+  shows — 2 and 3 — so the block should list both, not only `filter_folders=2`.
+- `obj=message&cmd=list` columns: `id`, `user_from.*`, `user_to.*` (handle, name, country,
+  rating, rating_elo), `type`, `flags`, `folder.id`, `created_at`, `thread`, `level`,
+  `message_prev`, `message_hasnext`, `can_reply`, `need_reply`, `game_id`, `subject`, `text`.
+  Default limit 10, newest first (`list_order=id-`). Listing does not mark anything read.
+- **Rows are not all the shape `list_header` says.** A system message has
+  `user_from.id = 0` and nothing else for the sender (21 columns); a player's message has
+  `user_from.id, handle, name, country, rating, rating_elo` (26 columns). `list_header` is
+  built from the *first* row, so a parser must read each row by its own sender, not by the
+  header.
+- Kinds seen in 100 messages (March–October 2026): system "Challenge started for tournament
+  #N" (type `NORMAL`, `game_id` 0), system "Game result" (type `RESULT`, `game_id` set),
+  system "Invitation for tournament #N" (type `NORMAL`; answered on the tournament's page, not
+  through the message API), and players' messages (type `NORMAL`, `can_reply` 1, `game_id`
+  0 in every one seen). No game invitation (type `INVITATION`) in that sample.
+- Players' messages are threaded: `thread` is the id of the thread's first message, `level`
+  the depth, `message_prev` the message answered, `message_hasnext` 1 once it has an answer;
+  `need_reply` was 1 only on messages that had since been answered.
+- **The text carries DGS markup, not plain text**: `<user 44372>`, `<tourney 119>`,
+  `<game 1510946>` tags (a challenge names its game only this way, as `game_id` is 0), and
+  "Game result" is HTML (`<center>`, `<A href=…>`, `<p>`). Render the tags as names and links,
+  drop the HTML.
+- **System messages are not in the reader's language**: a challenge comes in the
+  *challenger's* language ("Herausforderung f…r Turnier #119 gestartet", "Partie:"). The
+  wording cannot be parsed; the tags and `type` can.
+- **The server damages non-ASCII in those texts** (in its JSON; the raw response shows it):
+  "für Turnier" arrives as `f?00720020005400750072nier` — the accented letter replaced by
+  `?`, the next few characters as four-digit hex code units — and a
+  challenger's "Game:" in a non-Latin script as `??003a0020`. The lost letters cannot be
+  recovered. So a system message is shown as Turnzen's own sentence built from its `type`
+  and tags ("opp_a (#6) challenged you on ladder #119 · you are #3"), in the app's language,
+  never as the server's text. Players' messages arrived intact in the sample.
+- The client asks for `lstyle=json`, as for the game lists: each message is then an object
+  with nested `user_from` / `user_to`, and the mismatched header of the table style never
+  arises. Folders 2 and 3 with `limit=all` (allowed for exactly those two).
+- Fixtures: `message_list.json` is eight real rows (recorded in the table style, scrubbed,
+  and rewritten into the JSON style's shape; accounts, ids and players' texts replaced, the
+  damaged text kept). `message_list_invitation.json` and the `move_msg` / `send_msg`
+  answers are written from `specs/quick_suite.txt` — no game invitation has been seen live.
+- Dismissing is `cmd=move_msg&folder=1`: the main folder, where the website puts a message
+  once read. A message that still needs a reply is not moved, which DGS reports as
+  `failure_count`, not as an error. Replying is `cmd=send_msg&mid=…` with no recipient (DGS
+  takes the sender) and a "Re: " subject; it moves the original into the main folder as the
+  website does. Invitations: `cmd=accept_inv` / `decline_inv` with `mid` and an optional
+  `msg`.
 
 ## Licensing
 
@@ -1175,8 +1245,8 @@ partly so the project could grow beyond Go (see Naming).
    sheet has no such slot, and "Save SGF" is a second row.
 9. **Games — "Waiting for opponent"** — a second view (tab or filter) in the Games
    destination, view-only.
-10. **Messages and invitations** — inbox, accept/decline invitations. Game creation stays
-    "open in browser".
+10. **Messages and invitations** — inbox, accept/decline invitations, reply. Game creation
+    stays "open in browser". *Specified (October 2026), not built*: see "Messages".
 11. **Finished games** — *the recent tail is done (September 2026)*: the "Finished" tab on
     the Games screen, described under screen 2 above, plus the read-only board it opens. Not
     yet: a full browsable archive (paging past what fits on one screen, searching or
