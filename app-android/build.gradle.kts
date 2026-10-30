@@ -30,6 +30,12 @@ android {
         buildConfigField("String", "OGS_CLIENT_ID", "\"$ogsClientId\"")
     }
 
+    // Turnzen is English only, so the libraries' own translations are left out (~190 KB).
+    // A translation of Turnzen must add its language here, or its values-xx folder is dropped.
+    androidResources {
+        localeFilters += listOf("en")
+    }
+
     // Debug builds are signed with a key committed to the repo rather than each machine's own
     // ~/.android/debug.keystore, so an APK from CI and one from any laptop are the same app to
     // Android and install over each other, keeping the app's data. The key signs nothing but
