@@ -66,15 +66,15 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 
 ### Server marks (OGS support, September 2026)
 
-Each server has a colour taken from its own web presence. It is only ever a **4dp rounded
-bar** at a list row's leading edge (in the 20dp margin, 8dp in, so the text column never
-moves) or a **small dot** (8dp) beside a name or a heading — never a fill, so it competes
-neither with the `accentSoft` refresh wash nor with the board. The marks show even when only
-one server is signed in; with one server they are a quiet accent.
+Each server has a colour taken from its own web presence. It is only ever a **small dot**
+(8dp) before a name or a heading — a game or message row's opponent, the board screen's
+header — or a **4dp rounded bar** beside an account in the sign-in panels; never a fill, so
+it competes neither with the `accentSoft` refresh wash nor with the board. The marks show
+even when only one server is signed in; with one server they are a quiet accent.
 
-In a list with player icons the bar goes (October 2026): the **icon's shape** marks the
-server instead — a square on OGS, which shows its pictures as squares, a circle on DGS,
-which has no pictures. The bar returns when Settings turns the icons off.
+The **icon's shape** marks the server too: a square on OGS, which shows its pictures as
+squares, a circle on DGS, which has no pictures. (Until October 2026 list rows had the bar
+at their leading edge; beside a coloured icon it was too busy.)
 
 | Token | Light | Dark |
 |---|---|---|

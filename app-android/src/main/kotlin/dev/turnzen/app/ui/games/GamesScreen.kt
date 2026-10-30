@@ -66,7 +66,7 @@ import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ProblemMessage
 import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
-import dev.turnzen.app.ui.common.ServerBar
+import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.StoneIcon
 import dev.turnzen.app.ui.common.scrollIndicator
 import dev.turnzen.app.ui.messages.GamesHeading
@@ -552,9 +552,6 @@ private fun GameRow(
                 // before the padding, so the wash runs the full width of the screen.
                 .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) },
         ) {
-            // Without icons, whose shape tells the server, the server's mark sits in the margin,
-            // so the text keeps its column whether one server is signed in or two.
-            if (!showIcon) ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
             GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
@@ -610,7 +607,9 @@ private fun GameRowText(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // One line, always: a name wrapped under a long outcome ("Won by resignation")
         // pushed the line below out of the row. The handle gives way, the rank does not.
-        Row {
+        // The server's dot leads it, as on the board screen's header.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ServerDot(game.id.server, Modifier.padding(end = 8.dp))
             Text(
                 game.opponent.handle,
                 Modifier.weight(1f, fill = false),

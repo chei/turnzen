@@ -56,7 +56,6 @@ import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.PlayerIcon
-import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.iconIsSquare
 import dev.turnzen.app.ui.common.serverColor
@@ -110,7 +109,6 @@ fun MessageListRow(
             .semantics { stateDescription = "message on $serverName" },
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
-            if (!showIcon) ServerBar(row.message.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -120,7 +118,8 @@ fun MessageListRow(
                     Spacer(Modifier.width(12.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ServerDot(row.message.id.server, Modifier.padding(end = 8.dp))
                         Text(
                             row.text.title,
                             Modifier.weight(1f),
