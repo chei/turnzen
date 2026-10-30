@@ -650,8 +650,7 @@ notification on, and both switches start off. Specified in a design interview on
   as "Message from mkvtl", the subject and first line under it). One message: tapping opens
   it in its sheet over "Your turn". Several: "3 new messages", a line each when expanded,
   and tapping opens "Your turn", which they lead. A message dealt with on the website takes
-  it down silently. The switch, added after the other two, follows "Your move" until the
-  user sets it: whoever asked to hear about their moves has granted the permission already.
+  it down silently.
   Decided by `MessageWatch`, plain Kotlin beside `TurnWatch`, and checked in the same run.
 - Not notified: finished games, comments. No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
   silences everything alike; Android offers no way to read the user's bedtime.

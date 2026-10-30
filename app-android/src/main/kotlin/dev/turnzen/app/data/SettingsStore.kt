@@ -112,10 +112,7 @@ class SettingsStore internal constructor(
             notifications =
                 NotificationSettings(
                     yourMove = prefs.getBoolean(KEY_NOTIFY_YOUR_MOVE, false),
-                    // Added after the other two (October 2026): someone who asked to hear about
-                    // their moves has granted the permission and wants to hear about this too,
-                    // so until they choose it follows "Your move".
-                    messages = prefs.getBoolean(KEY_NOTIFY_MESSAGES, prefs.getBoolean(KEY_NOTIFY_YOUR_MOVE, false)),
+                    messages = prefs.getBoolean(KEY_NOTIFY_MESSAGES, false),
                     lowTime = prefs.getBoolean(KEY_NOTIFY_LOW_TIME, false),
                     checkEvery =
                         runCatching { CheckInterval.valueOf(prefs.getString(KEY_CHECK_EVERY, null) ?: "") }
