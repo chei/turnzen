@@ -80,6 +80,7 @@ Rules that follow from this:
 ./gradlew :app-android:testDebugUnitTest                        # view-model tests, JVM only
 ./gradlew :app-android:assembleDebug                            # APK
 ./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK using the in-memory demo servers (DGS + OGS)
+./gradlew :app-android:assemblePreview                          # shrunk APK (~2.5 MB) for the phone, test-key signed
 ./gradlew ktlintCheck                                           # ktlintFormat fixes most findings
 ```
 

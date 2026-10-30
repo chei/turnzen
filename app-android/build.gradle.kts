@@ -58,6 +58,12 @@ android {
                 "proguard-rules.pro",
             )
         }
+        // The release build, shrunk by R8 (~2.5 MB against the debug build's ~16 MB), signed
+        // with the shared test key so it installs over a debug build and keeps its sign-ins.
+        create("preview") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     compileOptions {

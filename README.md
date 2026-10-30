@@ -17,6 +17,7 @@ Requirements: JDK 17+ (21 recommended), Android SDK with platform 37 and build-t
 ./gradlew ktlintCheck                                           # style (ktlintFormat fixes)
 ./gradlew :app-android:assembleDebug                            # APK
 ./gradlew :app-android:assembleDebug -Pturnzen.fakeServer=true  # APK against an in-memory demo server
+./gradlew :app-android:assemblePreview                          # shrunk APK (~2.5 MB) for the phone, test-key signed
 ```
 
 ## Modules

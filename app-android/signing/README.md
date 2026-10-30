@@ -1,7 +1,8 @@
 # Debug signing key
 
-`turnzen-debug.keystore` signs every **debug** build of Turnzen, wherever it is built: on a
-laptop, in Android Studio, or in CI. Android only installs an update over an app signed with
+`turnzen-debug.keystore` signs every **debug** and **preview** build of Turnzen, wherever it
+is built: on a laptop, in Android Studio, or in CI. Preview is the release build, shrunk by
+R8, under this key; it is what CI publishes. Android only installs an update over an app signed with
 the same key, so sharing one key means a CI APK installs over a laptop build and the other way
 round, and the app keeps its data (sign-ins included).
 
