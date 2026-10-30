@@ -61,6 +61,7 @@ import dev.turnzen.app.ui.signin.SignInScreen
 import dev.turnzen.app.ui.theme.TurnzenTheme
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.goserver.GameId
+import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.ServerId
 
 /**
@@ -178,6 +179,9 @@ private fun SignedInShell(container: AppContainer) {
     // what a Bundle can carry — and tagged with the process that opened it, see
     // [openGameSaver].
     var openGameId by rememberSaveable(saver = openGameSaver) { mutableStateOf<String?>(null) }
+
+    // A message a tapped notification asked to open; handed to the games screen, which opens it.
+    var messageToOpen by remember { mutableStateOf<MessageId?>(null) }
     val openGame = openGameId?.let(::decodeGameId)
     val settings by container.settings.settings.collectAsStateWithLifecycle()
 
@@ -218,6 +222,13 @@ private fun SignedInShell(container: AppContainer) {
             OpenRequest.Settings -> {
                 tab = MainTab.SETTINGS
                 openGameId = null
+            }
+
+            is OpenRequest.Message -> {
+                tab = MainTab.GAMES
+                gamesTab = GamesTab.YOUR_TURN
+                openGameId = null
+                messageToOpen = request.id
             }
         }
         container.openRequests.value = null
@@ -292,6 +303,8 @@ private fun SignedInShell(container: AppContainer) {
                         onOpenGame = { openGameId = encodeGameId(it) },
                         onSignInAgain = { tab = MainTab.SETTINGS },
                         showPlayerIcons = settings.playerIcons,
+                        messageToOpen = messageToOpen,
+                        onMessageOpened = { messageToOpen = null },
                     )
                 }
             }

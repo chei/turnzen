@@ -23,15 +23,17 @@ enum class CheckInterval(
     HOUR_3(180),
 }
 
-/** Both switches start off: notifications are asked for, never assumed. */
+/** Every switch starts off: notifications are asked for, never assumed. */
 data class NotificationSettings(
     val yourMove: Boolean = false,
     val lowTime: Boolean = false,
     val checkEvery: CheckInterval = CheckInterval.MIN_30,
+    /** New messages on a server (DGS's mailbox). */
+    val messages: Boolean = false,
 ) {
     /** Whether the background check has anything to do at all. */
     val anyOn: Boolean
-        get() = yourMove || lowTime
+        get() = yourMove || lowTime || messages
 }
 
 /** Which colour scheme the app uses; SYSTEM follows the device setting. */
@@ -85,6 +87,7 @@ class SettingsStore internal constructor(
             .putString(KEY_THEME, next.theme.name)
             .putBoolean(KEY_NOTIFY_YOUR_MOVE, next.notifications.yourMove)
             .putBoolean(KEY_NOTIFY_LOW_TIME, next.notifications.lowTime)
+            .putBoolean(KEY_NOTIFY_MESSAGES, next.notifications.messages)
             .putString(KEY_CHECK_EVERY, next.notifications.checkEvery.name)
             .putBoolean(KEY_PLAYER_ICONS, next.playerIcons)
             .apply()
@@ -109,6 +112,10 @@ class SettingsStore internal constructor(
             notifications =
                 NotificationSettings(
                     yourMove = prefs.getBoolean(KEY_NOTIFY_YOUR_MOVE, false),
+                    // Added after the other two (October 2026): someone who asked to hear about
+                    // their moves has granted the permission and wants to hear about this too,
+                    // so until they choose it follows "Your move".
+                    messages = prefs.getBoolean(KEY_NOTIFY_MESSAGES, prefs.getBoolean(KEY_NOTIFY_YOUR_MOVE, false)),
                     lowTime = prefs.getBoolean(KEY_NOTIFY_LOW_TIME, false),
                     checkEvery =
                         runCatching { CheckInterval.valueOf(prefs.getString(KEY_CHECK_EVERY, null) ?: "") }
@@ -125,6 +132,7 @@ class SettingsStore internal constructor(
         const val KEY_THEME = "theme_mode"
         const val KEY_NOTIFY_YOUR_MOVE = "notify_your_move"
         const val KEY_NOTIFY_LOW_TIME = "notify_low_time"
+        const val KEY_NOTIFY_MESSAGES = "notify_messages"
         const val KEY_CHECK_EVERY = "notify_check_every"
         const val KEY_PLAYER_ICONS = "player_icons"
     }

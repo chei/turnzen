@@ -76,6 +76,23 @@ object MessageWording {
             }
         }
 
+    /**
+     * The same, for a notification, where nothing else says it is a message: a player's
+     * message is "Message from mkvtl" rather than the bare name a row in the block shows.
+     */
+    fun notification(
+        message: InboxMessage,
+        game: (GameId) -> GameSummary?,
+    ): MessageText {
+        val text = describe(message, game)
+        val from = message.from
+        return if (message.topic == MessageTopic.Conversation && from != null) {
+            text.copy(title = "Message from ${from.handle}")
+        } else {
+            text
+        }
+    }
+
     /** "13x13, rated, you play black, handicap 1, komi 0.5, F: 10d + 1d". */
     fun settingsLine(settings: InvitationSettings): String =
         listOfNotNull(

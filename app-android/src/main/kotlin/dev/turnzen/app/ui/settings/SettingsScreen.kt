@@ -127,6 +127,10 @@ fun SettingsScreen(
                 viewModel.updateNotifications { it.copy(lowTime = on) }
                 if (on) switchOn()
             }
+            ToggleRow(stringResource(R.string.settings_notify_messages), notifications.messages) { on ->
+                viewModel.updateNotifications { it.copy(messages = on) }
+                if (on) switchOn()
+            }
             if (notifications.anyOn) {
                 ValueRow(stringResource(R.string.settings_check_every), intervalLabel(notifications.checkEvery)) {
                     choosingInterval = true

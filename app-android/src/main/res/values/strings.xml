@@ -162,6 +162,7 @@
     <string name="settings_group_notifications">Notifications</string>
     <string name="settings_notify_your_move">Your move</string>
     <string name="settings_notify_low_time">Time running low</string>
+    <string name="settings_notify_messages">New messages</string>
     <string name="settings_check_every">Check every</string>
     <string name="settings_notifications_blocked">Android is blocking Turnzen\'s notifications.</string>
     <string name="settings_notifications_allow">Allow in Android settings</string>
@@ -173,6 +174,8 @@
     <string name="notify_channel_your_move">Your move</string>
     <string name="notify_channel_low_time">Time running low</string>
     <string name="notify_channel_signed_out">Signed out</string>
+    <string name="notify_channel_messages">New messages</string>
+    <string name="notify_messages_many">%1$d new messages</string>
     <string name="notify_your_move_one">Your move against %1$s</string>
     <string name="notify_your_move_many">Your move in %1$d games</string>
     <string name="notify_games_in_all">%1$d games in all</string>

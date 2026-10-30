@@ -15,6 +15,7 @@ import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.app.notify.CheckSchedule
+import dev.turnzen.app.notify.MessageWatch
 import dev.turnzen.app.notify.NotificationIcons
 import dev.turnzen.app.notify.Notifier
 import dev.turnzen.app.notify.OpenRequest
@@ -116,7 +117,7 @@ class AppContainer(
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** The new messages on every server, for the block above "Your turn". */
-    val messages = MessagesStore(accounts)
+    val messages = MessagesStore(accounts) { seen -> watchState.updateMessages { MessageWatch.seen(it, seen) } }
 
     /** Sent moves on their way to the server; app-wide, as the board they left is gone. */
     val outbox = MoveOutbox(accounts, games, MainScope())
@@ -141,6 +142,7 @@ class AppContainer(
         inForeground = true
         notifier.cancelAll()
         watchState.update { TurnWatch.seen(it) }
+        watchState.updateMessages { MessageWatch.seen(it) }
     }
 
     /** Where a tapped notification asked to go; consumed by the screen that goes there. */

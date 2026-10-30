@@ -16,10 +16,13 @@ import androidx.core.app.NotificationManagerCompat
 import dev.turnzen.app.MainActivity
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.Formatting
+import dev.turnzen.app.ui.messages.MessageText
 import dev.turnzen.app.ui.theme.DarkColors
 import dev.turnzen.app.ui.theme.LightColors
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.InboxMessage
+import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.ServerId
 
 /**
@@ -33,12 +36,19 @@ sealed interface OpenRequest {
 
     data object YourTurn : OpenRequest
 
+    /** The new message [id], opened over "Your turn". */
+    data class Message(
+        val id: MessageId,
+    ) : OpenRequest
+
     data object Settings : OpenRequest
 
     companion object {
         private const val ACTION_GAME = "dev.turnzen.OPEN_GAME"
         private const val ACTION_YOUR_TURN = "dev.turnzen.OPEN_YOUR_TURN"
         private const val ACTION_SETTINGS = "dev.turnzen.OPEN_SETTINGS"
+        private const val ACTION_MESSAGE = "dev.turnzen.OPEN_MESSAGE"
+        private const val EXTRA_MESSAGE = "message"
         private const val EXTRA_SERVER = "server"
         private const val EXTRA_GAME = "game"
 
@@ -56,6 +66,12 @@ sealed interface OpenRequest {
 
                 ACTION_SETTINGS -> {
                     Settings
+                }
+
+                ACTION_MESSAGE -> {
+                    val server = intent.getStringExtra(EXTRA_SERVER)
+                    val message = intent.getStringExtra(EXTRA_MESSAGE)
+                    if (server != null && message != null) Message(MessageId(ServerId(server), message)) else null
                 }
 
                 else -> {
@@ -82,6 +98,12 @@ sealed interface OpenRequest {
 
                     Settings -> {
                         action = ACTION_SETTINGS
+                    }
+
+                    is Message -> {
+                        action = ACTION_MESSAGE
+                        putExtra(EXTRA_SERVER, request.id.server.value)
+                        putExtra(EXTRA_MESSAGE, request.id.value)
                     }
                 }
             }
@@ -126,6 +148,11 @@ class Notifier(
                 NotificationChannel(
                     CHANNEL_SIGNED_OUT,
                     context.getString(R.string.notify_channel_signed_out),
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ),
+                NotificationChannel(
+                    CHANNEL_MESSAGES,
+                    context.getString(R.string.notify_channel_messages),
                     NotificationManager.IMPORTANCE_DEFAULT,
                 ),
             ),
@@ -230,6 +257,55 @@ class Notifier(
 
     fun cancelLowTime(id: GameId) = manager.cancel(lowTimeTag(id), ID_LOW_TIME)
 
+    /**
+     * The new messages, worded as the block in the app words them ([texts], one per message,
+     * newest first). One message: its own sentence, and tapping opens it. Several: how many,
+     * a line each when expanded, and tapping opens "Your turn", where they lead the list.
+     */
+    fun postMessages(
+        messages: List<InboxMessage>,
+        texts: List<MessageText>,
+        alert: Boolean,
+    ) {
+        if (messages.isEmpty()) return cancelMessages()
+        val single = messages.singleOrNull()
+        val title =
+            if (single != null) {
+                texts.first().title
+            } else {
+                context.getString(R.string.notify_messages_many, messages.size)
+            }
+        val text =
+            if (single != null) texts.first().detail else texts.joinToString(", ") { it.title }
+        val style =
+            if (single == null) {
+                NotificationCompat.InboxStyle().setBigContentTitle(title).also { style ->
+                    texts.forEach { style.addLine(listOfNotNull(it.title, it.detail).joinToString(" · ")) }
+                }
+            } else {
+                NotificationCompat.BigTextStyle().bigText(text)
+            }
+        val open = if (single != null) OpenRequest.Message(single.id) else OpenRequest.YourTurn
+        val notification =
+            NotificationCompat
+                .Builder(context, CHANNEL_MESSAGES)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setColor(accent())
+                .setContentTitle(title)
+                .setContentText(text)
+                .setStyle(style)
+                .setNumber(messages.size)
+                .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+                .setContentIntent(pending(open, ID_MESSAGES))
+                .setAutoCancel(true)
+                .setOnlyAlertOnce(!alert)
+                .setSilent(!alert)
+                .build()
+        post(null, ID_MESSAGES, notification)
+    }
+
+    fun cancelMessages() = manager.cancel(ID_MESSAGES)
+
     fun postSignedOut(
         server: ServerId,
         serverName: String,
@@ -256,7 +332,7 @@ class Notifier(
         context
             .getSystemService(NotificationManager::class.java)
             .activeNotifications
-            .filter { it.id == ID_SUMMARY || it.id == ID_LOW_TIME || it.id == ID_SIGNED_OUT }
+            .filter { it.id == ID_SUMMARY || it.id == ID_LOW_TIME || it.id == ID_SIGNED_OUT || it.id == ID_MESSAGES }
             .forEach { manager.cancel(it.tag, it.id) }
     }
 
@@ -309,11 +385,13 @@ class Notifier(
         const val CHANNEL_YOUR_MOVE = "your-move"
         const val CHANNEL_LOW_TIME = "low-time"
         const val CHANNEL_SIGNED_OUT = "signed-out"
+        const val CHANNEL_MESSAGES = "messages"
 
         // 1 is the sign-in keep-awake service's.
         const val ID_SUMMARY = 100
         const val ID_LOW_TIME = 101
         const val ID_SIGNED_OUT = 102
+        const val ID_MESSAGES = 103
         const val LOW_TIME_TAG = "low-time:"
         const val SIGNED_OUT_TAG = "signed-out:"
     }

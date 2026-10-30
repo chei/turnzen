@@ -643,8 +643,17 @@ notification on, and both switches start off. Specified in a design interview on
   game that is the user's move then counts as seen: it does not alert again. A game that
   stops being the user's move (played on the website, ended) is removed silently; at zero
   games the notification goes.
-- Not notified: finished games, comments. Messages: decided to notify (October 2026),
-  see "Messages". No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
+- **New messages** (October 2026): one notification for every new message on every
+  server, on its own channel ("New messages", default importance), with its own switch. It
+  sounds only when a message has arrived since the last check, and names only the messages
+  that came since the app was last open, worded as the block words them (a player's message
+  as "Message from mkvtl", the subject and first line under it). One message: tapping opens
+  it in its sheet over "Your turn". Several: "3 new messages", a line each when expanded,
+  and tapping opens "Your turn", which they lead. A message dealt with on the website takes
+  it down silently. The switch, added after the other two, follows "Your move" until the
+  user sets it: whoever asked to hear about their moves has granted the permission already.
+  Decided by `MessageWatch`, plain Kotlin beside `TurnWatch`, and checked in the same run.
+- Not notified: finished games, comments. No quiet hours of Turnzen's own: that is Do Not Disturb / Bedtime mode, which
   silences everything alike; Android offers no way to read the user's bedtime.
 
 ### How it checks
@@ -668,7 +677,7 @@ notification on, and both switches start off. Specified in a design interview on
 
 ### Settings and permissions
 
-- A Notifications group: "Your move" and "Time running low" switches, and "Check every"
+- A Notifications group: "Your move", "Time running low" and "New messages" switches, and "Check every"
   (hidden while both are off). Turning a switch on asks for POST_NOTIFICATIONS (Android 13+)
   there and then — never at first launch. If notifications are blocked (denied, revoked, or
   switched off for the app), the group says so and links to Android's notification settings.

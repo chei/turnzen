@@ -16,8 +16,10 @@ import dev.turnzen.app.TurnzenApplication
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.AuthState
 import dev.turnzen.app.data.NotificationSettings
+import dev.turnzen.app.ui.messages.MessageWording
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.GoServerException
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -78,6 +80,8 @@ class TurnCheck(
                     }.awaitAll()
             }
         val answered = answers.mapNotNull { (server, r) -> r.getOrNull()?.let { server to it } }.toMap()
+        // Switched off, this asks no server and only takes the notification down.
+        checkMessages(prefs.messages, answered)
         // A session that has signed the user out says why; one the user signed out of does not.
         val signedOut =
             accounts.sessions
@@ -117,6 +121,59 @@ class TurnCheck(
         outcome.lowTimeAlerts.forEach { notifier.postLowTime(it, icon(it)) }
         outcome.signedOutAlerts.forEach { notifier.postSignedOut(it, accounts.session(it).serverName) }
         schedule.lowTimeAt(outcome.nextLowTimeCheck, input.now, asLowTimeJob)
+    }
+
+    /**
+     * The new messages: asked of every signed-in server, decided on by [MessageWatch]. A
+     * server that does not answer is left out; its messages wait for the next check. [games]
+     * is what this check already knows of the games, for the names the messages are worded with.
+     */
+    private suspend fun checkMessages(
+        on: Boolean,
+        games: Map<ServerId, List<GameSummary>>,
+    ) {
+        val answered =
+            if (!on) {
+                emptyMap()
+            } else {
+                coroutineScope {
+                    accounts.sessions
+                        .filter { it.isSignedIn }
+                        .map { session ->
+                            async {
+                                try {
+                                    session.serverId to session.call { it.newMessages() }
+                                } catch (e: GoServerException) {
+                                    null
+                                }
+                            }
+                        }.awaitAll()
+                        .filterNotNull()
+                        .toMap()
+                }
+            }
+        lateinit var outcome: MessagesOutcome
+        store.updateMessages { state ->
+            MessageWatch.check(state, answered, on, inForeground()).also { outcome = it }.state
+        }
+        when (val action = outcome.action) {
+            MessagesAction.Keep -> {
+                Unit
+            }
+
+            MessagesAction.Cancel -> {
+                notifier.cancelMessages()
+            }
+
+            is MessagesAction.Post -> {
+                val known = games.values.flatten().associateBy { it.id }
+                notifier.postMessages(
+                    action.messages,
+                    action.messages.map { MessageWording.notification(it, known::get) },
+                    action.alert,
+                )
+            }
+        }
     }
 }
 

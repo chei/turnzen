@@ -78,6 +78,7 @@ import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.PendingAction
 import kotlinx.coroutines.launch
 
@@ -92,8 +93,17 @@ fun GamesScreen(
     onSignInAgain: () -> Unit = {},
     /** Opponents' icons on the rows (a setting, on by default). */
     showPlayerIcons: Boolean = true,
+    /** A message to open, as a tapped notification asked; [onMessageOpened] once it is. */
+    messageToOpen: MessageId? = null,
+    onMessageOpened: () -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(messageToOpen) {
+        // Opened by id: on a cold start the sheet appears once the refresh brings the message.
+        messageToOpen?.let(viewModel::openMessage)
+        if (messageToOpen != null) onMessageOpened()
+    }
 
     // Refresh every time the list is shown: on app start, on returning from a game, and on
     // resume after the app was in the background. Tied to the resumed state rather than to
