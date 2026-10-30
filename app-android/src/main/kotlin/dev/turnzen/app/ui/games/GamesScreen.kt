@@ -68,7 +68,6 @@ import dev.turnzen.app.ui.common.ProblemState
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.StoneIcon
-import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.common.scrollIndicator
 import dev.turnzen.app.ui.messages.GamesHeading
 import dev.turnzen.app.ui.messages.MessageListRow
@@ -553,9 +552,9 @@ private fun GameRow(
                 // before the padding, so the wash runs the full width of the screen.
                 .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) },
         ) {
-            // The server's mark sits in the margin, so the text keeps its column whether one
-            // server is signed in or two.
-            ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
+            // Without icons, whose shape tells the server, the server's mark sits in the margin,
+            // so the text keeps its column whether one server is signed in or two.
+            if (!showIcon) ServerBar(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
             GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
@@ -577,7 +576,7 @@ private fun GameRowContent(
             PlayerIcon(
                 game.opponent.iconUrl,
                 game.opponent.handle,
-                colorKey = playerColorKey(game.id.server, game.opponent.handle),
+                game.id.server,
                 size = ICON_SIZE.dp,
             )
             Spacer(Modifier.width(12.dp))

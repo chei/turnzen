@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -57,7 +58,7 @@ import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.ServerDot
-import dev.turnzen.app.ui.common.playerColorKey
+import dev.turnzen.app.ui.common.iconIsSquare
 import dev.turnzen.app.ui.common.serverColor
 import dev.turnzen.app.ui.games.MessageRow
 import dev.turnzen.app.ui.theme.colors
@@ -109,7 +110,7 @@ fun MessageListRow(
             .semantics { stateDescription = "message on $serverName" },
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
-            ServerBar(row.message.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
+            if (!showIcon) ServerBar(row.message.id.server, Modifier.align(Alignment.CenterStart).padding(start = 8.dp))
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -168,7 +169,7 @@ private fun SenderIcon(
         Box(
             Modifier
                 .size(ICON_SIZE.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(if (iconIsSquare(row.message.id.server)) RoundedCornerShape(4.dp) else CircleShape)
                 .background(serverColor(row.message.id.server).copy(alpha = 0.35f)),
         )
         return
@@ -176,7 +177,7 @@ private fun SenderIcon(
     PlayerIcon(
         url = person.iconUrl,
         name = person.handle,
-        colorKey = playerColorKey(row.message.id.server, person.handle),
+        server = row.message.id.server,
         size = ICON_SIZE.dp,
     )
 }

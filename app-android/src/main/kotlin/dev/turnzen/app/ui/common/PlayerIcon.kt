@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -43,9 +44,9 @@ import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * A player's icon: a square with softened corners — the way OGS shows its pictures, and
- * unlike a stone, the one round thing on these screens. The picture they chose where the
- * server has one ([url]); otherwise their initial in colours made from their name
+ * A player's icon, its shape telling the server ([iconIsSquare]): a square with softened
+ * corners on OGS, as OGS shows its pictures, and a circle on DGS. The picture they chose where
+ * the server has one ([url]); otherwise their initial in colours made from their name
  * ([PlayerColors]), so every opponent is told apart at a glance on either server.
  * Decorative: the name next to it is what TalkBack reads.
  *
@@ -56,8 +57,7 @@ import kotlin.time.Duration.Companion.milliseconds
 fun PlayerIcon(
     url: String?,
     name: String,
-    /** What the colours are made from: the same for the same player, whichever list shows them. */
-    colorKey: String,
+    server: ServerId,
     size: Dp,
     modifier: Modifier = Modifier,
 ) {
@@ -69,7 +69,7 @@ fun PlayerIcon(
                 url?.let { PlayerIcons.load(it, cacheDir) }?.let(Picture::Loaded) ?: Picture.None
         }
     }
-    val tint = remember(colorKey) { PlayerColors.of(colorKey) }
+    val tint = remember(server, name) { PlayerColors.of(playerColorKey(server, name)) }
     // Sized from the icon rather than the font scale, so a large system font cannot push the
     // letter out of its square; the name beside it scales as usual.
     val letterSize = with(LocalDensity.current) { (size * LETTER_RATIO).toSp() }
@@ -81,7 +81,7 @@ fun PlayerIcon(
     Box(
         modifier
             .size(size)
-            .clip(RoundedCornerShape(CORNER))
+            .clip(if (iconIsSquare(server)) RoundedCornerShape(CORNER) else CircleShape)
             .then(if (letter) Modifier.background(tint.background) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
@@ -119,6 +119,13 @@ internal fun playerColorKey(
     server: ServerId,
     handle: String,
 ): String = "${server.value}:${handle.lowercase()}"
+
+/**
+ * Whether [server]'s players get a square icon. OGS shows its pictures as squares, so its
+ * players get one; DGS has no pictures, and its players' initials sit in a circle. The shape
+ * is what tells the servers apart in a list, where a row has no other server mark.
+ */
+internal fun iconIsSquare(server: ServerId): Boolean = server.value != "dgs"
 
 /** The first letter or digit of [name], so "_kaya" shows K rather than an underscore. */
 internal fun initial(name: String): String =

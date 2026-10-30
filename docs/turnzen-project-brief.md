@@ -317,7 +317,9 @@ for it.
 - **The colour is a 4dp rounded bar at the leading edge of every game row**, in the server's
   colour — never a row background, so it competes neither with the refresh wash nor with the
   board. It is shown **always**, even when only one server is signed in; with a single server
-  it reads as a design accent rather than a label.
+  it reads as a design accent rather than a label. With player icons on, rows drop the bar
+  and the icon's shape marks the server instead: square on OGS, circle on DGS (October 2026,
+  the user found the bar beside a coloured square too busy).
 - **The same bar or dot marks a server everywhere** a game or account appears: the Running
   and Finished tabs, the board screen (a dot beside the opponent's name), the game info sheet,
   the sign-in panels, the Settings account sections, and error lines.

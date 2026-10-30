@@ -101,7 +101,6 @@ import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.SGF_MIME_TYPE
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.TextAction
-import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.common.saveInShareSheet
 import dev.turnzen.app.ui.common.saveSgf
 import dev.turnzen.app.ui.common.sgfFile
@@ -187,7 +186,7 @@ fun BoardScreen(
                                 PlayerIcon(
                                     summary.opponent.iconUrl,
                                     summary.opponent.handle,
-                                    playerColorKey(summary.id.server, summary.opponent.handle),
+                                    summary.id.server,
                                     size = 36.dp,
                                 )
                             }

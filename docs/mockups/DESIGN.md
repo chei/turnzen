@@ -72,6 +72,10 @@ moves) or a **small dot** (8dp) beside a name or a heading — never a fill, so 
 neither with the `accentSoft` refresh wash nor with the board. The marks show even when only
 one server is signed in; with one server they are a quiet accent.
 
+In a list with player icons the bar goes (October 2026): the **icon's shape** marks the
+server instead — a square on OGS, which shows its pictures as squares, a circle on DGS,
+which has no pictures. The bar returns when Settings turns the icons off.
+
 | Token | Light | Dark |
 |---|---|---|
 | `serverOgs` | `#5E9FD6` (light blue) | `#6F9FC8` |
@@ -140,8 +144,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   "All games" tab) the same figure — your own, paused clock — is shown muted (`ink2`,
   regular weight, never coloured) with no caption; the mute alone marks the row as waiting
   on them, so the eye skips to the games that are actually yours to play.
-- **Every opponent has an icon** leading the text: a 36dp square with 4dp corners, as OGS
-  shows its pictures (round is for stones), 12dp before the name, two text lines tall so
+- **Every opponent has an icon** leading the text: 36dp, a square with 4dp corners on OGS,
+  as OGS shows its pictures, and a circle on DGS (see "Server marks"), 12dp before the name, two text lines tall so
   the row keeps its 72dp. On OGS it is the player's own picture. Everywhere else — DGS,
   an OGS player with no picture, and while a picture loads — it is their initial (the first
   letter or digit of the handle) in SemiBold at half the square's height, on colours made

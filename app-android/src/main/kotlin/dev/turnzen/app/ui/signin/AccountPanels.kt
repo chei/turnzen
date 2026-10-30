@@ -47,7 +47,6 @@ import dev.turnzen.app.ui.common.PillButton
 import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.ServerBar
 import dev.turnzen.app.ui.common.TextAction
-import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.goserver.SignInMethod
 import kotlinx.coroutines.launch
@@ -117,9 +116,7 @@ private fun AccountPanel(
                         PlayerIcon(
                             state.user.iconUrl,
                             state.user.handle,
-                            // The key the games list would use, so the user looks the same
-                            // wherever an opponent of theirs might see them in this app.
-                            colorKey = playerColorKey(session.serverId, state.user.handle),
+                            session.serverId,
                             size = 36.dp,
                         )
                         Spacer(Modifier.width(12.dp))

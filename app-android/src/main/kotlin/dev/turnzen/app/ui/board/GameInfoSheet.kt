@@ -47,7 +47,6 @@ import dev.turnzen.app.ui.common.PlayerIcon
 import dev.turnzen.app.ui.common.RemainingTimeLabel
 import dev.turnzen.app.ui.common.ServerDot
 import dev.turnzen.app.ui.common.outcomeDetail
-import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.app.ui.theme.colors
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.ResultReason
@@ -291,7 +290,7 @@ private fun PlayerLine(
         // The stone first: which colour the line is about is what the sheet is ordered by.
         StoneOnBoard(color, 22.dp, Modifier.padding(end = 12.dp))
         icon?.let {
-            PlayerIcon(it.url, name, playerColorKey(it.server, name), size = 36.dp, Modifier.padding(end = 12.dp))
+            PlayerIcon(it.url, name, it.server, size = 36.dp, Modifier.padding(end = 12.dp))
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             // "you" on the name's own line rather than a line of its own: as the only detail

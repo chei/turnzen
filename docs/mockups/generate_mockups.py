@@ -365,17 +365,18 @@ def player_tint(key):
 
 
 def player_icon(cx, cy, name, picture, server="dgs"):
-    """The opponent's icon: a square with soft corners. A picture where the server has one (a
-    stand-in pattern here); otherwise the initial, in colours made from the player's name —
-    the same in light and dark theme."""
+    """The opponent's icon: a square with soft corners on OGS, a circle on DGS, so the shape
+    tells the server. A picture where the server has one (a stand-in pattern here); otherwise
+    the initial, in colours made from the player's name — the same in light and dark theme."""
+    rx = 4 if server == "ogs" else 18
     if picture:
-        s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{LINE}"/>'
+        s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="{rx}" fill="{LINE}"/>'
         # A Gravatar-like block pattern.
         for dx, dy in ((-8, -8), (2, -8), (-8, 2), (2, 2), (-3, -3)):
             s += f'<rect x="{cx + dx}" y="{cy + dy}" width="6" height="6" fill="{INK2}"/>'
         return s
     bg, fg = player_tint(f"{server}:{name.lower()}")
-    s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="4" fill="{bg}"/>'
+    s = f'<rect x="{cx - 18}" y="{cy - 18}" width="36" height="36" rx="{rx}" fill="{bg}"/>'
     return s + text(cx, cy + 6, name.lstrip("_")[0].upper(), 18, 600, fg, "middle")
 
 
@@ -392,7 +393,7 @@ def screen_games_two_servers():
     ]
     y = 160
     for color, opp, rank, line, left, urgent in rows:
-        s += server_bar(8, y + 16, 40, color)
+        # The icon's shape marks the server; the bar is only for a list without icons.
         # OGS sends each player's picture; DGS has none, and neither has kaya_r, so those rows
         # show the initial in the player's own colours.
         s += player_icon(38, y + 36, opp, picture=color == OGS and opp != "kaya_r",

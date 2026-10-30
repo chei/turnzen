@@ -11,9 +11,11 @@ import androidx.core.content.res.ResourcesCompat
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.PlayerColors
 import dev.turnzen.app.ui.common.PlayerIcons
+import dev.turnzen.app.ui.common.iconIsSquare
 import dev.turnzen.app.ui.common.initial
 import dev.turnzen.app.ui.common.playerColorKey
 import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.seconds
 
@@ -40,21 +42,25 @@ class NotificationIcons(
                 withTimeoutOrNull(PICTURE_WAIT) { PlayerIcons.load(url, context.cacheDir) }
             }
         return picture?.asAndroidBitmap()
-            ?: initialIcon(opponent.handle, playerColorKey(game.id.server, opponent.handle))
+            ?: initialIcon(opponent.handle, game.id.server)
     }
 
     /** What PlayerIcon draws without a picture, drawn on a canvas instead of composed. */
     private fun initialIcon(
         name: String,
-        colorKey: String,
+        server: ServerId,
     ): Bitmap {
-        val tint = PlayerColors.of(colorKey)
+        val tint = PlayerColors.of(playerColorKey(server, name))
         val size = sizePx.toFloat()
         val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         val corner = size * CORNER_RATIO
         val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tint.background.toArgb() }
-        canvas.drawRoundRect(RectF(0f, 0f, size, size), corner, corner, background)
+        if (iconIsSquare(server)) {
+            canvas.drawRoundRect(RectF(0f, 0f, size, size), corner, corner, background)
+        } else {
+            canvas.drawCircle(size / 2, size / 2, size / 2, background)
+        }
         val letter =
             Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = tint.letter.toArgb()
