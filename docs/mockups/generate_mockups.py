@@ -393,13 +393,13 @@ def screen_games_two_servers():
     ]
     y = 160
     for color, opp, rank, line, left, urgent in rows:
-        # A dot before the name marks the server, with the icon's shape (circle on DGS).
+        # A dot in the margin, centred on the icon, marks the server, with the icon's shape.
         # OGS sends each player's picture; DGS has none, and neither has kaya_r, so those rows
         # show the initial in the player's own colours.
         s += player_icon(38, y + 36, opp, picture=color == OGS and opp != "kaya_r",
                          server="ogs" if color == OGS else "dgs")
-        s += server_dot(72, y + 25, color)
-        s += text(84, y + 30, f"{opp} ({rank})", 16, 600)
+        s += server_dot(10, y + 36, color)
+        s += text(68, y + 30, f"{opp} ({rank})", 16, 600)
         s += text(68, y + 51, line, 13, 400, INK2)
         s += text(W - 20, y + 41, left, 15, 600, URGENT if urgent else INK, "end")
         y += 72

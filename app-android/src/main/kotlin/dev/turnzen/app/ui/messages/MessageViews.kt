@@ -51,6 +51,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
+import dev.turnzen.app.ui.common.DOT_INSET
 import dev.turnzen.app.ui.common.ErrorMessage
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
@@ -109,6 +110,7 @@ fun MessageListRow(
             .semantics { stateDescription = "message on $serverName" },
     ) {
         Box(Modifier.fillMaxWidth().heightIn(min = 72.dp)) {
+            ServerDot(row.message.id.server, Modifier.align(Alignment.CenterStart).padding(start = DOT_INSET))
             Row(
                 Modifier.fillMaxSize().padding(horizontal = 20.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -118,8 +120,7 @@ fun MessageListRow(
                     Spacer(Modifier.width(12.dp))
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        ServerDot(row.message.id.server, Modifier.padding(end = 8.dp))
+                    Row {
                         Text(
                             row.text.title,
                             Modifier.weight(1f),

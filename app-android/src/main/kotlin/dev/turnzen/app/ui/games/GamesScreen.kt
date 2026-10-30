@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
+import dev.turnzen.app.ui.common.DOT_INSET
 import dev.turnzen.app.ui.common.Formatting
 import dev.turnzen.app.ui.common.Hairline
 import dev.turnzen.app.ui.common.OutcomeLabel
@@ -552,6 +553,9 @@ private fun GameRow(
                 // before the padding, so the wash runs the full width of the screen.
                 .drawBehind { if (flash.value > 0f) drawRect(flashColor, alpha = flash.value) },
         ) {
+            // The server's dot sits in the margin, centred on the icon, so the text keeps its
+            // column whether one server is signed in or two.
+            ServerDot(game.id.server, Modifier.align(Alignment.CenterStart).padding(start = DOT_INSET))
             GameRowContent(game, showIcon)
         }
         Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
@@ -607,9 +611,7 @@ private fun GameRowText(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         // One line, always: a name wrapped under a long outcome ("Won by resignation")
         // pushed the line below out of the row. The handle gives way, the rank does not.
-        // The server's dot leads it, as on the board screen's header.
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            ServerDot(game.id.server, Modifier.padding(end = 8.dp))
+        Row {
             Text(
                 game.opponent.handle,
                 Modifier.weight(1f, fill = false),

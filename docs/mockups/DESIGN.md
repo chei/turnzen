@@ -67,8 +67,8 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 ### Server marks (OGS support, September 2026)
 
 Each server has a colour taken from its own web presence. It is only ever a **small dot**
-(8dp) before a name or a heading — a game or message row's opponent, the board screen's
-header — or a **4dp rounded bar** beside an account in the sign-in panels; never a fill, so
+(8dp) before a name or a heading, such as the board screen's header, or in a list row's 20dp
+margin, centred on the icon (so the text column never moves) — or a **4dp rounded bar** beside an account in the sign-in panels; never a fill, so
 it competes neither with the `accentSoft` refresh wash nor with the board. The marks show
 even when only one server is signed in; with one server they are a quiet accent.
 
