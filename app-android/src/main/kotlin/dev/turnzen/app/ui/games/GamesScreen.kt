@@ -531,7 +531,9 @@ private fun GameRow(
         flash.animateTo(0f, tween(FLASH_OUT_MILLIS, easing = LinearEasing))
         onArrivalShown()
     }
-    val flashColor = colors.accentSoft
+    // A game just begun flashes in its own green and drains to its tint; a blue flash over
+    // a green row read as the wrong colour.
+    val flashColor = if (mark == RowMark.BEGUN) colors.rowBegunFlash else colors.accentSoft
     // A game not opened since it began, or since it ended, keeps a quiet tint until it is:
     // unlike the flash, it says something about the game, not about the last refresh.
     val background =

@@ -64,6 +64,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `stoneBlack` | `#15171A` | Black stones |
 | `stoneWhite` | `#F7F5F0` | White stones (0.6px `stoneBlack` outline) |
 | `rowBegun` | `#E2EDE0` | Games-list row background: a game just begun, not opened yet (dark `#1F3128`) |
+| `rowBegunFlash` | `#C4DFC0` | The flash over a `rowBegun` row as it comes onto the list, in place of `accentSoft` (dark `#2D5039`) |
 | `rowEnded` | `#F1E9DA` | Games-list row background: a game just ended, not opened yet (dark `#302B22`) |
 
 ### Server marks (OGS support, September 2026)
@@ -182,7 +183,8 @@ Use tabular figures for time and move counts so columns don't jitter.
 - **Games not looked at yet are tinted** (October 2026). A game that has just begun has a
   `rowBegun` background, and one that has just ended a `rowEnded` one, at the top of both
   running tabs; each until the game is opened. Unlike the flash, the tint is about the game,
-  not about the last refresh, so it stays. Opaque fills, for the same reason the row's own
+  not about the last refresh, so it stays. A game just begun that arrives while the list is
+  on screen flashes in `rowBegunFlash` rather than `accentSoft`, and drains to its tint. Opaque fills, for the same reason the row's own
   background is. TalkBack reads "new game" or "game over" before the server.
 - **The rows under it move out of the way**, over 300ms, rather than the list changing
   between two frames. Rows are opaque for this: they are drawn in list order, so the row

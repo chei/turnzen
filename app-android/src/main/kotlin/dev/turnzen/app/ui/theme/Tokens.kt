@@ -30,6 +30,8 @@ data class TurnzenColors(
     val serverDgs: Color,
     /** Background of a games-list row whose game has just begun and was not opened yet. */
     val rowBegun: Color,
+    /** The flash over a [rowBegun] row as the game comes onto the list: the same green, deeper. */
+    val rowBegunFlash: Color,
     /** Background of a games-list row whose game has just ended and was not opened yet. */
     val rowEnded: Color,
 )
@@ -51,6 +53,7 @@ val LightColors =
         serverOgs = Color(0xFF5E9FD6),
         serverDgs = Color(0xFFC2A66E),
         rowBegun = Color(0xFFE2EDE0),
+        rowBegunFlash = Color(0xFFC4DFC0),
         rowEnded = Color(0xFFF1E9DA),
     )
 
@@ -73,6 +76,7 @@ val DarkColors =
         serverOgs = Color(0xFF6F9FC8),
         serverDgs = Color(0xFFA99368),
         rowBegun = Color(0xFF1F3128),
+        rowBegunFlash = Color(0xFF2D5039),
         rowEnded = Color(0xFF302B22),
     )
 
