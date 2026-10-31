@@ -54,6 +54,10 @@ class SignInViewModel(
         viewModelScope.launch {
             try {
                 session.signIn(Credentials(s.username.trim(), s.password))
+                // The panel turns to "Signed in as" now, but this form outlives it: signing out
+                // brings the same one back, which must be ready to use rather than still
+                // saying "Signing in…". The password is not kept for it; the username is.
+                _state.update { it.copy(loading = false, password = "") }
             } catch (e: GoServerException) {
                 _state.update { it.copy(loading = false, error = messageFor(e)) }
             }

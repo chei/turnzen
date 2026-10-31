@@ -99,6 +99,20 @@ class SignInViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `after a sign-in the form is ready again for when the server is signed out`() =
+        runTest(dispatcher) {
+            val vm = SignInViewModel(sessionFor(RecordingClient()))
+            vm.onUsername("demo")
+            vm.onPassword("hunter2")
+            vm.submit()
+            advanceUntilIdle()
+
+            assertFalse(vm.state.value.loading, "a form left saying \"Signing in…\" reappears on sign-out")
+            assertEquals("", vm.state.value.password)
+            assertEquals("demo", vm.state.value.username)
+        }
+
+    @Test
     fun `a successful sign-in signs the session in, with the username trimmed`() =
         runTest(dispatcher) {
             val client = RecordingClient()
