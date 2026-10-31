@@ -34,6 +34,9 @@
     <string name="games_counting">counting</string>
     <!-- A game on a board Turnzen does not draw (19x9, say): the row opens it on the web. -->
     <string name="games_on_the_web">on the web only</string>
+    <!-- Read by TalkBack for a games-list row whose tint marks a game not opened yet. -->
+    <string name="games_mark_begun">new game</string>
+    <string name="games_mark_ended">game over</string>
     <string name="games_sign_in_again">Sign in again</string>
     <string name="games_won">Won</string>
     <string name="games_lost">Lost</string>

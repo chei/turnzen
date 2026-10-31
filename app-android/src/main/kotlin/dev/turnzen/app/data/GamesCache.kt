@@ -2,6 +2,8 @@ package dev.turnzen.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import dev.turnzen.game.GameResult
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
@@ -96,8 +98,8 @@ class PrefsGamesCache internal constructor(
  * plugin. Anything that does not read back — an older format, a damaged entry — is a miss,
  * never an error: the next refresh writes it again.
  *
- * Running games only, so a summary's result and rating change (finished games' fields) are
- * not kept.
+ * The running lists hold running games only; a finished game's fields (its result and rating
+ * change) are written for [GameMarks.ended], and left out when they are empty.
  */
 internal object GamesCodec {
     private const val VERSION = 1
@@ -147,6 +149,18 @@ internal object GamesCodec {
             put("isMyTurn", g.isMyTurn)
             put("moveToken", g.moveToken.value)
             put("onlyOnWeb", g.onlyOnWeb)
+            if (g.isFinished) put("isFinished", true)
+            g.result?.let { result ->
+                put(
+                    "result",
+                    buildJsonObject {
+                        put("winner", result.winner?.name)
+                        put("margin", result.margin)
+                        put("by", result.by.name)
+                    },
+                )
+            }
+            g.ratingChange?.let { put("ratingChange", it) }
         }
 
     fun summary(
@@ -168,6 +182,16 @@ internal object GamesCodec {
             isMyTurn = o.boolean("isMyTurn")!!,
             moveToken = MoveToken(o.string("moveToken")!!),
             onlyOnWeb = o.boolean("onlyOnWeb") ?: false,
+            isFinished = o.boolean("isFinished") ?: false,
+            result =
+                (o["result"] as? JsonObject)?.let { r ->
+                    GameResult(
+                        winner = r.string("winner")?.let(StoneColor::valueOf),
+                        margin = r.double("margin"),
+                        by = ResultReason.valueOf(r.string("by")!!),
+                    )
+                },
+            ratingChange = o.double("ratingChange"),
         )
 
     fun remainingTime(time: RemainingTime): JsonObject =

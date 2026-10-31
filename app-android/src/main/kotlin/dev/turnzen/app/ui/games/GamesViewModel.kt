@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.Arrivals
 import dev.turnzen.app.data.AuthState
+import dev.turnzen.app.data.GameMarks
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.MessagesStore
 import dev.turnzen.app.ui.common.Formatting
@@ -36,6 +37,9 @@ import kotlin.time.Duration.Companion.seconds
 /** The three content filters on the Games screen. */
 enum class GamesTab { YOUR_TURN, ALL, FINISHED }
 
+/** What a row's background says about its game, until the game is opened. */
+enum class RowMark { NONE, BEGUN, ENDED }
+
 /** How recent a refresh has to be for [GamesViewModel.refreshOnShow] to skip a new one. */
 private val MIN_AUTO_REFRESH_NANOS = 15.seconds.inWholeNanoseconds
 
@@ -48,6 +52,8 @@ data class GamesUiState(
     val finished: List<GameSummary>? = null,
     /** The rows the last refresh brought in, for the screen to highlight once. */
     val arrivals: Arrivals = Arrivals(),
+    /** The games just begun or just ended that have not been opened yet. */
+    val marks: GameMarks = GameMarks(),
     val refreshing: Boolean = false,
     /**
      * What went wrong in the last refresh, one entry per server that failed, plus one per
@@ -78,11 +84,28 @@ data class GamesUiState(
     val allProblems: List<ServerProblem>
         get() = problems + signedOut
 
+    /**
+     * The rows of [tab]. The running lists lead with the games that have just ended, once,
+     * so the user meets the ending rather than the game slipping off to "Finished" unseen.
+     * Only the rows: the tabs' counts and the queue are the running games alone.
+     */
     fun listFor(tab: GamesTab): List<GameSummary>? =
         when (tab) {
-            GamesTab.YOUR_TURN -> yourTurn
-            GamesTab.ALL -> allRunning
+            GamesTab.YOUR_TURN -> yourTurn?.let { marks.ended + it }
+            GamesTab.ALL -> allRunning?.let { marks.ended + it }
             GamesTab.FINISHED -> finished
+        }
+
+    /** The background of [game]'s row on [tab]. The archive marks nothing: it is all ended. */
+    fun markFor(
+        tab: GamesTab,
+        game: GameSummary,
+    ): RowMark =
+        when {
+            tab == GamesTab.FINISHED -> RowMark.NONE
+            game.isFinished -> RowMark.ENDED
+            game.id in marks.unopened -> RowMark.BEGUN
+            else -> RowMark.NONE
         }
 
     /**
@@ -123,15 +146,16 @@ class GamesViewModel(
     val state: StateFlow<GamesUiState> =
         combine(
             combine(store.yourTurn, store.allRunning, store.finished, ::Triple),
-            combine(store.arrivals, inbox.messages, ::Pair),
+            combine(store.arrivals, inbox.messages, store.marks, ::Triple),
             accounts.states,
             transient,
-        ) { (yourTurn, allRunning, finished), (arrivals, messages), auth, t ->
+        ) { (yourTurn, allRunning, finished), (arrivals, messages, marks), auth, t ->
             t.copy(
                 yourTurn = yourTurn,
                 allRunning = allRunning,
                 finished = finished,
                 arrivals = arrivals,
+                marks = marks,
                 signedOut = signedOutLines(auth),
                 messages = messages.map(::row),
             )
@@ -143,6 +167,7 @@ class GamesViewModel(
                 allRunning = store.allRunning.value,
                 finished = store.finished.value,
                 arrivals = store.arrivals.value,
+                marks = store.marks.value,
             ),
         )
 

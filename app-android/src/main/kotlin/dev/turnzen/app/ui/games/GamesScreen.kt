@@ -379,6 +379,7 @@ private fun GamesPage(
                                     game = game,
                                     serverName = viewModel.serverName(game.id),
                                     showIcon = showPlayerIcons,
+                                    mark = state.markFor(tab, game),
                                     arrived = game.id in arrivals,
                                     onArrivalShown = { viewModel.onArrivalShown(game.id) },
                                     onClick = {
@@ -514,6 +515,7 @@ private fun GameRow(
     game: GameSummary,
     serverName: String,
     showIcon: Boolean,
+    mark: RowMark,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -530,18 +532,33 @@ private fun GameRow(
         onArrivalShown()
     }
     val flashColor = colors.accentSoft
+    // A game not opened since it began, or since it ended, keeps a quiet tint until it is:
+    // unlike the flash, it says something about the game, not about the last refresh.
+    val background =
+        when (mark) {
+            RowMark.BEGUN -> colors.rowBegun
+            RowMark.ENDED -> colors.rowEnded
+            RowMark.NONE -> colors.surface
+        }
+    val markText =
+        when (mark) {
+            RowMark.BEGUN -> stringResource(R.string.games_mark_begun)
+            RowMark.ENDED -> stringResource(R.string.games_mark_ended)
+            RowMark.NONE -> null
+        }
 
     // Opaque, not transparent over the window: rows are drawn in list order, so a row
     // sliding down is drawn over the row arriving above it and uncovers it on the way, and
     // the list reads as making room. Left see-through, the two would ghost through each
-    // other for the length of the slide.
+    // other for the length of the slide. The tints are opaque colours for the same reason.
     Column(
         modifier
             .fillMaxWidth()
-            .background(colors.surface)
+            .background(background)
             .clickable(onClick = onClick)
-            // The colour bar says which server this is to the eye; this says it to TalkBack.
-            .semantics { stateDescription = "on $serverName" },
+            // The colour bar says which server this is to the eye, and the tint what is new
+            // about the game; this says both to TalkBack.
+            .semantics { stateDescription = listOfNotNull(markText, "on $serverName").joinToString(", ") },
     ) {
         Box(
             Modifier

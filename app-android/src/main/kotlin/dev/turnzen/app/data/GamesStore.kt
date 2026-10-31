@@ -71,6 +71,8 @@ class GamesStore(
     private val cache: GamesCache = GamesCache.None,
     /** Where downloaded game records are kept between runs of the app. */
     private val records: RecordCache = RecordCache.None,
+    /** Where the marks of games not looked at yet are kept between runs. See [GameMarks]. */
+    private val marksStore: GameMarksStore = GameMarksStore.None,
     private val now: () -> Instant = { Clock.System.now() },
     /**
      * Told what each answering server said is awaiting the user, after every [refresh]: the
@@ -92,6 +94,14 @@ class GamesStore(
     private var outgoing: Set<GameId> = emptySet()
     private val _finished = MutableStateFlow<List<GameSummary>?>(null)
     private val _arrivals = MutableStateFlow(Arrivals())
+    private val _marks = MutableStateFlow(marksStore.load())
+
+    /**
+     * Games that have left the running list since the last refresh, as that list described
+     * them, and not yet found in the archive — the archive could not be reached, say. Looked
+     * for again on the next refresh. Not kept on disk: a game lost here only misses its mark.
+     */
+    private var endedUnresolved: Map<GameId, GameSummary> = emptyMap()
 
     /**
      * Full records fetched ahead of time, so opening those games needs no download. Kept
@@ -112,6 +122,9 @@ class GamesStore(
 
     /** What the last [refresh] changed, for the screen to highlight. See [Arrivals]. */
     val arrivals: StateFlow<Arrivals> = _arrivals.asStateFlow()
+
+    /** The games just begun or just ended that the user has not opened yet. See [GameMarks]. */
+    val marks: StateFlow<GameMarks> = _marks.asStateFlow()
 
     private val _listedAt = MutableStateFlow<Map<ServerId, Instant>>(emptyMap())
 
@@ -230,6 +243,7 @@ class GamesStore(
         val stale = failures.keys
         val turnList = merge(_yourTurn.value, stale, fresh.values.flatMap { it.first })
         val runningList = merge(_allRunning.value, stale, fresh.values.flatMap { it.second })
+        noteBegunAndEnded(fresh)
         // Worked out before the lists are replaced: what is new is only knowable
         // against what was there. Replaces the previous arrivals rather than adding to
         // them, so an old highlight never plays several refreshes late.
@@ -254,7 +268,88 @@ class GamesStore(
                     }.mapTo(HashSet()) { it.id },
             )
         }
+        if (endedUnresolved.isNotEmpty()) resolveEnded()
         return failures
+    }
+
+    /**
+     * Compares each answering server's lists with what they held before, and marks what
+     * changed: a game the lists did not have has just begun, and a game they no longer have
+     * has left them — ended, unless the archive says otherwise ([resolveEnded]).
+     *
+     * Only against a list that was there: the first time a server's games are seen, in this
+     * run of the app or from the lists kept on disk, none of them is news. A game the user
+     * resigned has already left the lists ([onGameEnded]), so it is not taken for one that
+     * ended on them.
+     */
+    private fun noteBegunAndEnded(fresh: Map<ServerId, Pair<List<GameSummary>, List<GameSummary>>>) {
+        val before = (_allRunning.value.orEmpty() + _yourTurn.value.orEmpty()).associateBy { it.id }
+        var unopened = _marks.value.unopened
+        for ((server, lists) in fresh) {
+            val now = (lists.first + lists.second).mapTo(HashSet()) { it.id }
+            if (server in _listedAt.value) {
+                val held = before.filterKeys { it.server == server }
+                unopened = unopened + (now - held.keys)
+                endedUnresolved = endedUnresolved + held.filterKeys { it !in now }
+            }
+            // A mark on a game no longer running has done its work, whatever became of it.
+            unopened = unopened.filterTo(LinkedHashSet()) { it.server != server || it in now }
+        }
+        updateMarks { it.copy(unopened = unopened) }
+    }
+
+    /**
+     * Looks the games that left the running lists up in the archive. One found there has
+     * ended, and goes on the running lists once more, as the archive describes it, until it
+     * is opened. One the archive does not have was not finished (DGS deletes a game that
+     * ends in its first moves) and is let go; a server that does not answer is asked again
+     * on the next refresh.
+     */
+    private suspend fun resolveEnded() {
+        val servers = endedUnresolved.keys.mapTo(HashSet()) { it.server }
+        val answers =
+            coroutineScope {
+                accounts.signedIn
+                    .filter { it.serverId in servers }
+                    .map { session ->
+                        async { session.serverId to attempt { session.call { it.myFinishedGames(FINISHED_LIMIT) } } }
+                    }.awaitAll()
+            }
+        val archives = answers.mapNotNull { (server, answer) -> answer.getOrNull()?.let { server to it } }.toMap()
+        if (archives.isEmpty()) return
+        val found =
+            endedUnresolved.keys
+                .filter { it.server in archives }
+                .mapNotNull { id -> archives.getValue(id.server).firstOrNull { it.id == id } }
+        endedUnresolved = endedUnresolved.filterKeys { it.server !in archives }
+        updateMarks { marks ->
+            val ended = marks.ended.filterNot { old -> found.any { it.id == old.id } } + found
+            marks.copy(ended = ended.sortedByDescending { it.lastMoveAt })
+        }
+        // An archive already on hand is out of date by these games; the answer brings it up
+        // to date for the servers that gave one. One not fetched yet stays so: it would hold
+        // only these servers' games.
+        _finished.value?.let { held ->
+            _finished.value =
+                merge(held, held.mapTo(HashSet()) { it.id.server } - archives.keys, archives.values.flatten())
+                    .take(FINISHED_LIMIT)
+        }
+    }
+
+    private fun updateMarks(change: (GameMarks) -> GameMarks) {
+        val before = _marks.value
+        val after = change(before)
+        if (after == before) return
+        _marks.value = after
+        marksStore.save(after)
+    }
+
+    /**
+     * The user has opened [id]: it is no longer news. A game just begun loses its mark, and
+     * one just ended leaves the running lists, for the archive.
+     */
+    fun onOpened(id: GameId) {
+        updateMarks { marks -> GameMarks(marks.unopened - id, marks.ended.filterNot { it.id == id }) }
     }
 
     /** The fresh games plus the held ones of the servers in [keep], newest move first. */
@@ -472,6 +567,7 @@ class GamesStore(
         records.remove(id)
         scores.remove(id)
         onArrivalShown(id)
+        onOpened(id)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list -> list?.filterNot { it.id == id } }
         publish()
@@ -488,6 +584,7 @@ class GamesStore(
     fun summary(id: GameId): GameSummary? =
         shownAllRunning.value?.firstOrNull { it.id == id }
             ?: shownYourTurn.value?.firstOrNull { it.id == id }
+            ?: _marks.value.ended.firstOrNull { it.id == id }
             ?: _finished.value?.firstOrNull { it.id == id }
 
     /**
@@ -529,6 +626,16 @@ class GamesStore(
         _allRunning.update { list -> list?.filterNot { it.id.server == server } }
         _finished.update { list -> list?.filterNot { it.id.server == server } }
         publish()
+        endedUnresolved = endedUnresolved.filterKeys { it.server != server }
+        updateMarks { marks ->
+            GameMarks(
+                marks.unopened.filterTo(LinkedHashSet()) { it.server != server },
+                marks.ended.filterNot {
+                    it.id.server ==
+                        server
+                },
+            )
+        }
         _listedAt.update { it - server }
         cache.forget(server)
         records.forget(server)
@@ -539,6 +646,8 @@ class GamesStore(
         _allRunning.value = null
         _finished.value = null
         _arrivals.value = Arrivals()
+        endedUnresolved = emptyMap()
+        updateMarks { GameMarks() }
         _listedAt.value = emptyMap()
         cache.clear()
         records.clear()

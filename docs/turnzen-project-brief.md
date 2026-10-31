@@ -1298,16 +1298,27 @@ partly so the project could grow beyond Go (see Naming).
     page, the markup anchors, the extraction, the traps — is in
     [`dgs-ladder-standings.md`](dgs-ladder-standings.md). No other DGS client shows this, the
     web site included.
-13. **Game-over moment on the active list** — a game that has just ended (a score
-    accepted, a timeout, the opponent resigning) stays on the active games list once, so the
-    user meets the ending instead of the game silently moving to "Finished". Opening it shows
-    the end event in words ("You lost by 2 points", "You lost on time", "You won: White
-    resigned"); no action applies, so the only ways on are skip and back to the list. Once
-    seen, the game leaves the active list. This is the game-over screen item 7 leaves open.
-14. **Status marker on game rows** — a visual marker for games in a special state: just
-    begun (its first "your turn", whether from an incoming challenge or one the user sent),
-    last action a pass, in the scoring stage, finished (item 13). Either a row background
-    tint or a coloured badge above or below the DGS/OGS server marker; not decided.
+13. **Game-over moment on the active list** — *the list part is done (October 2026)*: a
+    game that has just ended (a score accepted, a timeout, the opponent resigning) stays on
+    both running tabs, at the top and tinted (item 14), until it is opened, so the user meets
+    the ending instead of the game silently moving to "Finished". The row shows the outcome
+    where the clock was. It is a row only: the tab counts and the "Your turn" queue are the
+    running games alone, so Skip from it goes back to the list. Detected by a game leaving a
+    server's running list between two refreshes, then confirmed in that server's archive
+    (one extra request, only when a game has left): a game the archive does not have (DGS
+    deletes games that end in their first moves) gets no row, and a server that does not
+    answer is asked again on the next refresh. A game the user resigned in the app is not
+    shown again: they were there. Once opened, the game leaves the running list. Not yet:
+    the board opening on the end event in words ("You lost by 2 points", "You lost on time",
+    "You won: White resigned"); it opens as a finished game from the archive does.
+14. **Status marker on game rows** — *begun and ended are done (October 2026)*, as a row
+    background tint (`rowBegun`, a faint green; `rowEnded`, a faint sand — see DESIGN.md)
+    rather than a badge. A game is "just begun" when it comes onto a server's running list
+    after the first time that server's list was seen (whether from an incoming challenge or
+    one the user sent); none is marked on a first load, which would mark every game. Both
+    marks stay until the game is opened (from the list, a notification or the queue), and
+    are kept on disk (`turnzen_game_marks`), since that may be days later. Not yet: last
+    action a pass, in the scoring stage.
 15. **Compact comments** — the comments shown above the action row (item 5) put the
     player's name and their message on the same row, to take less vertical space.
 16. **Scoring marks without the delay** — the board opens in scoring mode about 0.3 s

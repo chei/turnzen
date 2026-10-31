@@ -451,6 +451,8 @@ class BoardViewModel(
      */
     fun load(force: Boolean = false) {
         val preview = games.summary(gameId)
+        // Opened is seen: a game just begun or just ended loses its mark on the list.
+        games.onOpened(gameId)
         // A move in this game is still on its way: whether it lands decides what the board
         // should show, so wait for it.
         if (outbox.isOutgoing(gameId)) {

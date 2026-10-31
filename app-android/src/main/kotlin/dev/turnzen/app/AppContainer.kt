@@ -10,6 +10,7 @@ import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
 import dev.turnzen.app.data.MessagesStore
 import dev.turnzen.app.data.MoveOutbox
+import dev.turnzen.app.data.PrefsGameMarksStore
 import dev.turnzen.app.data.PrefsGamesCache
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
@@ -114,6 +115,7 @@ class AppContainer(
             accounts,
             cache = PrefsGamesCache(appContext),
             records = FileRecordCache(appContext),
+            marksStore = PrefsGameMarksStore(appContext),
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** The new messages on every server, for the block above "Your turn". */

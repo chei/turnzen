@@ -28,6 +28,10 @@ data class TurnzenColors(
     val serverOgs: Color,
     /** Dragon Go Server's mark: the sand of its web pages. Same rule. */
     val serverDgs: Color,
+    /** Background of a games-list row whose game has just begun and was not opened yet. */
+    val rowBegun: Color,
+    /** Background of a games-list row whose game has just ended and was not opened yet. */
+    val rowEnded: Color,
 )
 
 val LightColors =
@@ -46,6 +50,8 @@ val LightColors =
         onAccent = Color(0xFFFFFFFF),
         serverOgs = Color(0xFF5E9FD6),
         serverDgs = Color(0xFFC2A66E),
+        rowBegun = Color(0xFFE2EDE0),
+        rowEnded = Color(0xFFF1E9DA),
     )
 
 val DarkColors =
@@ -66,6 +72,8 @@ val DarkColors =
         onAccent = Color(0xFF14181A),
         serverOgs = Color(0xFF6F9FC8),
         serverDgs = Color(0xFFA99368),
+        rowBegun = Color(0xFF1F3128),
+        rowEnded = Color(0xFF302B22),
     )
 
 val LocalTurnzenColors = staticCompositionLocalOf { LightColors }
