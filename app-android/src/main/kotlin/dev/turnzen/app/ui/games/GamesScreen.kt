@@ -540,13 +540,17 @@ private fun GameRow(
         when (mark) {
             RowMark.BEGUN -> colors.rowBegun
             RowMark.ENDED -> colors.rowEnded
+            RowMark.SCORING -> colors.rowScoring
             RowMark.NONE -> colors.surface
         }
     val markText =
         when (mark) {
             RowMark.BEGUN -> stringResource(R.string.games_mark_begun)
+
             RowMark.ENDED -> stringResource(R.string.games_mark_ended)
-            RowMark.NONE -> null
+
+            // The row already says "counting" in words.
+            RowMark.SCORING, RowMark.NONE -> null
         }
 
     // Opaque, not transparent over the window: rows are drawn in list order, so a row

@@ -34,6 +34,8 @@ data class TurnzenColors(
     val rowBegunFlash: Color,
     /** Background of a games-list row whose game has just ended and was not opened yet. */
     val rowEnded: Color,
+    /** Background of a games-list row whose game is being counted: [rowEnded], deeper. */
+    val rowScoring: Color,
 )
 
 val LightColors =
@@ -55,6 +57,7 @@ val LightColors =
         rowBegun = Color(0xFFE2EDE0),
         rowBegunFlash = Color(0xFFC4DFC0),
         rowEnded = Color(0xFFF1E9DA),
+        rowScoring = Color(0xFFE8DCC3),
     )
 
 val DarkColors =
@@ -78,6 +81,7 @@ val DarkColors =
         rowBegun = Color(0xFF1F3128),
         rowBegunFlash = Color(0xFF2D5039),
         rowEnded = Color(0xFF302B22),
+        rowScoring = Color(0xFF3B3427),
     )
 
 val LocalTurnzenColors = staticCompositionLocalOf { LightColors }

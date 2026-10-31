@@ -1325,7 +1325,8 @@ partly so the project could grow beyond Go (see Naming).
     one the user sent); none is marked on a first load, which would mark every game. Both
     marks stay until the game is opened (from the list, a notification or the queue), and
     are kept on disk (`turnzen_game_marks`), since that may be days later. Not yet: last
-    action a pass, in the scoring stage.
+    action a pass. In the scoring stage: done (October 2026), `rowScoring`, a deeper sand
+    kin to the ended tint; unlike the two marks it is a state, shown as long as the count lasts.
 15. **Compact comments** — the comments shown above the action row (item 5) put the
     player's name and their message on the same row, to take less vertical space.
 16. **Scoring marks without the delay** — the board opens in scoring mode about 0.3 s

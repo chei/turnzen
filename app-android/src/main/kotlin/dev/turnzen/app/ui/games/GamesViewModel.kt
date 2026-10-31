@@ -20,6 +20,7 @@ import dev.turnzen.goserver.InboxMessage
 import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.MessageTopic
 import dev.turnzen.goserver.Opponent
+import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.ServerId
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,8 +38,11 @@ import kotlin.time.Duration.Companion.seconds
 /** The three content filters on the Games screen. */
 enum class GamesTab { YOUR_TURN, ALL, FINISHED }
 
-/** What a row's background says about its game, until the game is opened. */
-enum class RowMark { NONE, BEGUN, ENDED }
+/**
+ * What a row's background says about its game. [BEGUN] and [ENDED] last until the game is
+ * opened; [SCORING] is a state, and lasts as long as the count does.
+ */
+enum class RowMark { NONE, BEGUN, ENDED, SCORING }
 
 /** How recent a refresh has to be for [GamesViewModel.refreshOnShow] to skip a new one. */
 private val MIN_AUTO_REFRESH_NANOS = 15.seconds.inWholeNanoseconds
@@ -105,6 +109,7 @@ data class GamesUiState(
             tab == GamesTab.FINISHED -> RowMark.NONE
             game.isFinished -> RowMark.ENDED
             game.id in marks.unopened -> RowMark.BEGUN
+            game.pendingAction == PendingAction.SCORE -> RowMark.SCORING
             else -> RowMark.NONE
         }
 

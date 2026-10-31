@@ -4,6 +4,9 @@ import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.PrefsGameMarksStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.app.ui.games.GamesTab
+import dev.turnzen.app.ui.games.GamesUiState
+import dev.turnzen.app.ui.games.RowMark
 import dev.turnzen.game.ResultReason
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
@@ -195,5 +198,21 @@ class GameMarksTest {
             val ended = dgs.demoMarks().ended.single()
             assertEquals(ended, dgs.myFinishedGames(15).first())
             assertTrue(ended.isFinished)
+        }
+
+    @Test
+    fun `a game being counted is tinted whether or not it was opened`() =
+        runTest {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(Accounts(listOf(session)))
+            store.refresh()
+            val scoring = store.summary(GameId(DEMO_SERVER, "demo-scoring"))!!
+            val state = GamesUiState(marks = store.marks.value)
+
+            assertEquals(RowMark.SCORING, state.markFor(GamesTab.YOUR_TURN, scoring))
+            store.onOpened(scoring.id)
+            assertEquals(RowMark.SCORING, state.copy(marks = store.marks.value).markFor(GamesTab.ALL, scoring))
+            assertEquals(RowMark.NONE, state.markFor(GamesTab.YOUR_TURN, store.summary(demo19)!!))
         }
 }
