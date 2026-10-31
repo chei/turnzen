@@ -8,6 +8,7 @@ import dev.turnzen.game.ResultReason
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
+import dev.turnzen.goserver.MessageTopic
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -65,6 +66,26 @@ class GameMarksTest {
                 store.marks.value.unopened
                     .isEmpty(),
             )
+        }
+
+    @Test
+    fun `an invitation accepted on the demo server starts a game marked as begun`() =
+        runTest {
+            // The demo build's mailbox, the one with an invitation in it.
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0, shareGames = true)
+            val session = sessionFor(fake)
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(Accounts(listOf(session)))
+            store.refresh()
+
+            val invitation = fake.newMessages().first { it.topic is MessageTopic.GameInvitation }
+            fake.answerInvitation(invitation, accept = true, text = null)
+            store.refresh()
+
+            val begun =
+                store.marks.value.unopened
+                    .single()
+            assertTrue(store.yourTurn.value!!.any { it.id == begun })
         }
 
     @Test

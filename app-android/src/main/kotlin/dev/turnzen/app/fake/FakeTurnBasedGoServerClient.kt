@@ -357,6 +357,37 @@ class FakeTurnBasedGoServerClient(
         delay(latencyMillis)
         requireSession()
         inbox.removeAll { it.id == message.id }
+        // An accepted invitation starts the game, as on a real server: it comes onto the
+        // running list with the next refresh, which is how the demo shows a game just begun.
+        val topic = message.topic as? MessageTopic.GameInvitation ?: return
+        if (accept) games.add(0, invitedGame(topic, message.from))
+    }
+
+    /** The game an accepted invitation starts: an empty board, the user to move if black. */
+    private fun invitedGame(
+        topic: MessageTopic.GameInvitation,
+        from: MessageAuthor?,
+    ): FakeGame {
+        val settings = topic.settings
+        val myColor = if (settings?.myColor == InvitationColor.WHITE) StoneColor.WHITE else StoneColor.BLACK
+        val me = PlayerInfo(user.displayName, user.rank)
+        val them = PlayerInfo(from?.handle ?: "opponent", from?.rank)
+        return FakeGame(
+            id = topic.game ?: GameId(serverId, "demo-invited"),
+            opponent = Opponent(from?.handle ?: "opponent", from?.displayName, from?.rank),
+            myColor = myColor,
+            record =
+                GameRecord(
+                    boardSize = settings?.boardSize ?: 19,
+                    komi = settings?.komi ?: 6.5,
+                    black = if (myColor == StoneColor.BLACK) me else them,
+                    white = if (myColor == StoneColor.WHITE) me else them,
+                ),
+            moveId = 0,
+            lastMoveAt = Clock.System.now(),
+            remaining = RemainingTime("10d", 10.days, "+ 1d"),
+            awaitingMe = myColor == StoneColor.BLACK,
+        )
     }
 
     override fun gameUrl(id: GameId): String =
