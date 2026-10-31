@@ -155,7 +155,7 @@ class GamesViewModel(
                 allRunning = allRunning,
                 finished = finished,
                 arrivals = arrivals,
-                marks = marks,
+                marks = shownMarks(marks, auth),
                 signedOut = signedOutLines(auth),
                 messages = messages.map(::row),
             )
@@ -167,7 +167,7 @@ class GamesViewModel(
                 allRunning = store.allRunning.value,
                 finished = store.finished.value,
                 arrivals = store.arrivals.value,
-                marks = store.marks.value,
+                marks = shownMarks(store.marks.value, accounts.sessions.map { it.state.value }),
             ),
         )
 
@@ -225,6 +225,22 @@ class GamesViewModel(
 
     /** The web page of a game Turnzen lists but cannot show ([GameSummary.onlyOnWeb]). */
     fun gameUrl(id: GameId): String? = accounts.session(id.server).gameUrl(id)
+
+    /**
+     * The marks of the servers signed in: an ended game of a server that is not — the demo's,
+     * marked before its first sign-in — has no list to stand on.
+     */
+    private fun shownMarks(
+        marks: GameMarks,
+        states: List<AuthState>,
+    ): GameMarks {
+        val signedIn =
+            accounts.sessions
+                .zip(states)
+                .filter { it.second is AuthState.SignedIn }
+                .mapTo(HashSet()) { it.first.serverId }
+        return marks.copy(ended = marks.ended.filter { it.id.server in signedIn })
+    }
 
     /**
      * A server that signed the user out while another one stays signed in: one line in the

@@ -54,6 +54,10 @@ class PrefsGameMarksStore internal constructor(
 
     override fun save(marks: GameMarks) = prefs.edit().putString(KEY, GameMarksCodec.encode(marks)).apply()
 
+    /** Whether any marks were ever written, even an empty set of them. */
+    val written: Boolean
+        get() = prefs.contains(KEY)
+
     private companion object {
         const val KEY = "marks"
     }

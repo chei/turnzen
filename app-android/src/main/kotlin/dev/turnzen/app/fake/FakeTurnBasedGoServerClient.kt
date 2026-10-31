@@ -1,5 +1,6 @@
 package dev.turnzen.app.fake
 
+import dev.turnzen.app.data.GameMarks
 import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.Coordinates
 import dev.turnzen.game.DeadStones
@@ -111,7 +112,7 @@ class FakeTurnBasedGoServerClient(
             }
 
             browserSignIn -> {
-                mutableListOf(demo9(serverId), demoWaiting(serverId))
+                mutableListOf(demoNew(serverId), demo9(serverId), demoWaiting(serverId))
             }
 
             else -> {
@@ -124,7 +125,7 @@ class FakeTurnBasedGoServerClient(
         when {
             !shareGames -> mutableListOf(demoFinishedWin(serverId), demoFinishedLoss(serverId))
             browserSignIn -> mutableListOf(demoFinishedWin(serverId))
-            else -> mutableListOf(demoFinishedLoss(serverId))
+            else -> mutableListOf(demoResigned(serverId), demoFinishedLoss(serverId))
         }
 
     override suspend fun signIn(credentials: Credentials): SignedInUser {
@@ -412,6 +413,17 @@ class FakeTurnBasedGoServerClient(
             ?: archive.firstOrNull { it.id == id }
             ?: throw GoServerException.ServerError("unknown_game", "Unknown game")
 
+    /**
+     * The marks a demo starts with ([GameMarks]): the game just begun and the one just ended,
+     * as if the lists had been seen once before they happened. A real start marks nothing,
+     * which would leave the demo without them until the user made a game begin or end.
+     */
+    fun demoMarks(): GameMarks =
+        GameMarks(
+            unopened = games.filter { it.id.value == DEMO_NEW }.mapTo(LinkedHashSet()) { it.id },
+            ended = archive.filter { it.id.value == DEMO_RESIGNED }.map { it.summary() },
+        )
+
     private fun FakeGame.summary() =
         GameSummary(
             id = id,
@@ -554,6 +566,54 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size + 1,
                 lastMoveAt = Clock.System.now().minus(2.hours),
                 remaining = RemainingTime("6h", 6.hours, "+ 15d / 8"),
+            )
+        }
+
+        const val DEMO_NEW = "demo-new"
+        const val DEMO_RESIGNED = "demo-resigned"
+
+        /** A challenge the user sent, accepted an hour ago: an empty board, the user to play. */
+        fun demoNew(server: ServerId): FakeGame {
+            val record =
+                GameRecord(
+                    boardSize = 19,
+                    komi = 6.5,
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("ayumi", "7k"),
+                )
+            return FakeGame(
+                id = GameId(server, DEMO_NEW),
+                opponent = Opponent("ayumi", "Ayumi", "7k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = 0,
+                lastMoveAt = Clock.System.now().minus(1.hours),
+                remaining = RemainingTime("7d", 7.days, "+ 1d"),
+            )
+        }
+
+        /** A game the opponent resigned while the app was not looking. */
+        fun demoResigned(server: ServerId): FakeGame {
+            val record =
+                GameRecord(
+                    boardSize = 13,
+                    komi = 6.5,
+                    moves = moves(13, "D4 K10 K4 D10 C7 G3 F10 K7 J8 H9"),
+                    black = PlayerInfo("Demo User", "8k"),
+                    white = PlayerInfo("rokuro", "8k"),
+                )
+            return FakeGame(
+                id = GameId(server, DEMO_RESIGNED),
+                opponent = Opponent("rokuro", null, "8k"),
+                myColor = StoneColor.BLACK,
+                record = record,
+                moveId = record.moves.size,
+                lastMoveAt = Clock.System.now().minus(2.hours),
+                remaining = RemainingTime("–"),
+                awaitingMe = false,
+                result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),
+                finished = true,
+                ratingChange = 0.27,
             )
         }
 

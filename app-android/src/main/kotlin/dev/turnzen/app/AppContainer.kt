@@ -6,6 +6,7 @@ import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.EncryptedCredentialStore
 import dev.turnzen.app.data.FileRecordCache
 import dev.turnzen.app.data.FixedServer
+import dev.turnzen.app.data.GameMarks
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.LadderStore
 import dev.turnzen.app.data.MessagesStore
@@ -110,12 +111,25 @@ class AppContainer(
     val checkSchedule = CheckSchedule(appContext)
     private val watchState = WatchStateStore(appContext)
 
+    /**
+     * The demo starts with a game just begun and one just ended, so both row tints show on
+     * the first look; a real start marks nothing (see [GamesStore]). Once only: after that the
+     * marks are the user's, opened or not.
+     */
+    private val gameMarks =
+        PrefsGameMarksStore(appContext).also { store ->
+            if (BuildConfig.USE_FAKE_SERVER && !store.written) {
+                val demo = listOf(dgsClient(""), ogsClient()).map { (it as FakeTurnBasedGoServerClient).demoMarks() }
+                store.save(GameMarks(demo.flatMapTo(LinkedHashSet()) { it.unopened }, demo.flatMap { it.ended }))
+            }
+        }
+
     val games =
         GamesStore(
             accounts,
             cache = PrefsGamesCache(appContext),
             records = FileRecordCache(appContext),
-            marksStore = PrefsGameMarksStore(appContext),
+            marksStore = gameMarks,
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** The new messages on every server, for the block above "Your turn". */

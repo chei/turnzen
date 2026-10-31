@@ -181,4 +181,19 @@ class GameMarksTest {
             )
             assertEquals(before.marks.value, after.marks.value)
         }
+
+    @Test
+    fun `the demo's marks name a game it runs and one it has ended`() =
+        runTest {
+            val ogs = FakeTurnBasedGoServerClient(latencyMillis = 0, browserSignIn = true, shareGames = true)
+            val dgs = FakeTurnBasedGoServerClient(latencyMillis = 0, shareGames = true)
+            ogs.signInInBrowser {}
+            dgs.signIn(Credentials("demo", "pw"))
+
+            val begun = ogs.demoMarks().unopened.single()
+            assertTrue(ogs.myRunningGames().any { it.id == begun })
+            val ended = dgs.demoMarks().ended.single()
+            assertEquals(ended, dgs.myFinishedGames(15).first())
+            assertTrue(ended.isFinished)
+        }
 }

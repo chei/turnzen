@@ -412,7 +412,14 @@ for it.
   2026): currently one game won on time and several running games, none awaiting a move — a
   "my turn" capture waits until an opponent moves. Same scrubbing rules as for DGS.
 - The demo server (`-Pturnzen.fakeServer=true`) gets a fake OGS alongside the fake DGS, so
-  mixed lists can be seen without accounts.
+  mixed lists can be seen without accounts. It is meant to show every feature without an account (October
+  2026): games to play on all three board sizes, two being counted, one on the opponent's
+  move, a finished win and loss, the new-messages block (a game invitation, a ladder
+  challenge, a player's message, a game result), and both row tints from the first look —
+  a game just begun on the OGS side and one the opponent just resigned on the DGS side,
+  seeded into the marks once (a real start marks nothing). Accepting the invitation starts
+  its game, and accepting a count ends one, so both marks can also be made to happen.
+  Resigning works in any game.
 
 ### Distribution consequence
 
