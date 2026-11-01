@@ -297,6 +297,9 @@ for it.
   reads it only from the field or its direct parent, so these two are classic `EditText`s
   styled like the rest (`CredentialField`). Verified with Bitwarden; Google's autofill
   insists on Digital Asset Links, which DGS does not publish, so it keeps using the package.
+- **The password field has the usual Android eye button** (sign-in and Settings alike):
+  masked by default, one tap shows the password, another hides it. It swaps only the
+  masking, not the input type, so autofill still sees a password field.
 - **Sign-in screen**: two panels, both servers equal. **OGS on top** — its panel is a single
   "Sign in with Online Go Server" button, so it stays visible above the DGS form when the
   keyboard opens; the DGS panel below keeps its form. Each panel shows its own state

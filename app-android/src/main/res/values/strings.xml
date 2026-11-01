@@ -9,6 +9,8 @@
 
     <string name="signin_username">Username</string>
     <string name="signin_password">Password</string>
+    <string name="signin_password_show">Show password</string>
+    <string name="signin_password_hide">Hide password</string>
     <string name="signin_note_servers">Sign in to one server or both.</string>
     <string name="signin_signing_in">Signing in…</string>
     <!-- %1$s is the server's name: "Sign in to Dragon Go Server". -->
