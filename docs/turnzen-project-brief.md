@@ -419,7 +419,10 @@ for it.
   a game just begun on the OGS side and one the opponent just resigned on the DGS side,
   seeded into the marks once (a real start marks nothing). Accepting the invitation starts
   its game, and accepting a count ends one, so both marks can also be made to happen.
-  Resigning works in any game.
+  Resigning works in any game. The demo build is an app of its own (`….turnzen.demo`,
+  "Turnzen demo"), installed beside the real one: under the same id and key, a real build
+  installed over it kept its data, and every real game showed as just begun against the
+  demo's lists.
 
 ### Distribution consequence
 

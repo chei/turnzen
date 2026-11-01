@@ -24,6 +24,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "0.1.0"
+        manifestPlaceholders["appLabel"] = "Turnzen"
 
         // Public project links shown on the Settings screen.
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/chei/turnzen\"")
@@ -54,6 +55,13 @@ android {
         debug {
             buildConfigField("boolean", "USE_FAKE_SERVER", useFakeServer.toString())
             signingConfig = signingConfigs.getByName("debug")
+            // The demo is an app of its own, installed beside the real one. Under the same id
+            // and key a real build installed over it took over its data: the demo's game
+            // lists, against which every real game counted as just begun.
+            if (useFakeServer) {
+                applicationIdSuffix = ".demo"
+                manifestPlaceholders["appLabel"] = "Turnzen demo"
+            }
         }
         release {
             buildConfigField("boolean", "USE_FAKE_SERVER", "false")
