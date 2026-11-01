@@ -46,6 +46,8 @@ data class AppSettings(
     val notifications: NotificationSettings = NotificationSettings(),
     /** Opponents' icons in the games list: their picture on OGS, their coloured initial elsewhere. */
     val playerIcons: Boolean = true,
+    /** The background colours of games-list rows: a game just begun, just ended, being counted. */
+    val rowColours: Boolean = true,
 )
 
 /** The one setting the session layer needs; split out so it can be faked in tests. */
@@ -90,6 +92,7 @@ class SettingsStore internal constructor(
             .putBoolean(KEY_NOTIFY_MESSAGES, next.notifications.messages)
             .putString(KEY_CHECK_EVERY, next.notifications.checkEvery.name)
             .putBoolean(KEY_PLAYER_ICONS, next.playerIcons)
+            .putBoolean(KEY_ROW_COLOURS, next.rowColours)
             .apply()
         _settings.value = next
     }
@@ -119,6 +122,7 @@ class SettingsStore internal constructor(
                             .getOrDefault(CheckInterval.MIN_30),
                 ),
             playerIcons = prefs.getBoolean(KEY_PLAYER_ICONS, true),
+            rowColours = prefs.getBoolean(KEY_ROW_COLOURS, true),
         )
 
     private companion object {
@@ -132,5 +136,6 @@ class SettingsStore internal constructor(
         const val KEY_NOTIFY_MESSAGES = "notify_messages"
         const val KEY_CHECK_EVERY = "notify_check_every"
         const val KEY_PLAYER_ICONS = "player_icons"
+        const val KEY_ROW_COLOURS = "row_colours"
     }
 }

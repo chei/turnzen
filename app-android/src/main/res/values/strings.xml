@@ -151,6 +151,10 @@
     <string name="settings_group_about">About</string>
     <string name="settings_theme">Theme</string>
     <string name="settings_player_icons">Player icons</string>
+    <string name="settings_row_colours">Game row colours</string>
+    <string name="settings_row_colour_begun">New game, not opened yet</string>
+    <string name="settings_row_colour_ended">Game over, not opened yet</string>
+    <string name="settings_row_colour_scoring">Being counted</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

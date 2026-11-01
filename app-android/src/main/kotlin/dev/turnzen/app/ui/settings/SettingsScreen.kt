@@ -7,7 +7,10 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,8 +19,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -156,6 +162,10 @@ fun SettingsScreen(
         Group(stringResource(R.string.settings_group_appearance)) {
             ValueRow(stringResource(R.string.settings_theme), themeLabel(settings.theme)) { choosingTheme = true }
             ToggleRow(stringResource(R.string.settings_player_icons), settings.playerIcons, viewModel::setPlayerIcons)
+            ToggleRow(stringResource(R.string.settings_row_colours), settings.rowColours, viewModel::setRowColours)
+            // What each colour means, right under the switch that turns them on: the list
+            // itself has no room to say it.
+            if (settings.rowColours) RowColoursKey()
         }
 
         Group(stringResource(R.string.settings_group_about)) {
@@ -223,6 +233,35 @@ private fun Group(
         Spacer(Modifier.height(4.dp))
         content()
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+/** The row colours of the games list, each with what it means. */
+@Composable
+private fun RowColoursKey() {
+    Column(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        RowColourLine(colors.rowBegun, stringResource(R.string.settings_row_colour_begun))
+        RowColourLine(colors.rowEnded, stringResource(R.string.settings_row_colour_ended))
+        RowColourLine(colors.rowScoring, stringResource(R.string.settings_row_colour_scoring))
+    }
+    Box(Modifier.padding(horizontal = 20.dp)) { Hairline() }
+}
+
+@Composable
+private fun RowColourLine(
+    colour: Color,
+    meaning: String,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // A piece of a row, outlined: the colours are faint enough to vanish on the page.
+        Box(
+            Modifier
+                .size(width = 36.dp, height = 24.dp)
+                .background(colour, RoundedCornerShape(4.dp))
+                .border(1.dp, colors.line, RoundedCornerShape(4.dp)),
+        )
+        Spacer(Modifier.width(12.dp))
+        Text(meaning, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
     }
 }
 

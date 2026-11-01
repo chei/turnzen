@@ -92,6 +92,8 @@ fun GamesScreen(
     onSignInAgain: () -> Unit = {},
     /** Opponents' icons on the rows (a setting, on by default). */
     showPlayerIcons: Boolean = true,
+    /** The rows' background colours for games just begun, just ended, being counted (a setting, on by default). */
+    showRowColours: Boolean = true,
     /** A message to open, as a tapped notification asked; [onMessageOpened] once it is. */
     messageToOpen: MessageId? = null,
     onMessageOpened: () -> Unit = {},
@@ -216,6 +218,7 @@ fun GamesScreen(
                 onOpenGame = onOpenGame,
                 onSignInAgain = onSignInAgain,
                 showPlayerIcons = showPlayerIcons,
+                showRowColours = showRowColours,
             )
         }
     }
@@ -254,6 +257,7 @@ private fun GamesPage(
     onOpenGame: (GameId) -> Unit,
     onSignInAgain: () -> Unit,
     showPlayerIcons: Boolean,
+    showRowColours: Boolean,
 ) {
     val uriHandler = LocalUriHandler.current
     val games = state.listFor(tab)
@@ -380,6 +384,7 @@ private fun GamesPage(
                                     serverName = viewModel.serverName(game.id),
                                     showIcon = showPlayerIcons,
                                     mark = state.markFor(tab, game),
+                                    showColour = showRowColours,
                                     arrived = game.id in arrivals,
                                     onArrivalShown = { viewModel.onArrivalShown(game.id) },
                                     onClick = {
@@ -516,6 +521,8 @@ private fun GameRow(
     serverName: String,
     showIcon: Boolean,
     mark: RowMark,
+    /** Off, the row keeps the page's colour whatever [mark] says; TalkBack still says it. */
+    showColour: Boolean,
     arrived: Boolean,
     onArrivalShown: () -> Unit,
     onClick: () -> Unit,
@@ -533,11 +540,11 @@ private fun GameRow(
     }
     // A game just begun flashes in its own green and drains to its tint; a blue flash over
     // a green row read as the wrong colour.
-    val flashColor = if (mark == RowMark.BEGUN) colors.rowBegunFlash else colors.accentSoft
+    val flashColor = if (showColour && mark == RowMark.BEGUN) colors.rowBegunFlash else colors.accentSoft
     // A game not opened since it began, or since it ended, keeps a quiet tint until it is:
     // unlike the flash, it says something about the game, not about the last refresh.
     val background =
-        when (mark) {
+        when (if (showColour) mark else RowMark.NONE) {
             RowMark.BEGUN -> colors.rowBegun
             RowMark.ENDED -> colors.rowEnded
             RowMark.SCORING -> colors.rowScoring

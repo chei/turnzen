@@ -303,6 +303,7 @@ private fun SignedInShell(container: AppContainer) {
                         onOpenGame = { openGameId = encodeGameId(it) },
                         onSignInAgain = { tab = MainTab.SETTINGS },
                         showPlayerIcons = settings.playerIcons,
+                        showRowColours = settings.rowColours,
                         messageToOpen = messageToOpen,
                         onMessageOpened = { messageToOpen = null },
                     )

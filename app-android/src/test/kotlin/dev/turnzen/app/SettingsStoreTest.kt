@@ -21,6 +21,14 @@ class SettingsStoreTest {
         assertTrue(settings.board.numberTrialStones)
         assertEquals(ThemeMode.SYSTEM, settings.theme)
         assertTrue(settings.playerIcons)
+        assertTrue(settings.rowColours)
+    }
+
+    @Test
+    fun `turning the row colours off survives a restart`() {
+        val prefs = FakeSharedPreferences()
+        SettingsStore(prefs).update { it.copy(rowColours = false) }
+        assertFalse(SettingsStore(prefs).settings.value.rowColours)
     }
 
     @Test

@@ -52,6 +52,8 @@ class SettingsViewModel(
 
     fun setPlayerIcons(on: Boolean) = settingsStore.update { it.copy(playerIcons = on) }
 
+    fun setRowColours(on: Boolean) = settingsStore.update { it.copy(rowColours = on) }
+
     fun updateNotifications(transform: (NotificationSettings) -> NotificationSettings) =
         settingsStore.update { it.copy(notifications = transform(it.notifications)) }
 

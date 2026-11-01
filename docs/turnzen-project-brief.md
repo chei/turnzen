@@ -1255,6 +1255,11 @@ partly so the project could grow beyond Go (see Naming).
 - Server URL.
 - Board display options: coordinates on/off, last-move marker, trial-stone numbering.
 - Appearance: theme (Light / Dark / System), defaulting to System. See `docs/mockups/DESIGN.md`.
+  Player icons, and Game row colours (October 2026, on by default): the background tints of
+  games just begun, just ended and being counted. While on, a key under the switch shows a
+  swatch of each colour with what it means, since the list has no room to say it. Off, the
+  rows keep the page's colour; the games still behave as marked (an ended game is still
+  listed once, until opened) and TalkBack still says "new game" or "game over".
 - About: version, license (MIT), source repository link, issue tracker link.
 
 ### Post-MVP screens (design should anticipate them; no implementation in the MVP)

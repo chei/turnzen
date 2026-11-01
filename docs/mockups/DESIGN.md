@@ -188,7 +188,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   on screen flashes in `rowBegunFlash` rather than `accentSoft`, and drains to its tint.
   A game being counted has a `rowScoring` background: a state rather than news, so it
   stays after the game is opened, until the count is over. Kin to `rowEnded` (the end of the
-  game is near), deeper so the two stay apart. Opaque fills, for the same reason the row's own
+  game is near), deeper so the two stay apart. Settings › Appearance › Game row colours
+  turns the tints off; while on, a key below it shows each colour as a 36×24dp swatch,
+  outlined in `line` (the colours are too faint to show on the page alone), beside its
+  meaning in `ink2`. Opaque fills, for the same reason the row's own
   background is. TalkBack reads "new game" or "game over" before the server.
 - **The rows under it move out of the way**, over 300ms, rather than the list changing
   between two frames. Rows are opaque for this: they are drawn in list order, so the row
