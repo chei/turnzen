@@ -33,7 +33,7 @@
     <string name="games_empty_all_title">No running games</string>
     <string name="games_empty_finished_title">No finished games yet</string>
     <string name="games_move">move %1$d</string>
-    <string name="games_counting">counting</string>
+    <string name="games_scoring">scoring</string>
     <!-- A game on a board Turnzen does not draw (19x9, say): the row opens it on the web. -->
     <string name="games_on_the_web">on the web only</string>
     <!-- Read by TalkBack for a games-list row whose tint marks a game not opened yet. -->
@@ -156,7 +156,7 @@
     <string name="settings_row_colours">Game row colours</string>
     <string name="settings_row_colour_begun">New game</string>
     <string name="settings_row_colour_ended">Game over</string>
-    <string name="settings_row_colour_scoring">Counting</string>
+    <string name="settings_row_colour_scoring">Scoring</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>

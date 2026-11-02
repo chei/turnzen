@@ -556,7 +556,7 @@ private fun GameRow(
 
             RowMark.ENDED -> stringResource(R.string.games_mark_ended)
 
-            // The row already says "counting" in words.
+            // The row already says "scoring" in words.
             RowMark.SCORING, RowMark.NONE -> null
         }
 
@@ -673,7 +673,7 @@ private fun GameRowText(
 
                     // A game being counted is not waiting for a move either, and
                     // saying "move 22" would send the user looking for one.
-                    game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_counting)
+                    game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_scoring)
 
                     else -> stringResource(R.string.games_move, game.moveNumber)
                 }

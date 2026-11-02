@@ -25,6 +25,7 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         manifestPlaceholders["appLabel"] = "Turnzen"
+        manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
 
         // Public project links shown on the Settings screen.
         buildConfigField("String", "SOURCE_URL", "\"https://github.com/chei/turnzen\"")
@@ -61,6 +62,8 @@ android {
             if (useFakeServer) {
                 applicationIdSuffix = ".demo"
                 manifestPlaceholders["appLabel"] = "Turnzen demo"
+                // The same board on a blue ground, to tell the two apart on the home screen.
+                manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher_demo"
             }
         }
         release {

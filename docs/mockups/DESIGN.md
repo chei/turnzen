@@ -376,7 +376,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   nothing of its own to take apart. When the two answers differ by more than rounding — seki,
   or dame left unfilled under area scoring — the breakdown is left out and only the server's
   headline stays, rather than leaving numbers on screen that refuse to add up.
-- **A game being counted says so in the list**: the row reads "9x9, counting, 40 min ago"
+- **A game being counted says so in the list**: the row reads "9x9, scoring, 40 min ago"
   rather than naming a move number that nobody is waiting for.
 - **Game info sheet**: everything the server already told us that the board has no room for
   — both players with their rank, captures and *both* clocks (the header can only show the
