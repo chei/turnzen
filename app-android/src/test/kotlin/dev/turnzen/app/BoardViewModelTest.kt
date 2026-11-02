@@ -54,8 +54,8 @@ class BoardViewModelTest : MainDispatcherTest() {
     private val game = GameId(DEMO_SERVER, "demo-9")
     private val scoringGame = GameId(DEMO_SERVER, "demo-scoring")
 
-    /** The demo archive: a counted game ending in two passes, and one that was resigned. */
-    private val countedGame = GameId(DEMO_SERVER, "demo-done-win")
+    /** The demo archive: a scored game ending in two passes, and one that was resigned. */
+    private val scoredGame = GameId(DEMO_SERVER, "demo-done-win")
     private val resignedGame = GameId(DEMO_SERVER, "demo-done-loss")
 
     /** The white stone stranded in black's area in the demo server's scoring game (D8). */
@@ -516,7 +516,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a game in the counting phase opens in scoring mode`() =
+    fun `a game in the scoring phase opens in scoring mode`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoringGame)
@@ -533,11 +533,11 @@ class BoardViewModelTest : MainDispatcherTest() {
             assertTrue(scoring.dead.isEmpty())
             assertTrue(scoring.blackTerritory.isEmpty())
             // Server and device count the same position the same way, so the breakdown adds up.
-            assertEquals(scoring.count, scoring.breakdown)
+            assertEquals(scoring.localScore, scoring.breakdown)
         }
 
     @Test
-    fun `a server count the device cannot reproduce gets no breakdown`() =
+    fun `a server score the device cannot reproduce gets no breakdown`() =
         runTest(dispatcher) {
             val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
             val generous =
@@ -547,7 +547,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                         token: MoveToken,
                         toggle: List<Point>,
                     ): ScoreState {
-                        // A count nobody's arithmetic reaches, standing in for the real
+                        // A score nobody's arithmetic reaches, standing in for the real
                         // reasons two counts part company: seki, or unfilled dame.
                         val real = fake.scoreState(id, token, toggle)
                         return real.copy(result = GameResult(StoneColor.BLACK, 10.0))
@@ -561,19 +561,19 @@ class BoardViewModelTest : MainDispatcherTest() {
             // The headline stays the server's — that is what an agreement agrees to — and the
             // device's figures, which would not add up to it, are left out.
             assertEquals(10.0, scoring.result?.margin)
-            assertNotNull(scoring.count)
+            assertNotNull(scoring.localScore)
             assertNull(scoring.breakdown)
 
-            // Once the user marks something the device's count is the only one on show, so
+            // Once the user marks something the device's score is the only one on show, so
             // its breakdown is back.
             h.vm.toggleDead(strandedStone)
             advanceUntilIdle()
             val marked = assertNotNull(h.vm.state.value.scoring)
-            assertEquals(marked.count, marked.breakdown)
+            assertEquals(marked.localScore, marked.breakdown)
         }
 
     @Test
-    fun `marking a group is local, and the count follows it`() =
+    fun `marking a group is local, and the score follows it`() =
         runTest(dispatcher) {
             val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
             var reads = 0
@@ -604,7 +604,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             // With the stone lifted, the top of the board is black's: eighteen points and the
             // prisoner itself.
             assertEquals(18, scoring.blackTerritory.size)
-            assertEquals(19.0, scoring.count?.blackPoints)
+            assertEquals(19.0, scoring.localScore?.blackPoints)
             // One tap, so the server will hear about exactly one point.
             assertEquals(listOf(strandedStone), scoring.taps)
         }
@@ -623,7 +623,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             // The guess is marks like any other: sent as taps, or dropped with Reset marks.
             assertTrue(scoring.changed)
             assertEquals(listOf(strandedStone), scoring.taps)
-            assertEquals(19.0, scoring.count?.blackPoints)
+            assertEquals(19.0, scoring.localScore?.blackPoints)
 
             h.vm.resetMarks()
             val reset = assertNotNull(h.vm.state.value.scoring)
@@ -692,7 +692,7 @@ class BoardViewModelTest : MainDispatcherTest() {
     }
 
     @Test
-    fun `reopening a counted game shows its marks at once, without reading them again`() =
+    fun `reopening a scored game shows its marks at once, without reading them again`() =
         runTest(dispatcher) {
             val client = CountingScores()
             val h = Harness(client, guess = true)
@@ -712,7 +712,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a prefetched counted game opens straight into scoring`() =
+    fun `a prefetched scored game opens straight into scoring`() =
         runTest(dispatcher) {
             val client = CountingScores()
             val h = Harness(client)
@@ -729,7 +729,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a counted game opens with the board and the marks together`() =
+    fun `a scored game opens with the board and the marks together`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoringGame)
@@ -741,7 +741,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a counted game can be reviewed, and the marks wait at the end`() =
+    fun `a scored game can be reviewed, and the marks wait at the end`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoringGame)
@@ -768,7 +768,7 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a line branched out of a counted game never stands in for the count`() =
+    fun `a line branched out of a scored game never stands in for the score`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoringGame)
@@ -883,11 +883,11 @@ class BoardViewModelTest : MainDispatcherTest() {
     fun `a game counted into two passes opens on the last stone, and names the passes`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
-            h.start(countedGame, finished = true)
+            h.start(scoredGame, finished = true)
             advanceUntilIdle()
 
             val opened = h.vm.state.value
-            // Twelve stones, then the two passes that took the game to counting.
+            // Twelve stones, then the two passes that took the game to scoring.
             assertEquals(14, opened.moveCount)
             assertEquals(12, opened.cursor)
             // Nothing to explain where the board stands: a stone was played there.

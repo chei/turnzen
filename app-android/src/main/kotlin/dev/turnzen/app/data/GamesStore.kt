@@ -110,7 +110,7 @@ class GamesStore(
      */
     private val details = LinkedHashMap<GameId, GameDetail>()
 
-    /** Scoring states of games in the counting phase, kept like [details]. */
+    /** Scoring states of games in the scoring phase, kept like [details]. */
     private val scores = LinkedHashMap<GameId, HeldScore>()
 
     /** null until the first successful load. */
@@ -482,7 +482,7 @@ class GamesStore(
     ): HeldScore? = scores[id]?.takeIf { it.token == token }
 
     /**
-     * Reads the scoring state of [detail], a game in its counting phase, and works out the
+     * Reads the scoring state of [detail], a game in its scoring phase, and works out the
      * device's guess at the dead stones; kept for the next time the game is opened.
      *
      * The guess is made only when the server holds no marks and the user is the one to mark:
@@ -511,7 +511,7 @@ class GamesStore(
 
     /**
      * Download [id]'s record in the background so opening it is instantaneous — and, for a
-     * game being counted, its scoring state too, or the board would open without the marks
+     * game in scoring, its scoring state too, or the board would open without the marks
      * and switch to them a moment later. Skipped when a copy the games list agrees with is
      * already held, so a warm game is never fetched twice. Best effort throughout: prefetching is an optimisation, and a failure here must
      * never reach the user — the game simply loads normally when they open it.

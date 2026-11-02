@@ -46,7 +46,7 @@ data class AppSettings(
     val notifications: NotificationSettings = NotificationSettings(),
     /** Opponents' icons in the games list: their picture on OGS, their coloured initial elsewhere. */
     val playerIcons: Boolean = true,
-    /** The background colours of games-list rows: a game just begun, just ended, being counted. */
+    /** The background colours of games-list rows: a game just begun, just ended, in scoring. */
     val rowColours: Boolean = true,
 )
 

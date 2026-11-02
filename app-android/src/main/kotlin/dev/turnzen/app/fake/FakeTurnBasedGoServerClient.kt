@@ -84,7 +84,7 @@ class FakeTurnBasedGoServerClient(
         var lastMoveAt: Instant,
         val remaining: RemainingTime,
         var awaitingMe: Boolean = true,
-        /** True once the game has reached the counting phase. */
+        /** True once the game has reached the scoring phase. */
         val scoring: Boolean = false,
         /** The dead stones both players are working from, as the server holds them. */
         val dead: MutableSet<Point> = LinkedHashSet(),
@@ -222,8 +222,8 @@ class FakeTurnBasedGoServerClient(
     }
 
     /**
-     * Counting works here the way it works on a real server: the marks live on the server,
-     * a client may preview toggles without committing them, and the count comes back with
+     * Scoring works here the way it works on a real server: the marks live on the server,
+     * a client may preview toggles without committing them, and the score comes back with
      * the territory it is based on. The arithmetic is [Scoring]'s, the same code the app
      * shows live while marking.
      */
@@ -295,14 +295,14 @@ class FakeTurnBasedGoServerClient(
 
     private fun FakeGame.stateFor(marked: Set<Point>): ScoreState {
         val position = Replay(record).finalPosition
-        val count = Scoring.count(position, marked, record.komi ?: 0.0, ScoringRules.TERRITORY)
+        val score = Scoring.score(position, marked, record.komi ?: 0.0, ScoringRules.TERRITORY)
         return ScoreState(
-            result = count.result,
+            result = score.result,
             rules = ScoringRules.TERRITORY,
             deadStones = marked,
-            blackTerritory = count.territoryOf(StoneColor.BLACK),
-            whiteTerritory = count.territoryOf(StoneColor.WHITE),
-            dame = count.dame,
+            blackTerritory = score.territoryOf(StoneColor.BLACK),
+            whiteTerritory = score.territoryOf(StoneColor.WHITE),
+            dame = score.dame,
         )
     }
 
@@ -639,7 +639,7 @@ class FakeTurnBasedGoServerClient(
         }
 
         /**
-         * A 9x9 that has run to two passes and is waiting to be counted. One white stone sits
+         * A 9x9 that has run to two passes and is waiting to be scored. One white stone sits
          * stranded inside black's area: while it counts as alive the whole top of the board is
          * nobody's, and marking it dead turns that into eighteen points and a prisoner — which
          * is the point of the marking step, in one tap.
@@ -679,7 +679,7 @@ class FakeTurnBasedGoServerClient(
         }
 
         /**
-         * A 13x13 from a real game, counted after two passes, with two dead white corners on
+         * A 13x13 from a real game, scored after two passes, with two dead white corners on
          * the right: six lone stones in the top right and a chain in the bottom right. It is
          * the position that made marking go by area — one chain at a time it took seven taps —
          * and the board opens with both corners guessed dead. Laid out as setup stones, since
@@ -760,7 +760,7 @@ class FakeTurnBasedGoServerClient(
 
         /**
          * An archived win on points, so the Finished tab has something in it from the start.
-         * It ends the way every counted game ends — two passes — which is also what the
+         * It ends the way every scored game ends — two passes — which is also what the
          * board's opening cursor has to step over.
          */
         fun demoFinishedWin(server: ServerId): FakeGame {

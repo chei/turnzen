@@ -92,7 +92,7 @@ fun GamesScreen(
     onSignInAgain: () -> Unit = {},
     /** Opponents' icons on the rows (a setting, on by default). */
     showPlayerIcons: Boolean = true,
-    /** The rows' background colours for games just begun, just ended, being counted (a setting, on by default). */
+    /** The rows' background colours for games just begun, just ended, in scoring (a setting, on by default). */
     showRowColours: Boolean = true,
     /** A message to open, as a tapped notification asked; [onMessageOpened] once it is. */
     messageToOpen: MessageId? = null,
@@ -671,7 +671,7 @@ private fun GameRowText(
                     // what the tab and the outcome beside it already say.
                     game.isFinished -> null
 
-                    // A game being counted is not waiting for a move either, and
+                    // A game in scoring is not waiting for a move either, and
                     // saying "move 22" would send the user looking for one.
                     game.pendingAction == PendingAction.SCORE -> stringResource(R.string.games_scoring)
 

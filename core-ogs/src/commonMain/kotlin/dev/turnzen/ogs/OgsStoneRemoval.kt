@@ -42,7 +42,7 @@ internal object OgsStoneRemoval {
         val encoded: String = encode(marked)
     }
 
-    /** The marks in [gamedata]; a game that is not being counted has moved on from the caller. */
+    /** The marks in [gamedata]; a game that is not in scoring has moved on from the caller. */
     fun read(gamedata: JsonObject): Marks {
         if (gamedata.str("phase") != PHASE) throw GoServerException.StaleGame()
         val record = OgsGameData.record(gamedata, null, null)
@@ -58,7 +58,7 @@ internal object OgsStoneRemoval {
     /**
      * The phase as the app shows it, after the user's [toggle] taps on the server's marks.
      *
-     * OGS counts nothing until the game is over, so the count is this device's (`Scoring.count`)
+     * OGS scores nothing until the game is over, so the score is this device's (`Scoring.score`)
      * — the same arithmetic the app shows while the user marks, so the two never disagree.
      */
     fun state(
@@ -66,14 +66,14 @@ internal object OgsStoneRemoval {
         toggle: List<Point> = emptyList(),
     ): ScoreState {
         val dead = toggle.fold(marks.dead) { d, tap -> DeadStones.toggle(marks.position.board, d, tap) }
-        val count = Scoring.count(marks.position, dead, marks.komi, marks.rules, marks.handicap)
+        val score = Scoring.score(marks.position, dead, marks.komi, marks.rules, marks.handicap)
         return ScoreState(
-            result = count.result,
+            result = score.result,
             rules = marks.rules,
             deadStones = dead,
-            blackTerritory = count.territoryOf(StoneColor.BLACK),
-            whiteTerritory = count.territoryOf(StoneColor.WHITE),
-            dame = count.dame,
+            blackTerritory = score.territoryOf(StoneColor.BLACK),
+            whiteTerritory = score.territoryOf(StoneColor.WHITE),
+            dame = score.dame,
         )
     }
 

@@ -77,7 +77,7 @@ private fun scrubGain(
 ): Float = (speed / neutral).coerceIn(SCRUB_MIN_GAIN, SCRUB_MAX_GAIN)
 
 /**
- * What a board being counted shows on top of the stones: the ones both players are treating
+ * What a board in scoring shows on top of the stones: the ones both players are treating
  * as dead, and the empty points each side has ended up surrounding.
  */
 data class ScoringOverlay(
@@ -110,7 +110,7 @@ fun GoBoard(
     trialMoves: List<ColoredMove> = emptyList(),
     settings: BoardSettings = BoardSettings(),
     enabled: Boolean = true,
-    /** Non-null while the game is being counted; see [ScoringOverlay]. */
+    /** Non-null while the game is in scoring; see [ScoringOverlay]. */
     scoring: ScoringOverlay? = null,
     onTap: (Point) -> Unit = {},
     /** Whole moves crossed since the last call; positive walks towards the live position. */
@@ -121,7 +121,7 @@ fun GoBoard(
     // below is captured by the pointer-input node and refreshed only when the keys change. Two
     // games of the same size running one after the other keep the same keys, so a board that
     // closed over [onTap] would go on placing trial stones in the game the user skipped away
-    // from; the same applies when a game enters the counting phase and [onTap] changes meaning.
+    // from; the same applies when a game enters the scoring phase and [onTap] changes meaning.
     val tap by rememberUpdatedState(onTap)
     val scrub by rememberUpdatedState(onScrub)
     val textMeasurer = rememberTextMeasurer()

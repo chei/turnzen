@@ -6,11 +6,11 @@ package dev.turnzen.game
  * [TERRITORY] (Japanese and its relatives) counts surrounded empty points plus captured
  * stones; [AREA] (Chinese and its relatives) counts surrounded empty points plus the stones
  * still standing, and ignores captures. The difference is usually a point or two, and a
- * player who cares will notice, so the count is never shown without knowing which applies.
+ * player who cares will notice, so the score is never shown without knowing which applies.
  */
 enum class ScoringRules { TERRITORY, AREA }
 
-/** Why a game ended, and — when it was counted — by how much. */
+/** Why a game ended, and — when it was scored — by how much. */
 enum class ResultReason { POINTS, RESIGNATION, TIMEOUT, FORFEIT, JIGO, NO_RESULT }
 
 /**
@@ -25,7 +25,7 @@ data class GameResult(
     /**
      * The margin as a signed number, positive when black is ahead. Two results can be
      * compared this way without unpacking the winner, which is how the board screen notices
-     * that the server's count and its own have parted company.
+     * that the server's score and its own have parted company.
      */
     val signedMargin: Double
         get() =
@@ -36,7 +36,7 @@ data class GameResult(
             }
 
     companion object {
-        /** The result of a count: black's points against white's. */
+        /** The result of scoring: black's points against white's. */
         fun fromPoints(
             black: Double,
             white: Double,
@@ -55,7 +55,7 @@ data class GameResult(
  * What the stones on a scored board are worth: the empty points each side surrounds, the
  * points neither side does, and the totals those add up to under the game's rules.
  */
-data class ScoreCount(
+data class Score(
     val territory: Map<StoneColor, Set<Point>>,
     /** Empty points bordering both colours: nobody's, and not worth a point to anyone. */
     val dame: Set<Point>,
@@ -105,16 +105,16 @@ data class ScoreCount(
 }
 
 /**
- * Counting a finished board, once both players agree which stones are dead.
+ * Scoring a finished board, once both players agree which stones are dead.
  *
  * This is the *local* count, shown live while the user marks stones so they can see what
- * their marks are worth. The server does its own counting and its answer is the one that
+ * their marks are worth. The server does its own scoring and its answer is the one that
  * settles the game; the two agree on any position whose dead stones are agreed, which is
  * exactly the position a player is looking at when they accept a score.
  */
 object Scoring {
     /**
-     * Counts [position] with [dead] treated as stones that have been captured.
+     * Scores [position] with [dead] treated as stones that have been captured.
      *
      * Dead stones are lifted off the board first, so the points they stood on count as their
      * captor's territory — which is how both rulesets treat them, and why the marking step
@@ -122,17 +122,17 @@ object Scoring {
      *
      * [handicap] matters only under area scoring, where black's free stones sit on the board
      * and count themselves: white is compensated one point per handicap stone, which is what
-     * every server that offers Chinese counting does and what makes the two rulesets agree on
+     * every server that offers Chinese scoring does and what makes the two rulesets agree on
      * the same finished position. Under territory scoring the free stones were never points,
      * so the figure is ignored.
      */
-    fun count(
+    fun score(
         position: Position,
         dead: Set<Point> = emptySet(),
         komi: Double = 0.0,
         rules: ScoringRules = ScoringRules.TERRITORY,
         handicap: Int = 0,
-    ): ScoreCount {
+    ): Score {
         val board = position.board
         val alive = board.without(dead)
         val territory = HashMap<StoneColor, MutableSet<Point>>()
@@ -172,7 +172,7 @@ object Scoring {
                 white = (whiteArea + stones.getValue(StoneColor.WHITE)).toDouble() + komi + compensation
             }
         }
-        return ScoreCount(
+        return Score(
             territory = territory.mapValues { (_, points) -> points.toSet() },
             dame = dame,
             captures = captures,

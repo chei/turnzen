@@ -416,12 +416,12 @@ for it.
   "my turn" capture waits until an opponent moves. Same scrubbing rules as for DGS.
 - The demo server (`-Pturnzen.fakeServer=true`) gets a fake OGS alongside the fake DGS, so
   mixed lists can be seen without accounts. It is meant to show every feature without an account (October
-  2026): games to play on all three board sizes, two being counted, one on the opponent's
+  2026): games to play on all three board sizes, two in scoring, one on the opponent's
   move, a finished win and loss, the new-messages block (a game invitation, a ladder
   challenge, a player's message, a game result), and both row tints from the first look —
   a game just begun on the OGS side and one the opponent just resigned on the DGS side,
   seeded into the marks once (a real start marks nothing). Accepting the invitation starts
-  its game, and accepting a count ends one, so both marks can also be made to happen.
+  its game, and accepting a score ends one, so both marks can also be made to happen.
   Resigning works in any game. The demo build is an app of its own (`….turnzen.demo`,
   "Turnzen demo"), installed beside the real one: under the same id and key, a real build
   installed over it kept its data, and every real game showed as just begun against the
@@ -507,7 +507,7 @@ OGS's own board library (`goban`, Apache-2.0, read for the protocol only):
   board as the phase starts, and as of October 2026 (goban PR #284) the server proposes the
   dead stones itself — whether that is live for correspondence games is not verified.
 - **Mapping onto the interface.** `scoreState` joins the game, reads the marks and counts
-  them on the device (`Scoring.count`; OGS counts nothing until the game is over).
+  them on the device (`Scoring.score`; OGS scores nothing until the game is over).
   `acceptScore` accepts the marks the user was shown. `disputeScore` replays the user's taps
   on the marks they were shown (`DeadStones.toggle`), sets the stones that changed — revived
   ones, then killed ones — and **accepts the result in the same go**: both players work on
@@ -1192,7 +1192,7 @@ partly so the project could grow beyond Go (see Naming).
   Pass button has appeared. The slot keeps its height when empty, so scrubbing never shifts
   the navigation row.
 - **A finished game opens on its last stone, not its last move**: the trailing passes that
-  took it into counting are stepped over on the way in, so the first Back rewinds something
+  took it into scoring are stepped over on the way in, so the first Back rewinds something
   visible. Forward still walks into them, now with the event line to say what they are.
 
 **3b. Game info sheet** (opened from the board's header)
@@ -1259,7 +1259,7 @@ partly so the project could grow beyond Go (see Naming).
 - Board display options: coordinates on/off, last-move marker, trial-stone numbering.
 - Appearance: theme (Light / Dark / System), defaulting to System. See `docs/mockups/DESIGN.md`.
   Player icons, and Game row colours (October 2026, on by default): the background tints of
-  games just begun, just ended and being counted. While on, a key under the switch shows a
+  games just begun, just ended and in scoring. While on, a key under the switch shows a
   swatch of each colour with what it means, since the list has no room to say it. Off, the
   rows keep the page's colour; the games still behave as marked (an ended game is still
   listed once, until opened) and TalkBack still says "new game" or "game over".
@@ -1277,7 +1277,7 @@ partly so the project could grow beyond Go (see Naming).
    (October 2026), as the pass dialog does.
 7. **Scoring at game end** — *done (September 2026)*: a distinct mode of the board screen.
    Tapping marks an area dead (October 2026: one tap per area, and a board nobody has marked
-   opens with a guess — see "Dead stones are marked by area"), territory and the count are
+   opens with a guess — see "Dead stones are marked by area"), territory and the score are
    shown live, and the user either
    sends their marks (a disagreement, which passes the turn to the opponent) or accepts the
    score. Built on the QuickSuite `status_score` / `score` commands on DGS, and on the
@@ -1337,7 +1337,7 @@ partly so the project could grow beyond Go (see Naming).
     marks stay until the game is opened (from the list, a notification or the queue), and
     are kept on disk (`turnzen_game_marks`), since that may be days later. Not yet: last
     action a pass. In the scoring stage: done (October 2026), `rowScoring`, a deeper sand
-    kin to the ended tint; unlike the two marks it is a state, shown as long as the count lasts.
+    kin to the ended tint; unlike the two marks it is a state, shown as long as scoring lasts.
 15. **Compact comments** — the comments shown above the action row (item 5) put the
     player's name and their message on the same row, to take less vertical space.
 16. **Scoring marks without the delay** — the board opens in scoring mode about 0.3 s
@@ -1404,7 +1404,7 @@ Decisions taken while building the MVP that refine or amend the sections above.
   reports a higher move number the record is refetched, and the board shows its loading
   placeholder rather than a stale position. A `StaleGame` answer from the server forces a
   download outright, since there the list is known to be behind.
-  A game in its counting phase is held together with its scoring state (`status_score` plus
+  A game in its scoring phase is held together with its scoring state (`status_score` plus
   the device's dead-stone guess), keyed by the move token, which every mark changes; the
   prefetch warms it too. Without it the board would show the plain position and switch to
   the marks a moment later, so until the state is in the loading placeholder stands instead.
@@ -1498,10 +1498,14 @@ Decisions taken while building the MVP that refine or amend the sections above.
   The parser stays tolerant anyway (an unreadable event line keeps the id and drops the rest),
   because that is a property of DGS's translation data, not of its code. See
   [`dgs-ladder-standings.md`](dgs-ladder-standings.md) §1 and §5.
-- **Counting is done twice, on purpose.** The server counts — its number is what an
+- **One word for it: scoring** (November 2026). The phase after the passes is "scoring" in the
+  UI, the code and the comments alike ("in scoring", "the scoring phase", `PendingAction.SCORE`),
+  and what it comes to is "the score" (`Scoring.score`, which returns a `Score`). "Count" is
+  kept for its other senses only — a move count, a tab's count, what "counts as" something.
+- **Scoring is done twice, on purpose.** The server scores — its number is what an
   agreement agrees to, and it is what the app shows while the marks are untouched. But
   marking has to be instant and offline-tolerant, and the non-negotiable says a board tap
-  never reaches the server, so `:core-game` also counts: territory by flood-fill, plus
+  never reaches the server, so `:core-game` also scores: territory by flood-fill, plus
   prisoners and komi under Japanese rules or stones under Chinese (`ScoringRules`). While the
   user has unsent marks the app shows *that* count, because the server's answer is about a
   different set of stones. The two normally agree on any position whose dead stones are
@@ -1511,12 +1515,12 @@ Decisions taken while building the MVP that refine or amend the sections above.
   (October 2026; it used to name both figures in a line of its own, which cost two or three
   lines on a screen that has none to spare). The server's is the one that settles the game,
   so the device's arithmetic is not worth explaining.
-- **The count is shown as a sum, and that forced a rules fix.** The panel breaks each side's
+- **The score is shown as a sum, and that forced a rules fix.** The panel breaks each side's
   total into its addends (September 2026), which means any error in the arithmetic is now on
   screen for the reader to check. One was: under area scoring black's handicap stones sit on
-  the board and count themselves, so `Scoring.count` overstated black by the handicap. White
+  the board and count themselves, so `Scoring.score` overstated black by the handicap. White
   is now compensated one point per handicap stone — what every server offering Chinese
-  counting does, and what makes the two rulesets land on the same result for the same
+  scoring does, and what makes the two rulesets land on the same result for the same
   finished position. Territory scoring ignores the figure; the free stones were never points.
   DGS reports `komi` unadjusted for handicap games (0.5 in the fixture with five stones), so
   the compensation is the app's own addition, not something already in the komi.

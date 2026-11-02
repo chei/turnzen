@@ -174,7 +174,7 @@ data class GameInfo(
     val startedAt: Instant? = null,
     /** The tournament this game belongs to, or null for a casual game. */
     val tournament: TournamentRef? = null,
-    /** How the game will be counted, when the server says which rules it uses. */
+    /** How the game will be scored, when the server says which rules it uses. */
     val scoring: ScoringRules? = null,
 )
 
@@ -227,7 +227,7 @@ data class LadderStanding(
 
 /**
  * The scoring phase as the server sees it: which stones are being treated as dead, the
- * territory that leaves, and the result it comes to. The server counts; this is its answer,
+ * territory that leaves, and the result it comes to. The server scores; this is its answer,
  * not ours, and it is what an agreement agrees to.
  */
 data class ScoreState(

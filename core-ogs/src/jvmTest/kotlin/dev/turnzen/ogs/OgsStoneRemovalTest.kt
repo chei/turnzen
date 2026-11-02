@@ -75,7 +75,7 @@ class OgsStoneRemovalTest {
     }
 
     @Test
-    fun `the count is this device's, over the server's marks`() {
+    fun `the score is this device's, over the server's marks`() {
         val state = OgsStoneRemoval.state(OgsStoneRemoval.read(StoneRemovalGame.obj(removed = "bbhh")))
         assertEquals(setOf(Point(1, 1), Point(7, 7)), state.deadStones)
         assertEquals(36, state.blackTerritory.size)

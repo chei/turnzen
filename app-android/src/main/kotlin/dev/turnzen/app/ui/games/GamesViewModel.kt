@@ -40,7 +40,7 @@ enum class GamesTab { YOUR_TURN, ALL, FINISHED }
 
 /**
  * What a row's background says about its game. [BEGUN] and [ENDED] last until the game is
- * opened; [SCORING] is a state, and lasts as long as the count does.
+ * opened; [SCORING] is a state, and lasts as long as scoring does.
  */
 enum class RowMark { NONE, BEGUN, ENDED, SCORING }
 

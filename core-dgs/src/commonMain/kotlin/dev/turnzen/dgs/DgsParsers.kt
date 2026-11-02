@@ -176,9 +176,9 @@ internal object UserInfoParser {
         )
 }
 
-/** DGS ruleset names, as the counting rule they imply. */
+/** DGS ruleset names, as the scoring rule they imply. */
 internal object DgsRulesets {
-    /** DGS ships Japanese and Chinese rules; anything unexpected is counted as territory. */
+    /** DGS ships Japanese and Chinese rules; anything unexpected is scored as territory. */
     fun scoring(value: String?): ScoringRules? =
         when (value?.trim()?.uppercase()) {
             null, "" -> null
@@ -215,8 +215,8 @@ internal object DgsScore {
 }
 
 /**
- * The answer to `status_score` and `score`: the state of every point on a board being
- * counted. Coordinates come back in SGF letters, comma-separated when the client asks for
+ * The answer to `status_score` and `score`: the state of every point on a board in
+ * scoring. Coordinates come back in SGF letters, comma-separated when the client asks for
  * `fmt=,` and run together otherwise, so both are accepted.
  */
 internal object ScoreStateParser {
@@ -228,10 +228,10 @@ internal object ScoreStateParser {
             rules = DgsRulesets.scoring(envelope.string("ruleset")),
             deadStones = blackDead + whiteDead,
             // DGS lists only the empty points as territory; a dead stone's point is its
-            // captor's too, as it is in the count made on the device.
+            // captor's too, as it is in the score made on the device.
             blackTerritory = points(envelope.string("black_territory")) + whiteDead,
             whiteTerritory = points(envelope.string("white_territory")) + blackDead,
-            // "neutral" points are switchable dame; both are nobody's for counting purposes.
+            // "neutral" points are switchable dame; both are nobody's for scoring purposes.
             dame = points(envelope.string("dame")) + points(envelope.string("neutral")),
         )
     }

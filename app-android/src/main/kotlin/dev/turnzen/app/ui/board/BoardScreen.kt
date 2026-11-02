@@ -250,11 +250,11 @@ fun BoardScreen(
                                 whiteTerritory = it.whiteTerritory,
                             )
                         },
-                    // While the count is on show a tap marks a group dead instead of trying a
+                    // While the score is on show a tap marks a group dead instead of trying a
                     // move: there are no moves left to try. Stepped back into the game, the
                     // board is for reading again.
                     onTap = if (state.showingScore) viewModel::toggleDead else viewModel::onTap,
-                    // Scrubbing works even over the count: it is the way back into the game.
+                    // Scrubbing works even over the score: it is the way back into the game.
                     onScrub = viewModel::scrubBy,
                 )
             } else {
@@ -268,7 +268,7 @@ fun BoardScreen(
             // say, so that scrubbing through a game never shifts the navigation row under the
             // reader's thumb.
             //
-            // The count has nothing to put there, and its panel replaces the navigation row
+            // The score has nothing to put there, and its panel replaces the navigation row
             // anyway, so the slot shrinks to a margin that keeps the headline off the board.
             if (state.showingScore) {
                 Spacer(Modifier.height(12.dp))
@@ -292,10 +292,10 @@ fun BoardScreen(
             val scoring = state.scoring
             val summary = state.headerSummary
             if (scoring != null && summary != null && state.showingScore) {
-                // The count replaces the move navigation while the board is on the final
+                // The score replaces the move navigation while the board is on the final
                 // position, which needs the room. Scrubbing back brings the row back, and its
                 // current-move button returns here with the marks as they were left.
-                // The summary comes with the record the count is made from, so it is always here;
+                // The summary comes with the record the score is made from, so it is always here;
                 // without it there would be no way to say which side is the reader's.
                 ScorePanel(
                     scoring = scoring,
@@ -396,8 +396,8 @@ fun BoardScreen(
                         modifier = Modifier.weight(1f),
                     )
                     if (scoring != null) {
-                        // In the counting phase the right slot settles the score: the marks, when the
-                        // user has made any, and otherwise agreement with the count as it stands.
+                        // In the scoring phase the right slot settles the score: the marks, when the
+                        // user has made any, and otherwise agreement with the score as it stands.
                         if (state.isMyTurn) {
                             PillButton(
                                 text =
@@ -692,7 +692,7 @@ private fun MoveNavigationRow(
 }
 
 /**
- * "You're winning by 7.5", "A draw", "No result" — the count as a sentence, from the seat of
+ * "You're winning by 7.5", "A draw", "No result" — the score as a sentence, from the seat of
  * the person holding the phone. Every game in the app is one of theirs, so there is always a
  * side to speak from, and naming a colour here would make the reader do the translation.
  *
@@ -774,13 +774,13 @@ private fun ScoreLine(
 }
 
 /**
- * The count, in the space the navigation row usually occupies: whether the reader is winning
+ * The score, in the space the navigation row usually occupies: whether the reader is winning
  * and by how much, and what each side's total is made of. No guidance on how to mark: the
- * player knows how to count. That the game waits on the opponent is said in the action row,
+ * player knows how to score. That the game waits on the opponent is said in the action row,
  * in the slot where the button would be.
  *
- * The headline figure is the server's own while the marks are untouched — it is the count an
- * agreement agrees to — and the device's own count as soon as the user marks something,
+ * The headline figure is the server's own while the marks are untouched — it is the score an
+ * agreement agrees to — and the device's own score as soon as the user marks something,
  * because the server's answer is then about a different set of stones.
  *
  * The breakdown underneath is always the device's own arithmetic: the server sends a result
@@ -824,8 +824,8 @@ private fun ScorePanel(
                 )
             }
         }
-        val count = scoring.breakdown
-        if (count != null) {
+        val breakdown = scoring.breakdown
+        if (breakdown != null) {
             // The reader's own side first: the screen is about their game.
             for (color in listOf(you, you.opposite)) {
                 ScoreLine(
@@ -835,8 +835,8 @@ private fun ScorePanel(
                         } else {
                             stringResource(R.string.score_side_them, opponent, colorName(color))
                         },
-                    addends = count.addendsOf(color),
-                    total = count.pointsOf(color),
+                    addends = breakdown.addendsOf(color),
+                    total = breakdown.pointsOf(color),
                 )
             }
         }

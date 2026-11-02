@@ -51,7 +51,7 @@ class DgsCommentsTest {
     }
 
     @Test
-    fun `a message after the result is only kept when it is not the server's count`() {
+    fun `a message after the result is only kept when it is not the server's score`() {
         val text =
             "(;SZ[9]RE[W+R]PB[B (b)]PW[W (w)];B[aa];W[bb]C[good game];B[]C[Result: W+R\n\n" +
                 "Notes - B (b):\nlost it])"

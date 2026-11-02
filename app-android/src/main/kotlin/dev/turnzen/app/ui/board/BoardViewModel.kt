@@ -21,7 +21,7 @@ import dev.turnzen.game.Point
 import dev.turnzen.game.Position
 import dev.turnzen.game.Replay
 import dev.turnzen.game.ResultReason
-import dev.turnzen.game.ScoreCount
+import dev.turnzen.game.Score
 import dev.turnzen.game.Scoring
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
@@ -65,8 +65,8 @@ data class BoardEvent(
 
 /**
  * The scoring phase: both players mark the stones they consider dead, and agree on what that
- * leaves. [server] is the state DGS last told us — its marks, its territory and its count,
- * which is the count that settles the game. [dead] is what the board shows now, including
+ * leaves. [server] is the state DGS last told us — its marks, its territory and its score,
+ * which is the score that settles the game. [dead] is what the board shows now, including
  * marks made since; [taps] are the taps that led there from the server's marks, in order,
  * which is exactly what the server wants to hear (it replays them, see [DeadStones.toggle]).
  *
@@ -77,8 +77,8 @@ data class ScoringUiState(
     val server: ScoreState,
     val dead: Set<Point>,
     val taps: List<Point> = emptyList(),
-    /** The count for [dead], worked out on the device while the user is still marking. */
-    val count: ScoreCount? = null,
+    /** The score for [dead], worked out on the device while the user is still marking. */
+    val localScore: Score? = null,
     /**
      * The marks on show are the device's guess at the dead stones, untouched so far. Only made
      * when the server holds no marks yet; see [DeadStones.guess].
@@ -90,32 +90,32 @@ data class ScoringUiState(
         get() = taps.isNotEmpty()
 
     /**
-     * The result to show. Until the user touches anything that is the server's own count —
+     * The result to show. Until the user touches anything that is the server's own score —
      * the authority, and what an agreement agrees to. Once they mark something it is the
-     * local count, because the server's answer is about a different set of stones.
+     * local score, because the server's answer is about a different set of stones.
      */
     val result: GameResult?
-        get() = if (changed) count?.result else server.result ?: count?.result
+        get() = if (changed) localScore?.result else server.result ?: localScore?.result
 
     val blackTerritory: Set<Point>
-        get() = if (changed) count?.territoryOf(StoneColor.BLACK).orEmpty() else server.blackTerritory
+        get() = if (changed) localScore?.territoryOf(StoneColor.BLACK).orEmpty() else server.blackTerritory
 
     val whiteTerritory: Set<Point>
-        get() = if (changed) count?.territoryOf(StoneColor.WHITE).orEmpty() else server.whiteTerritory
+        get() = if (changed) localScore?.territoryOf(StoneColor.WHITE).orEmpty() else server.whiteTerritory
 
     /**
-     * The count to break down into each side's addends, or null when there is none to show.
+     * The score to break down into each side's addends, or null when there is none to show.
      *
      * The server sends a result and territory but no per-side totals, so the breakdown is
      * always the device's own arithmetic, while the headline is the server's figure until the
      * user marks something. Usually both answers agree and nobody notices the seam. When they
      * do not — a seki, dame left unfilled under area scoring — the breakdown is left out
-     * rather than printing figures that do not add up to the headline: the device's count
+     * rather than printing figures that do not add up to the headline: the device's score
      * settles nothing, so there is nothing to gain from explaining it.
      */
-    val breakdown: ScoreCount?
+    val breakdown: Score?
         get() {
-            val local = count ?: return null
+            val local = localScore ?: return null
             if (changed) return local
             val settled = server.result ?: return local
             return local.takeIf { abs(it.result.signedMargin - settled.signedMargin) <= 0.01 }
@@ -181,12 +181,12 @@ data class BoardUiState(
      */
     val confirmationComment: String = "",
 ) {
-    /** The game is being counted, so the board marks dead stones instead of trying moves. */
+    /** The game is in scoring, so the board marks dead stones instead of trying moves. */
     val isScoring: Boolean
         get() = scoring != null
 
     /**
-     * The count is on show: the game is being counted and the board stands on its final
+     * The score is on show: the game is in scoring and the board stands on its final
      * position. Stepping back from there reviews the game like any other — the navigation row
      * returns, taps try moves — and the marks wait, untouched, for the return to the end. Only
      * here does a tap mark, so a tap never has two meanings. A line branched out of the past
@@ -306,7 +306,7 @@ data class BoardUiState(
 
     /**
      * Sending marks and agreeing are moves in the scoring phase, so they need the turn — and
-     * the count in view, so that what is agreed to is what the user is looking at.
+     * the score in view, so that what is agreed to is what the user is looking at.
      */
     val canSettleScore: Boolean
         get() = showingScore && isMyTurn && !sending && !loading
@@ -441,7 +441,7 @@ class BoardViewModel(
      * in it, or the opponent has), so the held record would flash a stale position that then
      * jumps: show the loading placeholder instead and fetch the real one.
      *
-     * A game being counted needs its scoring state as well, held the same way (keyed by the
+     * A game in scoring needs its scoring state as well, held the same way (keyed by the
      * move token, which every mark changes). Without it the placeholder stays up until the
      * state is read, rather than showing the plain board and switching to the marks after.
      *
@@ -472,11 +472,11 @@ class BoardViewModel(
             held
                 ?.let(games::withListClock)
                 ?.takeIf { preview == null || preview.moveNumber <= it.summary.moveNumber }
-        // A game being counted opens straight into scoring, marks and all: a board that
+        // A game in scoring opens straight into scoring, marks and all: a board that
         // showed the plain position first and switched to the marks a moment later reads as
         // a glitch. So the scoring state is part of what has to be at hand.
         val score = known?.let { games.cachedScore(gameId, it.summary.moveToken) }
-        if (known != null && (!countsHere(known) || score != null)) {
+        if (known != null && (!inScoring(known) || score != null)) {
             // A record from the store's cache was fetched on some earlier visit.
             if (held !== _state.value.detail) clocksFetchedAt = null
             show(known, score, back)
@@ -524,7 +524,7 @@ class BoardViewModel(
                     }
                     return@launch
                 }
-            if (!countsHere(detail)) {
+            if (!inScoring(detail)) {
                 show(detail, null, back)
                 return@launch
             }
@@ -633,8 +633,8 @@ class BoardViewModel(
         return at
     }
 
-    /** True when [detail] is in its counting phase. */
-    private fun countsHere(detail: GameDetail): Boolean = detail.summary.pendingAction == PendingAction.SCORE
+    /** True when [detail] is in its scoring phase. */
+    private fun inScoring(detail: GameDetail): Boolean = detail.summary.pendingAction == PendingAction.SCORE
 
     /** The scoring panel for [score] on the board [state] shows, the guess already marked. */
     private fun scoringShown(
@@ -654,7 +654,7 @@ class BoardViewModel(
         return scoring?.copy(guessed = scoring.changed)
     }
 
-    /** Rebuilds the scoring state around a set of dead stones, counting them locally. */
+    /** Rebuilds the scoring state around a set of dead stones, scoring them locally. */
     private fun scoringFrom(
         state: BoardUiState,
         server: ScoreState,
@@ -664,13 +664,13 @@ class BoardViewModel(
         val position = state.replay?.finalPosition ?: return null
         val komi = state.detail?.info?.komi ?: state.detail?.record?.komi ?: 0.0
         val rules = server.rules ?: state.detail?.info?.scoring ?: ScoringRules.TERRITORY
-        // Only area scoring cares; Scoring.count ignores it under territory rules.
+        // Only area scoring cares; Scoring.score ignores it under territory rules.
         val handicap = state.detail?.summary?.handicap ?: 0
         return ScoringUiState(
             server = server,
             dead = dead,
             taps = taps,
-            count = Scoring.count(position, dead, komi, rules, handicap),
+            localScore = Scoring.score(position, dead, komi, rules, handicap),
         )
     }
 

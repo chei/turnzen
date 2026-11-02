@@ -34,7 +34,7 @@ data class TurnzenColors(
     val rowBegunFlash: Color,
     /** Background of a games-list row whose game has just ended and was not opened yet. */
     val rowEnded: Color,
-    /** Background of a games-list row whose game is being counted: [rowEnded], deeper. */
+    /** Background of a games-list row whose game is in scoring: [rowEnded], deeper. */
     val rowScoring: Color,
 )
 

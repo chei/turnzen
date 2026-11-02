@@ -435,7 +435,7 @@ class OgsClient(
 
     /**
      * The marks as they stand, read over the realtime connection: OGS keeps the stone removal
-     * phase there. The count is this device's; OGS counts only once both players have accepted.
+     * phase there. The score is this device's; OGS scores only once both players have accepted.
      */
     override suspend fun scoreState(
         id: GameId,

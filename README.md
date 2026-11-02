@@ -14,11 +14,11 @@ The MVP is done (September 2026); work continues on the post-MVP items listed in
   the browser; the app never sees an OGS password). Games from both are in one list, each
   row marked with its server's colour. Only correspondence games; OGS live games are ignored.
 - **Games list**: "Your turn", the other running games, and the recent finished ones. A game
-  that has just begun, just ended, or is being counted is tinted until it is opened.
+  that has just begun, just ended, or is in scoring is tinted until it is opened.
 - **Board**: try variations without sending anything, then send exactly the first stone of
   the variation. Pass and resign (always confirmed), each with an optional comment. Players'
   comments are read and written on both servers. Replay of finished games.
-- **Scoring**: marking dead stones by area (with a first guess), live count, send marks or
+- **Scoring**: marking dead stones by area (with a first guess), live score, send marks or
   accept the score, on DGS and OGS.
 - **Messages** (DGS): new messages at the top of "Your turn", worded by the app; reply,
   dismiss, and accept or decline invitations.

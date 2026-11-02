@@ -66,7 +66,7 @@ Frame size is 390×844 (a common phone width); everything must adapt to other wi
 | `rowBegun` | `#E2EDE0` | Games-list row background: a game just begun, not opened yet (dark `#1F3128`) |
 | `rowBegunFlash` | `#C4DFC0` | The flash over a `rowBegun` row as it comes onto the list, in place of `accentSoft` (dark `#2D5039`) |
 | `rowEnded` | `#F1E9DA` | Games-list row background: a game just ended, not opened yet (dark `#302B22`) |
-| `rowScoring` | `#E8DCC3` | Games-list row background: a game being counted, for as long as the count lasts — `rowEnded`'s sand, deeper (dark `#3B3427`) |
+| `rowScoring` | `#E8DCC3` | Games-list row background: a game in scoring, for as long as scoring lasts — `rowEnded`'s sand, deeper (dark `#3B3427`) |
 
 ### Server marks (OGS support, September 2026)
 
@@ -191,8 +191,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   running tabs; each until the game is opened. Unlike the flash, the tint is about the game,
   not about the last refresh, so it stays. A game just begun that arrives while the list is
   on screen flashes in `rowBegunFlash` rather than `accentSoft`, and drains to its tint.
-  A game being counted has a `rowScoring` background: a state rather than news, so it
-  stays after the game is opened, until the count is over. Kin to `rowEnded` (the end of the
+  A game in scoring has a `rowScoring` background: a state rather than news, so it
+  stays after the game is opened, until scoring is over. Kin to `rowEnded` (the end of the
   game is near), deeper so the two stay apart. Settings › Appearance › Game row colours
   turns the tints off; while on, a key below it shows each colour as a 36×24dp swatch,
   outlined in `line` (the colours are too faint to show on the page alone), beside its
@@ -238,9 +238,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   no stone — "You passed", "kaya_r resigned", "nori_88 ran out of time". The height is
   reserved whether or not there is anything to say, so scrubbing never shifts the navigation
   row under the reader's thumb. Without it the board simply goes quiet at the moments that
-  most need explaining: the two passes at the end of a counted game, and the opponent's pass
-  that is the reason a Pass button has appeared. Over the count it shrinks to a 12dp margin:
-  the count's panel replaces the navigation row anyway, and has nothing to say there. The space above the action row, which
+  most need explaining: the two passes at the end of a scored game, and the opponent's pass
+  that is the reason a Pass button has appeared. Over the score it shrinks to a 12dp margin:
+  the score's panel replaces the navigation row anyway, and has nothing to say there. The space above the action row, which
   sits at the bottom edge, absorbs the difference between 9×9 and 19×19; nothing is pinned
   to the board's height.
 - **Move-navigation row**: five controls across the width — start, step back, the cursor's
@@ -257,8 +257,8 @@ Use tabular figures for time and move counts so columns don't jitter.
   is a fixed rate — one move per 12dp of travel — not a mapping of the board's width onto the
   game's length: an absolute mapping would put a 250-move game at under a point per move and
   make "back two" unhittable, while a fixed rate feels the same on a 9×9 and a 19×19. The
-  ends of the timeline stay the skip buttons' job. The drag works while the game is being
-  counted too: it is the way from the count back into the game.
+  ends of the timeline stay the skip buttons' job. The drag works while the game is in
+  scoring too: it is the way from the score back into the game.
 - **Board gestures must be separable by distance, not by time.** A drag is told apart from a
   tap by touch slop, so a touch that does not travel stays a tap and places its stone with no
   delay. A double tap is told apart only by a timeout, which would hold *every* tap for it —
@@ -326,7 +326,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   retry. That line says how old the list is in place of the advice ("Can't reach Dragon Go
   Server. Showing the list from 16:42."), the date added when it is not from today. On the board, a load that produced no position gets that line plus a "Try again";
   a send that failed does not, because Send itself is the retry and the variation is intact.
-- **Counting a finished game** is a mode of the board screen, entered whenever the server
+- **Scoring a finished game** is a mode of the board screen, entered whenever the server
   says the game is in its scoring phase. The board keeps its stones; dead ones are drawn as
   ghosts of themselves (32% opacity) and each side's territory gets a small square in that
   side's stone colour — the same vocabulary as the stones, at a size that cannot be mistaken
@@ -334,26 +334,26 @@ Use tabular figures for time and move counts so columns don't jitter.
   colour reachable through empty points, so a dead corner is one tap — and a board nobody has
   marked yet opens with the device's guess already marked. **Marking is local**, like every
   other board gesture: nothing reaches the server until the user sends it.
-  While the board stands on the final position, the count takes the move-navigation row's
+  While the board stands on the final position, the score takes the move-navigation row's
   place. Dragging back across the board reviews the game as usual: the navigation row returns,
   taps try moves rather than mark, the territory and dead-stone marks are hidden, and Send
   marks / Accept are disabled, so what is agreed to is always what is in view. The row's
-  current-move button returns to the count with the marks as they were left. The count: the
+  current-move button returns to the score with the marks as they were left. The score: the
   headline in title weight and the two sides' sums below it, nothing else — the screen has no
-  height to spare. The event line, which has nothing to say over the count, shrinks to a 12dp
+  height to spare. The event line, which has nothing to say over the score, shrinks to a 12dp
   margin. No line explains how to mark (principle 6), and no key names the addends: the
-  player knows how to count.
-  A "Reset marks" text action appears beside the count once there is something to undo,
+  player knows how to score.
+  A "Reset marks" text action appears beside the score once there is something to undo,
   without vertical padding so it fits the headline's line and the panel never grows.
   The action row keeps Skip, and the right slot settles the score: **Send marks** while the
   user has marked something (it is a move — the opponent reviews it and the turn passes),
   **Accept score** when the marks are untouched. Both are confirmed, with the question only.
   While the opponent has the turn the slot says "Waiting for opponent" in `ink2`, in place of
   the button it explains the absence of.
-  The figure shown is the server's own count while the marks are untouched — it is the count
-  an agreement agrees to — and the device's own count as soon as the user marks something,
+  The figure shown is the server's own score while the marks are untouched — it is the score
+  an agreement agrees to — and the device's own score as soon as the user marks something,
   because the server's answer is then about a different set of stones.
-- **The count is written from the reader's seat.** Every game in the app is one of theirs, so
+- **The score is written from the reader's seat.** Every game in the app is one of theirs, so
   the headline says "You're winning by 7.5" or "You're losing by 7.5", never "Black leads by
   7.5" — naming a colour makes the reader translate. Present tense and "winning" rather than
   "leads": the game is not over until both players have agreed, and "leads" belongs to a game
@@ -376,7 +376,7 @@ Use tabular figures for time and move counts so columns don't jitter.
   nothing of its own to take apart. When the two answers differ by more than rounding — seki,
   or dame left unfilled under area scoring — the breakdown is left out and only the server's
   headline stays, rather than leaving numbers on screen that refuse to add up.
-- **A game being counted says so in the list**: the row reads "9x9, scoring, 40 min ago"
+- **A game in scoring says so in the list**: the row reads "9x9, scoring, 40 min ago"
   rather than naming a move number that nobody is waiting for.
 - **Game info sheet**: everything the server already told us that the board has no room for
   — both players with their rank, captures and *both* clocks (the header can only show the

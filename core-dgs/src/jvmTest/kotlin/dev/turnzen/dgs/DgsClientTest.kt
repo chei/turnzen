@@ -199,7 +199,7 @@ class DgsClientTest {
             assertTrue(sgfRequest.url.contains("sgf.php?gid=1000000"))
             // As a player, not an observer: only then does DGS include the players' messages.
             assertTrue(sgfRequest.has("owned_comments=1"))
-            // The fixture is a finished game with no messages, only the server's count.
+            // The fixture is a finished game with no messages, only the server's score.
             assertEquals(emptyList(), detail.comments)
         }
 

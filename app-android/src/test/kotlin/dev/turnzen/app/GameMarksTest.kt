@@ -201,7 +201,7 @@ class GameMarksTest {
         }
 
     @Test
-    fun `a game being counted is tinted whether or not it was opened`() =
+    fun `a game in scoring is tinted whether or not it was opened`() =
         runTest {
             val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
             session.signIn(Credentials("demo", "pw"))

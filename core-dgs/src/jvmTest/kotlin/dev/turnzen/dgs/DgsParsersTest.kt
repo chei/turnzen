@@ -344,7 +344,7 @@ class DgsParsersTest {
     }
 
     @Test
-    fun `the ruleset says how the game will be counted`() {
+    fun `the ruleset says how the game will be scored`() {
         assertEquals(ScoringRules.AREA, DgsRulesets.scoring("CHINESE"))
         assertEquals(ScoringRules.TERRITORY, DgsRulesets.scoring("JAPANESE"))
         assertNull(DgsRulesets.scoring(""))

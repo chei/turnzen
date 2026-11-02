@@ -113,7 +113,7 @@ interface TurnBasedGoServerClient {
 
     /**
      * The scoring phase's current state: the dead stones both players are working from, the
-     * territory they leave, and the server's own count — or, on a server that counts nothing
+     * territory they leave, and the server's own score — or, on a server that scores nothing
      * until the game is over (OGS), the client's count of the same marks.
      *
      * [toggle] previews a change without committing it, so a client can show what marking

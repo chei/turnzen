@@ -25,8 +25,8 @@ class ScoringTest {
     @Test
     fun `each side gets the empty points it alone surrounds`() {
         // A 9x9 split down the middle: black owns the left three files, white the right three.
-        val count =
-            Scoring.count(
+        val score =
+            Scoring.score(
                 position(
                     "...XO....",
                     "...XO....",
@@ -39,15 +39,15 @@ class ScoringTest {
                     "...XO....",
                 ),
             )
-        assertEquals(27, count.territoryOf(StoneColor.BLACK).size)
-        assertEquals(36, count.territoryOf(StoneColor.WHITE).size)
-        assertTrue(count.dame.isEmpty())
+        assertEquals(27, score.territoryOf(StoneColor.BLACK).size)
+        assertEquals(36, score.territoryOf(StoneColor.WHITE).size)
+        assertTrue(score.dame.isEmpty())
     }
 
     @Test
     fun `a region touching both colours is nobody's`() {
-        val count =
-            Scoring.count(
+        val score =
+            Scoring.score(
                 position(
                     "X.O..",
                     "X.O..",
@@ -58,9 +58,9 @@ class ScoringTest {
             )
         // The file between the walls is dame; so is everything east of white, which black's
         // wall never reaches.
-        assertEquals(5, count.dame.size)
-        assertTrue(count.territoryOf(StoneColor.BLACK).isEmpty())
-        assertEquals(10, count.territoryOf(StoneColor.WHITE).size)
+        assertEquals(5, score.dame.size)
+        assertTrue(score.territoryOf(StoneColor.BLACK).isEmpty())
+        assertEquals(10, score.territoryOf(StoneColor.WHITE).size)
     }
 
     @Test
@@ -78,12 +78,12 @@ class ScoringTest {
             )
         val white = Point(2, 1)
 
-        val alive = Scoring.count(board)
+        val alive = Scoring.score(board)
         assertTrue(alive.territoryOf(StoneColor.BLACK).isEmpty())
         assertEquals(5, alive.dame.size)
         assertEquals(0, alive.capturesOf(StoneColor.BLACK))
 
-        val dead = Scoring.count(board, dead = setOf(white))
+        val dead = Scoring.score(board, dead = setOf(white))
         assertEquals(6, dead.territoryOf(StoneColor.BLACK).size)
         assertTrue(dead.dame.isEmpty())
         assertEquals(1, dead.capturesOf(StoneColor.BLACK))
@@ -105,14 +105,14 @@ class ScoringTest {
                 "OOOOOOOOO",
             ).let { it.copy(prisoners = mapOf(StoneColor.BLACK to 4, StoneColor.WHITE to 0)) }
 
-        val japanese = Scoring.count(position, komi = 6.5, rules = ScoringRules.TERRITORY)
+        val japanese = Scoring.score(position, komi = 6.5, rules = ScoringRules.TERRITORY)
         // Black: 7 points of territory plus 4 prisoners. White: 7 points plus komi.
         assertEquals(11.0, japanese.blackPoints)
         assertEquals(13.5, japanese.whitePoints)
         assertEquals(StoneColor.WHITE, japanese.result.winner)
         assertEquals(2.5, japanese.result.margin)
 
-        val chinese = Scoring.count(position, komi = 6.5, rules = ScoringRules.AREA)
+        val chinese = Scoring.score(position, komi = 6.5, rules = ScoringRules.AREA)
         // The same board by area: 29 black stones and 38 white ones join their territory,
         // and the prisoners stop counting.
         assertEquals(36.0, chinese.blackPoints)
@@ -136,16 +136,16 @@ class ScoringTest {
 
         // Black's free stones count themselves under area scoring, so white is paid one point
         // per handicap stone; without it black would be five points up for nothing.
-        val plain = Scoring.count(position, komi = 0.5, rules = ScoringRules.AREA)
-        val handicap = Scoring.count(position, komi = 0.5, rules = ScoringRules.AREA, handicap = 5)
+        val plain = Scoring.score(position, komi = 0.5, rules = ScoringRules.AREA)
+        val handicap = Scoring.score(position, komi = 0.5, rules = ScoringRules.AREA, handicap = 5)
         assertEquals(plain.blackPoints, handicap.blackPoints)
         assertEquals(plain.whitePoints + 5.0, handicap.whitePoints)
         assertEquals(5.0, handicap.handicapCompensation)
 
         // Territory scoring never made the free stones points, so there is nothing to pay back.
-        val japanese = Scoring.count(position, komi = 0.5, rules = ScoringRules.TERRITORY, handicap = 5)
+        val japanese = Scoring.score(position, komi = 0.5, rules = ScoringRules.TERRITORY, handicap = 5)
         assertEquals(0.0, japanese.handicapCompensation)
-        assertEquals(Scoring.count(position, komi = 0.5).whitePoints, japanese.whitePoints)
+        assertEquals(Scoring.score(position, komi = 0.5).whitePoints, japanese.whitePoints)
     }
 
     @Test
@@ -164,14 +164,14 @@ class ScoringTest {
             ).let { it.copy(prisoners = mapOf(StoneColor.BLACK to 4, StoneColor.WHITE to 0)) }
 
         for (rules in ScoringRules.entries) {
-            val count = Scoring.count(position, komi = 6.5, rules = rules, handicap = 2)
+            val score = Scoring.score(position, komi = 6.5, rules = rules, handicap = 2)
             for (color in StoneColor.entries) {
-                assertEquals(count.pointsOf(color), count.addendsOf(color).sum(), "$rules $color")
+                assertEquals(score.pointsOf(color), score.addendsOf(color).sum(), "$rules $color")
             }
         }
 
         // White's zero prisoners are left out, but territory is always the first figure.
-        val japanese = Scoring.count(position, komi = 6.5, rules = ScoringRules.TERRITORY)
+        val japanese = Scoring.score(position, komi = 6.5, rules = ScoringRules.TERRITORY)
         assertEquals(listOf(7.0, 4.0), japanese.addendsOf(StoneColor.BLACK))
         assertEquals(listOf(7.0, 6.5), japanese.addendsOf(StoneColor.WHITE))
     }
@@ -184,7 +184,7 @@ class ScoringTest {
     }
 
     @Test
-    fun `an equal count is a draw`() {
+    fun `an equal score is a draw`() {
         val result = GameResult.fromPoints(10.0, 10.0)
         assertEquals(null, result.winner)
         assertEquals(ResultReason.JIGO, result.by)
@@ -192,8 +192,8 @@ class ScoringTest {
 
     @Test
     fun `an empty board is nobody's territory`() {
-        val count = Scoring.count(Position.empty(9))
-        assertEquals(81, count.dame.size)
-        assertEquals(0.0, count.blackPoints)
+        val score = Scoring.score(Position.empty(9))
+        assertEquals(81, score.dame.size)
+        assertEquals(0.0, score.blackPoints)
     }
 }
