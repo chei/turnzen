@@ -300,6 +300,16 @@ def screen_board(n, stones, last, trial=(), trial_mode=False):
     return s + "</svg>"
 
 
+def switch(right, cy, on=True):
+    """A Material switch (52x32), its right edge at [right]: accent track and white thumb when on."""
+    x = right - 52
+    if on:
+        return (f'<rect x="{x}" y="{cy - 16}" width="52" height="32" rx="16" fill="{ACCENT}"/>'
+                f'<circle cx="{x + 36}" cy="{cy}" r="12" fill="{ON_ACCENT}"/>')
+    return (f'<rect x="{x + 1}" y="{cy - 15}" width="50" height="30" rx="15" fill="none" stroke="{INK2}" stroke-width="2"/>'
+            f'<circle cx="{x + 16}" cy="{cy}" r="8" fill="{INK2}"/>')
+
+
 def screen_settings():
     s = frame_open() + status_bar()
     s += text(20, 88, "Settings", 26, 600)
@@ -316,7 +326,9 @@ def screen_settings():
             y += 40
             col = ACCENT if val is None and label in ("Sign out", "Source code", "Report a problem") else INK
             s += text(20, y, label, 16, 400, col)
-            if val:
+            if val == "On":
+                s += switch(W - 20, y - 5)
+            elif val:
                 s += text(W - 20, y, val, 15, 400, INK2, "end")
             s += hairline(y + 14)
         y += 48
@@ -466,7 +478,9 @@ def screen_settings_two_servers():
             y += 40
             col = ACCENT if val is None else INK
             s += text(20, y, label, 16, 400, col)
-            if val:
+            if val == "On":
+                s += switch(W - 20, y - 5)
+            elif val:
                 s += text(W - 20, y, val, 15, 400, INK2, "end")
             s += hairline(y + 14)
         y += 44

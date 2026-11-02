@@ -23,10 +23,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -40,6 +43,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -270,6 +274,8 @@ private fun SettingsRow(
     label: String,
     labelColor: Color = colors.ink,
     onClick: (() -> Unit)? = null,
+    /** How the row answers a tap when it is not a plain click: a switch row's toggle. */
+    modifier: Modifier = Modifier,
     trailing: @Composable () -> Unit = {},
 ) {
     Column {
@@ -277,6 +283,7 @@ private fun SettingsRow(
             Modifier
                 .fillMaxWidth()
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+                .then(modifier)
                 .height(48.dp)
                 .padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -364,12 +371,25 @@ private fun ToggleRow(
     checked: Boolean,
     onChange: (Boolean) -> Unit,
 ) {
-    SettingsRow(label, onClick = { onChange(!checked) }) {
-        Text(
-            stringResource(if (checked) R.string.settings_on else R.string.settings_off),
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.ink2,
+    // Android's own on/off control: a Material switch at the end of the row, the whole row
+    // its target. The row does the toggling, so the switch takes no taps of its own, and
+    // TalkBack reads the row as one switch with its label and state.
+    SettingsRow(
+        label,
+        modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
+    ) {
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            colors =
+                SwitchDefaults.colors(
+                    checkedThumbColor = colors.onAccent,
+                    checkedTrackColor = colors.accent,
+                    checkedBorderColor = colors.accent,
+                    uncheckedThumbColor = colors.ink2,
+                    uncheckedTrackColor = colors.surface,
+                    uncheckedBorderColor = colors.ink2,
+                ),
         )
     }
-    Box {}
 }

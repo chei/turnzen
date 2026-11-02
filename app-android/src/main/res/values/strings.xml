@@ -156,7 +156,7 @@
     <string name="settings_row_colours">Game row colours</string>
     <string name="settings_row_colour_begun">New game</string>
     <string name="settings_row_colour_ended">Game over</string>
-    <string name="settings_row_colour_scoring">Being counted</string>
+    <string name="settings_row_colour_scoring">Counting</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
@@ -166,8 +166,6 @@
     <string name="settings_number_trial_stones">Number trial stones</string>
     <string name="settings_source">Source code</string>
     <string name="settings_report">Report a problem</string>
-    <string name="settings_on">On</string>
-    <string name="settings_off">Off</string>
     <string name="settings_group_notifications">Notifications</string>
     <string name="settings_notify_your_move">Your move</string>
     <string name="settings_notify_low_time">Time running low</string>

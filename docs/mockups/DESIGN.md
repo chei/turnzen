@@ -140,6 +140,11 @@ Use tabular figures for time and move counts so columns don't jitter.
   Not on an open game: the board screen is a detail of the Games tab, left with the back
   gesture, and needs the height more than a way to Settings.
 - **Screen padding**: 20dp horizontal for everything except the board.
+- **On/off settings are Material switches** (November 2026), at the end of the row, the
+  whole row the tap target and read by TalkBack as one switch: Android's own control, in
+  place of the "On"/"Off" text the rows first had, which did not look like something to
+  tap. Coloured from the tokens: on, an `accent` track and an `onAccent` thumb; off, an
+  `ink2` outline and thumb on `surface`. No default M3 purple.
 - **Lists**: rows separated by 1dp hairlines, no cards. Row height ≈ 72dp. The row leads
   with its title: opponent (rank). (No stone in the user's color: a filled disc was the
   loudest thing in the row while saying only which colour you play, which the board tells
