@@ -1,8 +1,10 @@
 package dev.turnzen.app.ui.games
 
+import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +31,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -44,10 +47,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.FirstBaseline
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -79,6 +84,7 @@ import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.MessageId
 import dev.turnzen.goserver.PendingAction
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -200,6 +206,11 @@ fun GamesScreen(
             )
         }
 
+        // A thin line under the tabs while a background refresh is out, so the list moving a
+        // moment after it is shown is expected rather than a surprise. The space is always
+        // there, so the line coming and going never moves the list.
+        RefreshLine(state.checkingFor(shownTab))
+
         // Compose's own page snapping, deliberately left at its defaults (a page turns once
         // it is half way over, or on a fling): the behaviour Android users expect, rather
         // than a threshold tuned by feel.
@@ -243,6 +254,49 @@ fun GamesScreen(
             onAnswerInvitation = { accept, text -> viewModel.answerInvitation(row.message.id, accept, text) },
             onClose = viewModel::closeMessage,
         )
+    }
+}
+
+/**
+ * The background refresh's line. Held back for [REFRESH_LINE_DELAY_MILLIS], so an answer that
+ * comes at once shows nothing; once up, kept for [REFRESH_LINE_MIN_MILLIS], so it never
+ * blinks. It fades rather than pops, and its track is the page, so only the moving part shows.
+ */
+@Composable
+private fun RefreshLine(busy: Boolean) {
+    var shownAt by remember { mutableStateOf<Long?>(null) }
+    LaunchedEffect(busy) {
+        val at = shownAt
+        if (busy) {
+            if (at == null) {
+                delay(REFRESH_LINE_DELAY_MILLIS)
+                shownAt = SystemClock.uptimeMillis()
+            }
+        } else if (at != null) {
+            delay((at + REFRESH_LINE_MIN_MILLIS - SystemClock.uptimeMillis()).coerceAtLeast(0))
+            shownAt = null
+        }
+    }
+    val alpha by animateFloatAsState(
+        if (shownAt !=
+            null
+        ) {
+            1f
+        } else {
+            0f
+        },
+        tween(REFRESH_LINE_FADE_MILLIS),
+        label = "refresh line",
+    )
+    Box(Modifier.fillMaxWidth().height(REFRESH_LINE_HEIGHT.dp)) {
+        if (alpha > 0f) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxSize().alpha(alpha),
+                color = colors.accent,
+                trackColor = Color.Transparent,
+                gapSize = 0.dp,
+            )
+        }
     }
 }
 
@@ -508,6 +562,12 @@ private const val MIN_COLUMN_WIDTH = 340
 
 /** The line under the tabs, in dp: grey across all three, accent under the selected one. */
 private const val TAB_UNDERLINE = 2
+
+/** The background refresh's line under the tabs: its height, and how it comes and goes. */
+private const val REFRESH_LINE_HEIGHT = 2
+private const val REFRESH_LINE_DELAY_MILLIS = 300L
+private const val REFRESH_LINE_MIN_MILLIS = 500L
+private const val REFRESH_LINE_FADE_MILLIS = 150
 
 /** The opponent's picture: two lines of text tall, so the row keeps its height. */
 private const val ICON_SIZE = 36

@@ -186,6 +186,14 @@ Use tabular figures for time and move counts so columns don't jitter.
   advanced a move and is now waiting on the user — so the opponent's move flashes and the
   user's own move never flashes back at them. The first load of a list flashes nothing:
   every row would light up and the highlight would mean nothing.
+- **A line under the tabs while the list may still change** (November 2026). The refresh
+  that runs when the list is shown is otherwise silent, and a row moving a second after the
+  list appeared read as the list jumping on its own. While it is out, a 2dp indeterminate
+  line in `accent` runs under the tabs, on a transparent track. It waits 300ms before showing
+  (an answer that comes at once shows nothing), stays at least 500ms once shown, and fades in
+  and out over 150ms. Its 2dp are always reserved, so it never moves the list. Not on the
+  first load (the loading row says it already) nor on a pull, which has its own spinner. The
+  archive's own fetch shows it on the Finished tab only.
 - **Games not looked at yet are tinted** (October 2026). A game that has just begun has a
   `rowBegun` background, and one that has just ended a `rowEnded` one, at the top of both
   running tabs; each until the game is opened. Unlike the flash, the tint is about the game,

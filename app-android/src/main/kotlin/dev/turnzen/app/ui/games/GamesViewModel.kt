@@ -60,6 +60,14 @@ data class GamesUiState(
     val marks: GameMarks = GameMarks(),
     val refreshing: Boolean = false,
     /**
+     * The refresh nobody asked for, the one on showing the list, is on its way: the rows may
+     * still change. Shown as a thin line under the tabs; a pull-to-refresh has its own
+     * spinner and is [refreshing] instead.
+     */
+    val checking: Boolean = false,
+    /** The same for the archive, fetched on its own: only the Finished tab shows it. */
+    val checkingFinished: Boolean = false,
+    /**
      * What went wrong in the last refresh, one entry per server that failed, plus one per
      * server whose session ended and needs the user to sign in again. Empty while every list
      * is trusted.
@@ -99,6 +107,14 @@ data class GamesUiState(
             GamesTab.ALL -> allRunning?.let { marks.ended + it }
             GamesTab.FINISHED -> finished
         }
+
+    /**
+     * Whether [tab]'s rows may still change under the user: a silent refresh is on its way.
+     * Not while nothing has loaded (the loading row says so already), nor during a pull,
+     * which shows its own spinner.
+     */
+    fun checkingFor(tab: GamesTab): Boolean =
+        !refreshing && listFor(tab) != null && (checking || (tab == GamesTab.FINISHED && checkingFinished))
 
     /** The background of [game]'s row on [tab]. The archive marks nothing: it is all ended. */
     fun markFor(
@@ -286,12 +302,14 @@ class GamesViewModel(
         if (finishedInFlight) return
         finishedInFlight = true
         if (!silent) transient.update { it.copy(refreshing = true, problems = emptyList()) }
+        if (silent) transient.update { it.copy(checkingFinished = true) }
         viewModelScope.launch {
             try {
                 val failures = store.refreshFinished()
                 transient.update { it.copy(refreshing = false, problems = shownProblems(failures)) }
             } finally {
                 finishedInFlight = false
+                if (silent) transient.update { it.copy(checkingFinished = false) }
             }
         }
     }
@@ -327,6 +345,7 @@ class GamesViewModel(
         if (inFlight) return
         inFlight = true
         if (!silent) transient.update { it.copy(refreshing = true, problems = emptyList()) }
+        if (silent) transient.update { it.copy(checking = true) }
         viewModelScope.launch {
             try {
                 // Failures are shown for a silent refresh too: they explain why the list, or
@@ -343,6 +362,7 @@ class GamesViewModel(
                 warmFirstGame()
             } finally {
                 inFlight = false
+                if (silent) transient.update { it.copy(checking = false) }
             }
         }
     }

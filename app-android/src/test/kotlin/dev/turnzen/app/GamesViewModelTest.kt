@@ -221,4 +221,45 @@ class GamesViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
             assertNotNull(vm.state.value.problem)
         }
+
+    @Test
+    fun `a background refresh says the list may still change, a pull does not`() =
+        runTest(dispatcher) {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 1_000))
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(Accounts(listOf(session)))
+            // The lists from an earlier look, as on returning to the app.
+            store.refresh()
+            val vm = GamesViewModel(Accounts(listOf(session)), store)
+            backgroundScope.launch { vm.state.collect {} }
+
+            vm.refreshOnShow()
+            runCurrent()
+            assertTrue(vm.state.value.checkingFor(GamesTab.YOUR_TURN))
+            assertTrue(vm.state.value.checkingFor(GamesTab.ALL))
+            advanceUntilIdle()
+            assertFalse(vm.state.value.checkingFor(GamesTab.YOUR_TURN))
+
+            // A pull shows its own spinner instead.
+            vm.refresh()
+            runCurrent()
+            assertTrue(vm.state.value.refreshing)
+            assertFalse(vm.state.value.checkingFor(GamesTab.YOUR_TURN))
+            advanceUntilIdle()
+        }
+
+    @Test
+    fun `the first load shows its loading row, not the refresh line`() =
+        runTest(dispatcher) {
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 1_000))
+            session.signIn(Credentials("demo", "pw"))
+            val vm = GamesViewModel(Accounts(listOf(session)), GamesStore(Accounts(listOf(session))))
+            backgroundScope.launch { vm.state.collect {} }
+            vm.refreshOnShow()
+            runCurrent()
+            assertTrue(vm.state.value.checking)
+            assertFalse(vm.state.value.checkingFor(GamesTab.YOUR_TURN))
+            advanceUntilIdle()
+            assertFalse(vm.state.value.checking)
+        }
 }
