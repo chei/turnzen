@@ -42,6 +42,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Instant
 
 enum class PendingConfirmation { PASS, RESIGN, SEND_MARKS, ACCEPT_SCORE }
 
@@ -401,6 +404,8 @@ class BoardViewModel(
     private val nextGame: () -> GameId? = { null },
     /** The game is over (resigned): close the board rather than step to the next game. */
     private val onGameEnded: () -> Unit = {},
+    /** The wall clock, for how recently the board was last checked against the server. */
+    private val now: () -> Instant = { Clock.System.now() },
     /** Last so that the common case — only this callback — can be a trailing lambda. */
     private val onMoveSent: (GameId) -> Unit,
 ) : ViewModel() {
@@ -411,6 +416,12 @@ class BoardViewModel(
      * opened; null when the board shows a held record instead.
      */
     private var clocksFetchedAt: Int? = null
+
+    /** When the record on the board last came from the server; null for a held copy. */
+    private var fetchedAt: Instant? = null
+
+    /** A [recheck] is on its way: a second one would ask the server the same question. */
+    private var rechecking = false
 
     val state: StateFlow<BoardUiState> = _state.asStateFlow()
 
@@ -478,8 +489,13 @@ class BoardViewModel(
         val score = known?.let { games.cachedScore(gameId, it.summary.moveToken) }
         if (known != null && (!inScoring(known) || score != null)) {
             // A record from the store's cache was fetched on some earlier visit.
-            if (held !== _state.value.detail) clocksFetchedAt = null
+            if (held !== _state.value.detail) {
+                clocksFetchedAt = null
+                fetchedAt = null
+            }
             show(known, score, back)
+            // The list that vouched for the held record may itself be hours old.
+            recheck()
             return
         }
         _state.update {
@@ -500,6 +516,7 @@ class BoardViewModel(
                     known ?: session.call { it.game(gameId) }.also {
                         games.cache(it)
                         clocksFetchedAt = it.summary.moveNumber
+                        fetchedAt = now()
                     }
                 } catch (e: GoServerException) {
                     val problem = problemFor(e, session.serverName)
@@ -510,6 +527,7 @@ class BoardViewModel(
                     val stored = if (problem.transient) games.storedRecord(gameId) else null
                     if (stored != null) {
                         clocksFetchedAt = null
+                        fetchedAt = null
                         show(stored.detail, null, back)
                         _state.update {
                             it.copy(
@@ -534,6 +552,77 @@ class BoardViewModel(
                 // The board is still worth showing; the problem line explains the rest.
                 show(detail, null, back)
                 _state.update { it.copy(problem = problemFor(e, session.serverName)) }
+            }
+        }
+    }
+
+    /**
+     * The app came back to the foreground with this game on screen. The board may have been
+     * left there for hours, and the opponent may have played meanwhile (often the very
+     * notification that brought the user back says so): check, rather than show the old
+     * position until the game is closed and opened again.
+     */
+    fun onReturned() {
+        if (_state.value.loading) return
+        recheck()
+    }
+
+    /**
+     * Asks the server whether the game on the board has moved on, and shows the new position
+     * if it has. Quiet: no loading placeholder, and a failure leaves the board as it is (a
+     * move decided on it is refused by the server if the game did move on).
+     *
+     * Costs nothing when the board is known to be current: its record was downloaded, or the
+     * games list agreed with it, within [RECHECK_AFTER]. That covers opening a game from a
+     * list just refreshed, and a quick look at another app. A list that says the game has
+     * moved on is not trusted to be current the other way round: the record is fetched then
+     * too, which is what showing the move needs anyway.
+     */
+    private fun recheck() {
+        val s = _state.value
+        val shown = s.detail ?: return
+        if (rechecking || s.sending || shown.summary.isFinished || outbox.isOutgoing(gameId)) return
+        val listed = games.listedAt.value[gameId.server]
+        val listAgrees = games.summary(gameId)?.let { it.moveNumber <= shown.summary.moveNumber } ?: false
+        val vouched = listOfNotNull(fetchedAt, listed?.takeIf { listAgrees }).maxOrNull()
+        if (vouched != null && now() - vouched < RECHECK_AFTER) return
+        rechecking = true
+        viewModelScope.launch {
+            try {
+                val fresh =
+                    try {
+                        session.call { it.game(gameId) }
+                    } catch (e: GoServerException) {
+                        return@launch
+                    }
+                games.cache(fresh)
+                // A load, a send or a reload may have replaced the board meanwhile: theirs.
+                if (_state.value.detail !== shown || _state.value.sending) return@launch
+                fetchedAt = now()
+                clocksFetchedAt = fresh.summary.moveNumber
+                if (fresh.summary.moveToken == shown.summary.moveToken) {
+                    // Same position; the clocks are the only news.
+                    _state.update {
+                        it.copy(
+                            detail = shown.copy(summary = fresh.summary, info = fresh.info ?: shown.info),
+                        )
+                    }
+                    return@launch
+                }
+                val score =
+                    if (inScoring(fresh)) {
+                        try {
+                            games.readScore(fresh)
+                        } catch (e: GoServerException) {
+                            null
+                        }
+                    } else {
+                        null
+                    }
+                if (_state.value.detail !== shown || _state.value.sending) return@launch
+                show(fresh, score, null)
+            } finally {
+                rechecking = false
             }
         }
     }
@@ -1064,5 +1153,8 @@ class BoardViewModel(
         }
     }
 }
+
+/** How long a download, or a games list that agrees with the board, counts as current. */
+private val RECHECK_AFTER = 15.seconds
 
 private const val MOVED_ON = "The game changed on the server. Reloaded."

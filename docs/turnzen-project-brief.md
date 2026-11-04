@@ -1404,6 +1404,12 @@ Decisions taken while building the MVP that refine or amend the sections above.
   reports a higher move number the record is refetched, and the board shows its loading
   placeholder rather than a stale position. A `StaleGame` answer from the server forces a
   download outright, since there the list is known to be behind.
+  A list only vouches for the board while it is recent (15 s): the board is also checked
+  with one quiet game request when a held record is opened from an older list, and when
+  the app comes back to the foreground with a game on screen (the user often returns from
+  the "your move" notification, and the board left in the background would otherwise show
+  the old position until reopened). A record downloaded or confirmed within those 15 s
+  costs nothing; an unchanged game keeps its trial, a changed one shows the new position.
   A game in its scoring phase is held together with its scoring state (`status_score` plus
   the device's dead-stone guess), keyed by the move token, which every mark changes; the
   prefetch warms it too. Without it the board would show the plain position and switch to

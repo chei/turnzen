@@ -89,6 +89,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.turnzen.app.R
 import dev.turnzen.app.data.BoardSettings
@@ -148,6 +149,13 @@ fun BoardScreen(
     val activity = LocalActivity.current
     DisposableEffect(viewModel) {
         onDispose { if (activity?.isChangingConfigurations != true) viewModel.onLeave() }
+    }
+
+    // Back from another app, or from the home screen after a notification: the game may
+    // have moved on while the board waited in the background.
+    LifecycleResumeEffect(viewModel) {
+        viewModel.onReturned()
+        onPauseOrDispose { }
     }
 
     // A tap anywhere but the comment field takes the focus off it, as a tap outside a field

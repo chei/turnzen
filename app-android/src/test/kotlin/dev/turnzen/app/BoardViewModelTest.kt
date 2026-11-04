@@ -47,6 +47,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -66,6 +67,11 @@ class BoardViewModelTest : MainDispatcherTest() {
         /** Off unless a test is about it, so the others start from the server's own marks. */
         private val guess: Boolean = false,
         records: RecordCache = RecordCache.None,
+        /** The wall clock, shared by the list and the board. */
+        private val now: () -> Instant = {
+            kotlin.time.Clock.System
+                .now()
+        },
     ) {
         val store = InMemoryCredentialStore()
         val session = sessionFor(client, store)
@@ -77,6 +83,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                 // The guess stays on the test dispatcher, so advanceUntilIdle waits for it.
                 computeContext = EmptyCoroutineContext,
                 records = records,
+                now = now,
             )
 
         // Main is the test dispatcher, so sends run on virtual time.
@@ -99,6 +106,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                     games,
                     outbox,
                     onGameEnded = { ended++ },
+                    now = now,
                 ) { sent += it }
             vm.load()
         }
@@ -137,6 +145,84 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.load()
             advanceUntilIdle()
             assertEquals(14, h.vm.state.value.moveCount)
+        }
+
+    /** A wall clock the test moves by hand, for how long the app was in the background. */
+    private class HandClock {
+        var at = Instant.parse("2026-11-04T10:00:00Z")
+
+        fun read() = at
+    }
+
+    @Test
+    fun `coming back to the app shows the opponent's move without reopening the game`() =
+        runTest(dispatcher) {
+            val clock = HandClock()
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client, now = clock::read)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(12, h.vm.state.value.moveCount)
+
+            // The app is left with the board on screen, and the game moves on meanwhile; the
+            // list is not shown, so it does not know.
+            client.sendMove(game, MoveToken("12"), Move.Play(Point(0, 0)))
+            clock.at += 1.hours
+            h.vm.onReturned()
+            // Quiet: the old board stays up while the server is asked, no placeholder.
+            assertFalse(h.vm.state.value.loading)
+            advanceUntilIdle()
+            val back = h.vm.state.value
+            assertEquals(14, back.moveCount)
+            assertTrue(back.atCurrent)
+            assertFalse(back.loading)
+        }
+
+    @Test
+    fun `coming back soon after, or to an unchanged game, keeps the board as it was`() =
+        runTest(dispatcher) {
+            val clock = HandClock()
+            val client = ClockedClient(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            val h = Harness(client, now = clock::read)
+            h.start(game)
+            advanceUntilIdle()
+            assertEquals(1, client.downloads)
+            h.vm.onTap(Point(0, 0))
+            assertTrue(h.vm.state.value.hasTrial)
+
+            // A quick look at another app: the record was just downloaded.
+            clock.at += 5.seconds
+            h.vm.onReturned()
+            advanceUntilIdle()
+            assertEquals(1, client.downloads)
+
+            // Hours later the server is asked, but nothing happened: the trial stays.
+            clock.at += 3.hours
+            h.vm.onReturned()
+            advanceUntilIdle()
+            assertEquals(2, client.downloads)
+            assertTrue(h.vm.state.value.hasTrial)
+            assertEquals(12, h.vm.state.value.moveCount)
+        }
+
+    @Test
+    fun `opening a held game from an old list checks it with the server`() =
+        runTest(dispatcher) {
+            val clock = HandClock()
+            val client = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val h = Harness(client, now = clock::read)
+            h.start(game)
+            advanceUntilIdle()
+
+            // The process lives on, the list is hours old and still agrees with the held
+            // record, but the opponent has played: the board must not stay on the old move.
+            client.sendMove(game, MoveToken("12"), Move.Play(Point(0, 0)))
+            clock.at += 2.hours
+            val vm = BoardViewModel(game, h.session, h.games, h.outbox, now = clock::read) { }
+            vm.load()
+            assertEquals(12, vm.state.value.moveCount)
+            advanceUntilIdle()
+            assertEquals(14, vm.state.value.moveCount)
         }
 
     @Test
