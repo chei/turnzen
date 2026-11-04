@@ -206,31 +206,33 @@ fun GamesScreen(
             )
         }
 
-        // A thin line under the tabs while a background refresh is out, so the list moving a
-        // moment after it is shown is expected rather than a surprise. The space is always
-        // there, so the line coming and going never moves the list.
-        RefreshLine(state.checkingFor(shownTab))
-
-        // Compose's own page snapping, deliberately left at its defaults (a page turns once
-        // it is half way over, or on a fling): the behaviour Android users expect, rather
-        // than a threshold tuned by feel.
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
-            // A list per tab, not one list re-filled: a game on both "Your turn" and "All
-            // games" keeps its key across a tab switch, and in a shared list the row would
-            // animate from its place in one to its place in the other. The scroll position
-            // survives a page leaving the screen, since each tab's LazyGridState is held
-            // above the pager.
-            val pageTab = GamesTab.entries[page]
-            GamesPage(
-                viewModel = viewModel,
-                state = state,
-                tab = pageTab,
-                listState = listStateFor(pageTab),
-                onOpenGame = onOpenGame,
-                onSignInAgain = onSignInAgain,
-                showPlayerIcons = showPlayerIcons,
-                showRowColours = showRowColours,
-            )
+        Box(Modifier.fillMaxSize()) {
+            // Compose's own page snapping, deliberately left at its defaults (a page turns once
+            // it is half way over, or on a fling): the behaviour Android users expect, rather
+            // than a threshold tuned by feel.
+            HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+                // A list per tab, not one list re-filled: a game on both "Your turn" and "All
+                // games" keeps its key across a tab switch, and in a shared list the row would
+                // animate from its place in one to its place in the other. The scroll position
+                // survives a page leaving the screen, since each tab's LazyGridState is held
+                // above the pager.
+                val pageTab = GamesTab.entries[page]
+                GamesPage(
+                    viewModel = viewModel,
+                    state = state,
+                    tab = pageTab,
+                    listState = listStateFor(pageTab),
+                    onOpenGame = onOpenGame,
+                    onSignInAgain = onSignInAgain,
+                    showPlayerIcons = showPlayerIcons,
+                    showRowColours = showRowColours,
+                )
+            }
+            // A thin line under the tabs while a background refresh is out, so the list moving a
+            // moment after it is shown is expected rather than a surprise. Drawn over the top
+            // edge of the list rather than given a place of its own: it takes no room, so the
+            // line coming and going never moves the list.
+            RefreshLine(state.checkingFor(shownTab), Modifier.align(Alignment.TopCenter))
         }
     }
 
@@ -263,7 +265,10 @@ fun GamesScreen(
  * blinks. It fades rather than pops, and its track is the page, so only the moving part shows.
  */
 @Composable
-private fun RefreshLine(busy: Boolean) {
+private fun RefreshLine(
+    busy: Boolean,
+    modifier: Modifier = Modifier,
+) {
     var shownAt by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(busy) {
         val at = shownAt
@@ -278,17 +283,11 @@ private fun RefreshLine(busy: Boolean) {
         }
     }
     val alpha by animateFloatAsState(
-        if (shownAt !=
-            null
-        ) {
-            1f
-        } else {
-            0f
-        },
-        tween(REFRESH_LINE_FADE_MILLIS),
+        targetValue = if (shownAt != null) 1f else 0f,
+        animationSpec = tween(REFRESH_LINE_FADE_MILLIS),
         label = "refresh line",
     )
-    Box(Modifier.fillMaxWidth().height(REFRESH_LINE_HEIGHT.dp)) {
+    Box(modifier.fillMaxWidth().height(REFRESH_LINE_HEIGHT.dp)) {
         if (alpha > 0f) {
             LinearProgressIndicator(
                 modifier = Modifier.fillMaxSize().alpha(alpha),
