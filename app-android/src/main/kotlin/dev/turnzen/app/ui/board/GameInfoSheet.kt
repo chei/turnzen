@@ -38,6 +38,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
@@ -422,16 +423,22 @@ private fun InfoRow(
             Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // The label is measured first and keeps its own width; the value takes what is
+            // left and wraps within it. Weighting the label instead let a long value (a
+            // tournament's full name) squeeze it down to one letter a line.
             Text(
                 label,
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.ink,
-                modifier = Modifier.weight(1f).padding(end = 16.dp),
+                maxLines = 1,
+                modifier = Modifier.padding(end = 16.dp),
             )
             Text(
                 value,
                 style = MaterialTheme.typography.bodyLarge,
                 color = colors.ink2,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f),
             )
         }
         Hairline()
