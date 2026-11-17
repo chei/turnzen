@@ -120,6 +120,14 @@ data class GameSummary(
      * games. Null for an unrated game and for a server that reports no such thing.
      */
     val ratingChange: Double? = null,
+    /** Whether the game counts for rating; null when the server's list does not say. */
+    val rated: Boolean? = null,
+    /**
+     * The tournament or ladder the game was played for, null for a casual game. Usually only
+     * the id: the lists name no tournament, so [TournamentRef.name] is filled where the
+     * server's list happens to carry it and left to [GameInfo.tournament] otherwise.
+     */
+    val tournament: TournamentRef? = null,
     /**
      * Rows of the board when it is not square (OGS allows 19×9); equal to [boardSize] for
      * every board this client draws.

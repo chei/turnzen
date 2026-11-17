@@ -94,6 +94,8 @@ class FakeTurnBasedGoServerClient(
         /** What the finished game did to the demo user's rating, in ranks. */
         var ratingChange: Double? = null,
         val comments: MutableList<GameComment> = mutableListOf(),
+        /** The tournament the game is played for, as its record names it; null for a casual one. */
+        val tournament: TournamentRef? = null,
     )
 
     // Split between the two demo servers when asked, so each has games of its own and the
@@ -446,6 +448,9 @@ class FakeTurnBasedGoServerClient(
             isFinished = finished,
             result = result,
             ratingChange = ratingChange,
+            rated = true,
+            // As DGS's lists do: the id only. The name is in the record.
+            tournament = tournament?.let { TournamentRef(id = it.id) },
         )
 
     /** The demo server's stand-in for what DGS reports about a game beyond the summary. */
@@ -478,19 +483,7 @@ class FakeTurnBasedGoServerClient(
             timeLimit = "F: 30d (+ 1d)",
             weekendClock = true,
             startedAt = lastMoveAt.minus(40.days),
-            tournament =
-                if (id.value == "demo-13") {
-                    TournamentRef(
-                        id = "1042",
-                        name = "Turnzen Demo Ladder (13x13)",
-                        kind = "Dragon Ladder",
-                        isLadder = true,
-                        round = 1,
-                        roundCount = 1,
-                    )
-                } else {
-                    null
-                },
+            tournament = tournament,
         )
     }
 
@@ -566,6 +559,15 @@ class FakeTurnBasedGoServerClient(
                 moveId = record.moves.size + 1,
                 lastMoveAt = Clock.System.now().minus(2.hours),
                 remaining = RemainingTime("6h", 6.hours, "+ 15d / 8"),
+                tournament =
+                    TournamentRef(
+                        id = "1042",
+                        name = "Turnzen Demo Ladder (13x13)",
+                        kind = "Dragon Ladder",
+                        isLadder = true,
+                        round = 1,
+                        roundCount = 1,
+                    ),
             )
         }
 
@@ -812,6 +814,14 @@ class FakeTurnBasedGoServerClient(
                 result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION),
                 finished = true,
                 ratingChange = -0.25,
+                tournament =
+                    TournamentRef(
+                        id = "1043",
+                        name = "Turnzen Demo League (19x19)",
+                        kind = "Public League",
+                        round = 3,
+                        roundCount = 5,
+                    ),
             )
         }
 

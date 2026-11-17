@@ -12,6 +12,7 @@ import dev.turnzen.goserver.Opponent
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -161,6 +162,17 @@ internal object GamesCodec {
                 )
             }
             g.ratingChange?.let { put("ratingChange", it) }
+            g.rated?.let { put("rated", it) }
+            g.tournament?.let { t ->
+                put(
+                    "tournament",
+                    buildJsonObject {
+                        put("id", t.id)
+                        put("name", t.name)
+                        if (t.isLadder) put("isLadder", true)
+                    },
+                )
+            }
         }
 
     fun summary(
@@ -192,6 +204,15 @@ internal object GamesCodec {
                     )
                 },
             ratingChange = o.double("ratingChange"),
+            rated = o.boolean("rated"),
+            tournament =
+                (o["tournament"] as? JsonObject)?.let {
+                    TournamentRef(
+                        id = it.string("id")!!,
+                        name = it.string("name"),
+                        isLadder = it.boolean("isLadder") ?: false,
+                    )
+                },
         )
 
     fun remainingTime(time: RemainingTime): JsonObject =

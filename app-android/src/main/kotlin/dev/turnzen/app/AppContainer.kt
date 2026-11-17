@@ -13,6 +13,7 @@ import dev.turnzen.app.data.MessagesStore
 import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.PrefsGameMarksStore
 import dev.turnzen.app.data.PrefsGamesCache
+import dev.turnzen.app.data.PrefsTournamentNames
 import dev.turnzen.app.data.SessionManager
 import dev.turnzen.app.data.SettingsStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
@@ -130,6 +131,7 @@ class AppContainer(
             cache = PrefsGamesCache(appContext),
             records = FileRecordCache(appContext),
             marksStore = gameMarks,
+            tournaments = PrefsTournamentNames(appContext),
         ) { seen -> watchState.update { TurnWatch.seen(it, seen) } }
 
     /** The new messages on every server, for the block above "Your turn". */

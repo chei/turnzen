@@ -405,7 +405,13 @@ class GamesViewModel(
         val person =
             message.from?.let { Opponent(it.handle, it.displayName, it.rank) }
                 ?: game?.let(store::summary)?.opponent
-        return MessageRow(message, MessageWording.describe(message, store::summary), game, web, person)
+        return MessageRow(
+            message,
+            MessageWording.describe(message, store::summary, store::tournament),
+            game,
+            web,
+            person,
+        )
     }
 
     fun openMessage(id: MessageId) = transient.update { it.copy(openMessage = id, messageError = null) }

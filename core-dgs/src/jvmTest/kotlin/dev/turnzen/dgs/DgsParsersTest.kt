@@ -192,6 +192,18 @@ class DgsParsersTest {
     }
 
     @Test
+    fun `a finished game says whether it was rated and which tournament it was for`() {
+        val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_finished.json")), "123456")
+
+        assertEquals(true, games[0].rated)
+        assertEquals(false, games[2].rated)
+        // tournament_id 0 is DGS for "a casual game".
+        assertNull(games[0].tournament)
+        // The list carries only the id; the name is in the SGF.
+        assertEquals(TournamentRef(id = "119"), games[1].tournament)
+    }
+
+    @Test
     fun `own color falls back to move_color when the user id is unknown`() {
         val games = GameObjectParser.parseList(QuickSuite.parse(Fixtures.text("game_list_status.json")), null)
         assertEquals(StoneColor.BLACK, games[0].myColor)

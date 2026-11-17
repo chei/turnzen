@@ -6,6 +6,7 @@ import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.PendingAction
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.serialization.json.JsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -173,6 +174,16 @@ class OgsParsersTest {
             "https://secure.gravatar.com/avatar/000000000000000000000000000007d9?s=128&d=retro",
             won.opponent.iconUrl,
         )
+    }
+
+    @Test
+    fun `a finished game names the ladder it was played on`() {
+        val results = Fixtures.obj("player_games_finished.json").arr("results")!!.map { it as JsonObject }
+        val ladder = OgsFinishedGames.summary(results.first { it.long("id") == 7000003L }, Fixtures.ME, null)!!
+        assertEquals(TournamentRef(id = "315", isLadder = true), ladder.tournament)
+        assertEquals(true, ladder.rated)
+        val casual = OgsFinishedGames.summary(results.first { it.long("id") == 7000002L }, Fixtures.ME, null)!!
+        assertNull(casual.tournament)
     }
 
     @Test

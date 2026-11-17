@@ -8,6 +8,7 @@ import dev.turnzen.goserver.InboxMessage
 import dev.turnzen.goserver.InvitationColor
 import dev.turnzen.goserver.InvitationSettings
 import dev.turnzen.goserver.MessageTopic
+import dev.turnzen.goserver.TournamentRef
 
 /** A message as Turnzen words it: one line that says what happened, one with the particulars. */
 data class MessageText(
@@ -22,12 +23,14 @@ data class MessageText(
  * A player's message is theirs, and is shown as they wrote it.
  *
  * [game] looks a game up in the lists the app holds, for the opponent's name and a finished
- * game's result; a game it does not know is described without them.
+ * game's result; a game it does not know is described without them. [tournament] puts a name
+ * to the tournament a game was played for, which the lists give only by id.
  */
 object MessageWording {
     fun describe(
         message: InboxMessage,
         game: (GameId) -> GameSummary?,
+        tournament: (GameId, TournamentRef) -> TournamentRef = { _, ref -> ref },
     ): MessageText =
         when (val topic = message.topic) {
             MessageTopic.Conversation -> {
@@ -56,7 +59,7 @@ object MessageWording {
             }
 
             is MessageTopic.GameEnded -> {
-                gameEnded(game(topic.game)) ?: MessageText("A game has ended", firstLine(message.text))
+                gameEnded(game(topic.game), tournament) ?: MessageText("A game has ended", firstLine(message.text))
             }
 
             is MessageTopic.TournamentInvitation -> {
@@ -83,8 +86,9 @@ object MessageWording {
     fun notification(
         message: InboxMessage,
         game: (GameId) -> GameSummary?,
+        tournament: (GameId, TournamentRef) -> TournamentRef = { _, ref -> ref },
     ): MessageText {
-        val text = describe(message, game)
+        val text = describe(message, game, tournament)
         val from = message.from
         return if (message.topic == MessageTopic.Conversation && from != null) {
             text.copy(title = "Message from ${from.handle}")
@@ -115,8 +119,15 @@ object MessageWording {
             settings.timeLimit,
         ).joinToString(", ")
 
-    /** "You lost against tsuke_42" / "by resignation", from the finished game the lists hold. */
-    private fun gameEnded(game: GameSummary?): MessageText? {
+    /**
+     * "You lost against tsuke_42" / "by 2 · DGS Ladder (19x19) · rating −0.25", from the
+     * finished game the lists hold: how it ended, what it was played for, and what it did to
+     * the user's rating — or that it was unrated, a friendly game.
+     */
+    private fun gameEnded(
+        game: GameSummary?,
+        tournament: (GameId, TournamentRef) -> TournamentRef,
+    ): MessageText? {
         if (game == null || !game.isFinished) return null
         val result = game.result
         val opponent = game.opponent.handle
@@ -127,7 +138,7 @@ object MessageWording {
                 result.winner == game.myColor -> "You won against $opponent"
                 else -> "You lost against $opponent"
             }
-        val detail =
+        val how =
             when (result?.by) {
                 ResultReason.RESIGNATION -> "by resignation"
                 ResultReason.TIMEOUT -> "on time"
@@ -135,8 +146,16 @@ object MessageWording {
                 ResultReason.POINTS -> result.margin?.let { "by ${Formatting.points(it)}" }
                 else -> null
             }
-        return MessageText(title, detail)
+        val event = game.tournament?.let { eventName(tournament(game.id, it)) }
+        val rating =
+            game.ratingChange?.let { "rating ${Formatting.ratingPoints(it)}" }
+                ?: "unrated".takeIf { game.rated == false }
+        return MessageText(title, listOfNotNull(how, event, rating).joinToString(" · ").ifEmpty { null })
     }
+
+    /** "DGS Ladder (19x19)", or by number where no record ever gave the name: "Ladder #315". */
+    private fun eventName(ref: TournamentRef): String =
+        ref.name ?: if (ref.isLadder) "Ladder #${ref.id}" else "Tournament #${ref.id}"
 
     /** The subject, then as much of the text as fits; a "Re:" subject says nothing, so it goes. */
     private fun conversationLine(message: InboxMessage): String? {

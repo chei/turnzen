@@ -795,9 +795,15 @@ and they explain the list — "Challenge started for tournament #119" is why a g
   server's colour, so it is not mistaken for a player's initial.
 - **Turnzen's own wording** for server messages (`MessageWording`), from the topic and the
   games the app holds: "hana_go challenged you" / "Ladder #119 · you #7, hana_go #12";
-  "You lost against tsuke_42" / "by resignation"; "kito invites you to a game" / "13x13,
+  "You lost against tsuke_42" / "by 2 · DGS Ladder (19x19) · rating −0.25" (how it ended,
+  the tournament or ladder it was for, the rating move, or "unrated" for a friendly game);
+  "kito invites you to a game" / "13x13,
   rated, you play black, handicap 1, komi 0.5, F: 10d + 1d". A result message about a game
   the archive does not hold yet fetches the archive once, so it can say how the game went.
+  The archive gives a tournament by id only; its name comes from a `TournamentNames` entry
+  written whenever a game record showed it (records of finished games are dropped), and
+  falls back to "Tournament #N" / "Ladder #N". Ladder rank changes are not shown: DGS keeps
+  no per-game ranks, and the ladder page shows only today's.
   A player's message shows their name and the subject and first line; a "Re:" subject is
   dropped as saying nothing.
 - **Tapping a row opens a sheet** with all of it and the acts that apply, one button each:

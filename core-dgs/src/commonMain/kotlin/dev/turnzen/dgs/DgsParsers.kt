@@ -267,13 +267,7 @@ internal object GameInfoParser {
             timeLimit = game.string("time_limit")?.ifBlank { null },
             weekendClock = game.int("time_weekend_clock")?.let { it != 0 },
             startedAt = DgsDates.parse(game.string("time_started")),
-            // DGS writes 0 for "not a tournament game", and the id is all the game object
-            // carries — the name and the kind come from the SGF, see [DgsTournament].
-            tournament =
-                game
-                    .string("tournament_id")
-                    ?.takeUnless { it.isBlank() || it == "0" }
-                    ?.let { TournamentRef(id = it) },
+            tournament = DgsTournament.fromGameObject(game),
         )
 
     private fun player(
@@ -333,6 +327,16 @@ internal object GameInfoParser {
 internal object DgsTournament {
     private val EVENT = Regex("""^\s*(?:\(([^)]*)\))?\s*[^#]*#\s*(\d+)\s*:?\s*(.*)$""")
     private val ROUND = Regex("""(\d+)\D+(\d+)""")
+
+    /**
+     * The id alone, from a game object: DGS writes 0 for "not a tournament game", and the id
+     * is all the game object carries — the name and the kind come from the SGF, see [merge].
+     */
+    fun fromGameObject(game: JsonObject): TournamentRef? =
+        game
+            .string("tournament_id")
+            ?.takeUnless { it.isBlank() || it == "0" }
+            ?.let { TournamentRef(id = it) }
 
     /** Merges what the SGF header adds onto what the game object already gave us. */
     fun merge(
@@ -438,6 +442,8 @@ internal object GameObjectParser {
                 } else {
                     null
                 },
+            rated = game.int("rated")?.let { it != 0 },
+            tournament = DgsTournament.fromGameObject(game),
         )
     }
 

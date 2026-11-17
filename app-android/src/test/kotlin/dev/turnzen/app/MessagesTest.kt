@@ -87,7 +87,14 @@ class MessagesTest : MainDispatcherTest() {
                     store::summary,
                 )
             assertEquals("You lost against tsuke_42", ended.title)
-            assertEquals("by resignation", ended.detail)
+            // The list knows the league only by number until a record of it has been seen.
+            assertEquals("by resignation · Tournament #1043 · rating −0.25", ended.detail)
+            val named =
+                MessageWording.describe(
+                    message(MessageTopic.GameEnded(GameId(dgs, "demo-done-loss"))),
+                    store::summary,
+                ) { _, ref -> ref.copy(name = "Turnzen Demo League (19x19)") }
+            assertEquals("by resignation · Turnzen Demo League (19x19) · rating −0.25", named.detail)
 
             val conversation =
                 MessageWording.describe(

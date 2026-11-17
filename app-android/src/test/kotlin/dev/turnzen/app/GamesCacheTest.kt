@@ -5,11 +5,13 @@ import dev.turnzen.app.data.CachedLists
 import dev.turnzen.app.data.FileRecordCache
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.data.PrefsGamesCache
+import dev.turnzen.app.data.PrefsTournamentNames
 import dev.turnzen.app.data.StoredRecord
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.coroutines.test.runTest
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
@@ -103,6 +105,28 @@ class GamesCacheTest {
             assertEquals(detail, later.cachedDetail(id))
             assertEquals(fetchedAt, later.storedRecord(id)?.fetchedAt)
             dir.deleteRecursively()
+        }
+
+    @Test
+    fun `a tournament's name outlives the record that gave it`() =
+        runTest {
+            val prefs = FakeSharedPreferences()
+            val session = sessionFor(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            session.signIn(Credentials("demo", "pw"))
+            val id = GameId(session.serverId, "demo-13")
+            val store = GamesStore(Accounts(listOf(session)), tournaments = PrefsTournamentNames(prefs))
+            // The list names the ladder by number only.
+            val listed = TournamentRef(id = "1042")
+            assertEquals(listed, store.tournament(id, listed))
+
+            store.cache(session.call { it.game(id) })
+
+            val later = GamesStore(Accounts(listOf(session)), tournaments = PrefsTournamentNames(prefs))
+            val named = later.tournament(id, listed)
+            assertEquals("Turnzen Demo Ladder (13x13)", named.name)
+            assertTrue(named.isLadder)
+            // The round belongs to one game, not the tournament, and is not carried over.
+            assertNull(named.round)
         }
 
     @Test

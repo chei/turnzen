@@ -20,6 +20,7 @@ import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.PlayerDetail
 import dev.turnzen.goserver.RemainingTime
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -557,6 +558,12 @@ internal object OgsFinishedGames {
                     entry.bool("white_lost"),
                 ),
             ratingChange = ratingChange,
+            rated = entry.bool("ranked"),
+            // OGS keeps tournaments and ladders apart, each with ids of its own; the list
+            // gives the id of whichever the game was played for, and no name.
+            tournament =
+                entry.long("tournament")?.let { TournamentRef(id = it.toString()) }
+                    ?: entry.long("ladder")?.let { TournamentRef(id = it.toString(), isLadder = true) },
             onlyOnWeb = !OgsGameData.isDrawable(width, height, entry.bool("rengo") == true),
         )
     }

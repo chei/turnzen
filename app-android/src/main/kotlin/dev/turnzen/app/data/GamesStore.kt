@@ -13,6 +13,7 @@ import dev.turnzen.goserver.MoveToken
 import dev.turnzen.goserver.PendingAction
 import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.ServerId
+import dev.turnzen.goserver.TournamentRef
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -73,6 +74,8 @@ class GamesStore(
     private val records: RecordCache = RecordCache.None,
     /** Where the marks of games not looked at yet are kept between runs. See [GameMarks]. */
     private val marksStore: GameMarksStore = GameMarksStore.None,
+    /** The names of tournaments seen in records, for games whose record has gone. */
+    private val tournaments: TournamentNames = TournamentNames.None,
     private val now: () -> Instant = { Clock.System.now() },
     /**
      * Told what each answering server said is awaiting the user, after every [refresh]: the
@@ -468,6 +471,7 @@ class GamesStore(
 
     private fun remember(detail: GameDetail) {
         val id = detail.summary.id
+        detail.info?.tournament?.let { tournaments.remember(id.server, it) }
         details.remove(id)
         details[id] = detail
         while (details.size > MAX_CACHED_DETAILS) {
@@ -576,6 +580,12 @@ class GamesStore(
         // Finished tab fetches the list again rather than showing one without this game.
         _finished.value = null
     }
+
+    /** [ref], the tournament [id] was played for, with its name where a record ever gave it. */
+    fun tournament(
+        id: GameId,
+        ref: TournamentRef,
+    ): TournamentRef = tournaments.resolve(id.server, ref)
 
     /**
      * The known summary for [id], if it is in either list. Lets the board screen draw the
