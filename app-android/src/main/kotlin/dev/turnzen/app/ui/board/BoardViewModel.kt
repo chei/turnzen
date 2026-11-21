@@ -830,7 +830,7 @@ class BoardViewModel(
                 _state.update { it.copy(sending = false) }
                 delay(600)
                 onMoveSent(gameId)
-                games.onMovePlayed(gameId)
+                games.onMovePlayed(gameId, detail.summary.moveNumber + 1)
             } catch (e: GoServerException.StaleGame) {
                 onGameMovedOn()
             } catch (e: GoServerException) {
@@ -1116,6 +1116,7 @@ class BoardViewModel(
             OutgoingMove(
                 gameId = gameId,
                 token = detail.summary.moveToken,
+                moveNumber = detail.summary.moveNumber + 1,
                 move = move,
                 comment = comment.trim().ifEmpty { null },
                 label = (move as? Move.Play)?.let { Coordinates.label(it.point, size) },

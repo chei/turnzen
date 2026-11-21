@@ -17,6 +17,8 @@ import kotlinx.coroutines.launch
 data class OutgoingMove(
     val gameId: GameId,
     val token: MoveToken,
+    /** How many moves the game has once this one is in it. */
+    val moveNumber: Int,
     val move: Move,
     val comment: String?,
     /** "D4", or null for a pass: how the app-wide line names the move. */
@@ -70,7 +72,7 @@ class MoveOutbox(
         scope.launch {
             try {
                 accounts.session(id.server).call { it.sendMove(id, move.token, move.move, move.comment) }
-                games.onMovePlayed(id)
+                games.onMovePlayed(id, move.moveNumber)
             } catch (e: GoServerException) {
                 // "Not your turn" is not a bad move: the game moved on without us (the
                 // opponent played, or this player moved in another client), exactly as when

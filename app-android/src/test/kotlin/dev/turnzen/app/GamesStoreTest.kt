@@ -3,10 +3,14 @@ package dev.turnzen.app
 import dev.turnzen.app.data.Accounts
 import dev.turnzen.app.data.GamesStore
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.game.Move
 import dev.turnzen.goserver.Credentials
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameSummary
 import dev.turnzen.goserver.TurnBasedGoServerClient
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -92,7 +96,9 @@ class GamesStoreTest {
             session.signIn(Credentials("demo", "pw"))
             val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
-            store.onMovePlayed(GameId(DEMO_SERVER, "demo-19"))
+            val id = GameId(DEMO_SERVER, "demo-19")
+            val before = store.summary(id)!!.moveNumber
+            store.onMovePlayed(id, before + 1)
 
             // Gone from the "Your turn" queue.
             assertTrue(store.yourTurn.value!!.none { it.id.value == "demo-19" })
@@ -101,6 +107,52 @@ class GamesStoreTest {
             val stillRunning = store.allRunning.value!!.firstOrNull { it.id.value == "demo-19" }
             assertNotNull(stillRunning)
             assertFalse(stillRunning.isMyTurn)
+            // With the move counted, so a board still holding the position it was played on
+            // does not take that position for the current one.
+            assertEquals(before + 1, stillRunning.moveNumber)
+        }
+
+    @Test
+    fun `a refresh already on the wire when a move lands does not bring the game back`() =
+        runTest {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            var gate: CompletableDeferred<Unit>? = null
+            // Answers as the server stood when asked, but arrives only once the gate opens.
+            val client =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun gamesAwaitingMe(): List<GameSummary> =
+                        fake.gamesAwaitingMe().also { gate?.await() }
+
+                    override suspend fun myRunningGames(): List<GameSummary> =
+                        fake.myRunningGames().also { gate?.await() }
+                }
+            val session = sessionFor(client)
+            session.signIn(Credentials("demo", "pw"))
+            val store = GamesStore(Accounts(listOf(session)))
+            store.refresh()
+            val id = GameId(DEMO_SERVER, "demo-19")
+            val listed = store.summary(id)!!
+
+            // The list is refreshed (the app came to the foreground, say) while the user plays.
+            gate = CompletableDeferred()
+            val slow = launch { store.refresh() }
+            runCurrent()
+            fake.sendMove(id, listed.moveToken, Move.Pass)
+            store.onMovePlayed(id, listed.moveNumber + 1)
+            gate.complete(Unit)
+            slow.join()
+
+            assertTrue(store.yourTurn.value!!.none { it.id == id })
+            val running = store.allRunning.value!!.single { it.id == id }
+            assertFalse(running.isMyTurn)
+            assertEquals(listed.moveNumber + 1, running.moveNumber)
+
+            // A refresh asked after the move is the server's word: the fake opponent has
+            // answered with a pass, so the game is the user's turn again.
+            gate = null
+            store.refresh()
+            val back = store.yourTurn.value!!.single { it.id == id }
+            assertEquals(listed.moveNumber + 2, back.moveNumber)
         }
 
     @Test
@@ -140,9 +192,11 @@ class GamesStoreTest {
             val store = GamesStore(Accounts(listOf(session)))
             store.refresh()
 
-            // Stand in for the opponent moving: the game leaves the queue, then the next
-            // refresh finds it waiting on the user again.
-            store.onMovePlayed(GameId(DEMO_SERVER, "demo-19"))
+            // The user plays and the fake opponent answers at once with a pass: the game
+            // leaves the queue, then the next refresh finds it waiting on the user again.
+            val listed = store.summary(GameId(DEMO_SERVER, "demo-19"))!!
+            session.call { it.sendMove(listed.id, listed.moveToken, Move.Pass, null) }
+            store.onMovePlayed(listed.id, listed.moveNumber + 1)
             store.refresh()
             assertEquals(setOf(GameId(DEMO_SERVER, "demo-19")), store.arrivals.value.yourTurn)
 

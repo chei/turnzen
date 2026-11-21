@@ -1125,6 +1125,30 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `reopening a game after its move landed shows the move, not the position it was played on`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(game)
+            advanceUntilIdle()
+            h.vm.onTap(Point(0, 0))
+            h.vm.send()
+            advanceUntilIdle()
+
+            // Back from the list to the same game (its ViewModel is kept): the board still
+            // holds the record the move was played on, which is no longer the game.
+            h.vm.load()
+            advanceUntilIdle()
+            val s = h.vm.state.value
+            assertEquals(14, s.moveCount) // my move + the fake opponent's pass
+            assertEquals(
+                Move.Play(Point(0, 0)),
+                s.detail!!
+                    .record.moves[12]
+                    .move,
+            )
+        }
+
+    @Test
     fun `a stale game is reloaded and reported`() =
         runTest(dispatcher) {
             val client = FakeTurnBasedGoServerClient(latencyMillis = 0)

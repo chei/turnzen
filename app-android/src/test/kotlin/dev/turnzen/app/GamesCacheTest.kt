@@ -154,7 +154,7 @@ class GamesCacheTest {
                 ),
             )
 
-            store.onMovePlayed(played)
+            store.onMovePlayed(played, store.summary(played)!!.moveNumber + 1)
             assertNull(FileRecordCache(dir).read(played))
             store.refresh()
             assertNull(FileRecordCache(dir).read(stray))

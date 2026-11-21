@@ -95,6 +95,21 @@ class GamesStore(
      * the game back into the queue the user has just worked past.
      */
     private var outgoing: Set<GameId> = emptySet()
+
+    /**
+     * Games the user has played in, by the move count their move made and the order the moves
+     * were played in ([playedCount] at the time). A refresh that was already on the wire when
+     * the move landed may carry the server's answer from before it, which would put the game
+     * back in the queue with the old position; [refresh] reads such an answer against this.
+     */
+    private val played = HashMap<GameId, Played>()
+    private var playedCount = 0L
+
+    private data class Played(
+        val moveNumber: Int,
+        val order: Long,
+    )
+
     private val _finished = MutableStateFlow<List<GameSummary>?>(null)
     private val _arrivals = MutableStateFlow(Arrivals())
     private val _marks = MutableStateFlow(marksStore.load())
@@ -190,6 +205,29 @@ class GamesStore(
             _allRunning.value?.map { if (it.id in outgoing) it.copy(isMyTurn = false) else it }
     }
 
+    /**
+     * [games] with the moves in [moves] applied to the games the server describes from before
+     * them: such a game is the opponent's turn, at the move count the user's move made, and
+     * leaves the [queue]. A game the server has at that count or later has the move already
+     * (and the opponent may have answered it), so it is taken as the server has it.
+     */
+    private fun afterMoves(
+        games: List<GameSummary>,
+        moves: Map<GameId, Played>,
+        queue: Boolean,
+    ): List<GameSummary> {
+        if (moves.isEmpty()) return games
+
+        fun before(game: GameSummary) = moves[game.id]?.let { game.moveNumber < it.moveNumber } ?: false
+        return if (queue) {
+            games.filterNot(::before)
+        } else {
+            games.map {
+                if (before(it)) it.copy(isMyTurn = false, moveNumber = moves.getValue(it.id).moveNumber) else it
+            }
+        }
+    }
+
     /** A move in [id] has been handed to the outbox: show the game as played from now on. */
     fun hold(id: GameId) {
         outgoing = outgoing + id
@@ -213,6 +251,7 @@ class GamesStore(
      */
     suspend fun refresh(): Map<ServerId, GoServerException> {
         val sessions = accounts.signedIn
+        val startedAfter = playedCount
         val answers =
             coroutineScope {
                 sessions
@@ -240,7 +279,17 @@ class GamesStore(
         // Nothing answered: the lists stay exactly as they were, unloaded ones included, so a
         // first load that failed still reads as "nothing to show" rather than "no games".
         if (sessions.isNotEmpty() && failures.size == sessions.size) return failures
-        val fresh = answers.mapNotNull { (server, answer) -> answer.getOrNull()?.let { server to it } }.toMap()
+        // Moves played while this refresh was on the wire: the answer may predate them.
+        val late = played.filterValues { it.order > startedAfter }
+        val fresh =
+            answers
+                .mapNotNull { (server, answer) ->
+                    answer.getOrNull()?.let { (turn, running) ->
+                        server to (afterMoves(turn, late, queue = true) to afterMoves(running, late, queue = false))
+                    }
+                }.toMap()
+        // A move played before the refresh was asked for is in the answer, whatever it says.
+        played.entries.removeAll { (id, move) -> id.server in fresh && move.order <= startedAfter }
         onYourTurnSeen(fresh.mapValues { it.value.first })
         // Games of a server that is signed in but did not answer stay as they were.
         val stale = failures.keys
@@ -543,20 +592,31 @@ class GamesStore(
     }
 
     /**
-     * Record that the user has just played their move in [id]. It leaves the "Your turn"
-     * queue, but stays in the running list now on the opponent's turn, so the "All games"
-     * tab keeps showing it (without the "your turn" marker) until the next refresh.
+     * Record that the user has just played their move in [id], which brought the game to
+     * [moveNumber] moves. It leaves the "Your turn" queue, but stays in the running list now
+     * on the opponent's turn, so the "All games" tab keeps showing it (without the "your
+     * turn" marker) until the next refresh.
+     *
+     * The list's move count goes up with it: a board reopened on the game compares it with
+     * the record it holds, and a count that stayed put would vouch for the position from
+     * before the move.
      */
-    fun onMovePlayed(id: GameId) {
+    fun onMovePlayed(
+        id: GameId,
+        moveNumber: Int,
+    ) {
         // The cached record predates the move that was just sent, so it is no longer usable.
         details.remove(id)
         records.remove(id)
         scores.remove(id)
         onArrivalShown(id)
         outgoing = outgoing - id
+        played[id] = Played(moveNumber, ++playedCount)
         _yourTurn.update { list -> list?.filterNot { it.id == id } }
         _allRunning.update { list ->
-            list?.map { if (it.id == id) it.copy(isMyTurn = false) else it }
+            list?.map {
+                if (it.id == id) it.copy(isMyTurn = false, moveNumber = maxOf(it.moveNumber, moveNumber)) else it
+            }
         }
         publish()
         persist(id.server)
@@ -567,6 +627,7 @@ class GamesStore(
      * so the queue steps past it and the list does not show it until the next refresh.
      */
     fun onGameEnded(id: GameId) {
+        played.remove(id)
         details.remove(id)
         records.remove(id)
         scores.remove(id)
@@ -632,6 +693,7 @@ class GamesStore(
     fun forget(server: ServerId) {
         details.keys.removeAll { it.server == server }
         scores.keys.removeAll { it.server == server }
+        played.keys.removeAll { it.server == server }
         _yourTurn.update { list -> list?.filterNot { it.id.server == server } }
         _allRunning.update { list -> list?.filterNot { it.id.server == server } }
         _finished.update { list -> list?.filterNot { it.id.server == server } }
@@ -663,6 +725,7 @@ class GamesStore(
         records.clear()
         details.clear()
         scores.clear()
+        played.clear()
         publish()
     }
 
