@@ -39,9 +39,12 @@ jobs:
       - name: Assemble preview APK
         run: ./gradlew :app-android:assemblePreview
       # Keep only recent main builds: the account's artifact storage quota is small.
-      - uses: actions/upload-artifact@v4
+      # Uploaded as the bare .apk, not zipped (archive: false needs v7): a phone can install
+      # it straight from the download, and zipping an APK saves only ~5%. The artifact takes
+      # the file's name, app-android-preview.apk.
+      - uses: actions/upload-artifact@v7
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         with:
-          name: turnzen-preview-apk
-          path: app-android/build/outputs/apk/preview/*.apk
+          path: app-android/build/outputs/apk/preview/app-android-preview.apk
+          archive: false
           retention-days: 3
