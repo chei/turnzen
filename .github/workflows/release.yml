@@ -1,11 +1,18 @@
 name: Release
 
 # Pushing a tag such as v0.2.0 builds the preview APK and attaches it to a GitHub release of
-# that name. Obtainium (and anyone sideloading) installs from these releases; the APKs CI
-# uploads on main are workflow artifacts, which Obtainium cannot see and which expire.
+# that name. The workflow can also be run by hand (Actions tab, or the GitHub mobile app) with
+# a version such as 0.2.0: it then creates the tag itself, on the commit it was run from.
+# Obtainium (and anyone sideloading) installs from these releases; the APKs CI uploads on main
+# are workflow artifacts, which Obtainium cannot see and which expire.
 on:
   push:
     tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version without the v, e.g. 0.2.0"
+        required: true
 
 permissions:
   contents: write
@@ -15,6 +22,16 @@ jobs:
     name: Build and publish the APK
     runs-on: ubuntu-latest
     steps:
+      - name: Work out the version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then version="$INPUT_VERSION"; else version="${GITHUB_REF_NAME#v}"; fi
+          if ! printf '%s' "$version" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "Not a version of the form X.Y.Z: $version" >&2
+            exit 1
+          fi
+          echo "VERSION=$version" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
@@ -24,13 +41,16 @@ jobs:
       - name: Unit tests
         run: ./gradlew :core-game:test :core-goserver:test :core-dgs:test :core-ogs:test :app-android:testDebugUnitTest
       - name: Assemble preview APK
-        run: ./gradlew :app-android:assemblePreview -Pturnzen.version=${GITHUB_REF_NAME#v}
+        run: ./gradlew :app-android:assemblePreview -Pturnzen.version=$VERSION
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk="turnzen-${GITHUB_REF_NAME}.apk"
+          tag="v$VERSION"
+          apk="turnzen-$tag.apk"
           cp app-android/build/outputs/apk/preview/app-android-preview.apk "$apk"
-          gh release create "$GITHUB_REF_NAME" "$apk" \
-            --title "Turnzen ${GITHUB_REF_NAME}" \
+          # --target creates the tag on this commit when the run was started by hand.
+          gh release create "$tag" "$apk" \
+            --target "$GITHUB_SHA" \
+            --title "Turnzen $tag" \
             --generate-notes
