@@ -1,0 +1,36 @@
+name: Release
+
+# Pushing a tag such as v0.2.0 builds the preview APK and attaches it to a GitHub release of
+# that name. Obtainium (and anyone sideloading) installs from these releases; the APKs CI
+# uploads on main are workflow artifacts, which Obtainium cannot see and which expire.
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish the APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Unit tests
+        run: ./gradlew :core-game:test :core-goserver:test :core-dgs:test :core-ogs:test :app-android:testDebugUnitTest
+      - name: Assemble preview APK
+        run: ./gradlew :app-android:assemblePreview -Pturnzen.version=${GITHUB_REF_NAME#v}
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk="turnzen-${GITHUB_REF_NAME}.apk"
+          cp app-android/build/outputs/apk/preview/app-android-preview.apk "$apk"
+          gh release create "$GITHUB_REF_NAME" "$apk" \
+            --title "Turnzen ${GITHUB_REF_NAME}" \
+            --generate-notes

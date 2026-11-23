@@ -14,6 +14,17 @@ val useFakeServer = providers.gradleProperty("turnzen.fakeServer").orNull == "tr
 // its own application can override it with `-Pturnzen.ogsClientId=...`.
 val ogsClientId = providers.gradleProperty("turnzen.ogsClientId").orNull ?: "yK58MvJ9o8FP75ri6Z6sv1PS8jLBIODWIKAXXmpz"
 
+// The release workflow passes the tag's version (`-Pturnzen.version=0.2.0` for tag v0.2.0), so
+// the APK's versionName matches the GitHub release Obtainium compares it with. versionCode is
+// derived from it (major * 10000 + minor * 100 + patch), so every newer tag installs as an
+// update. Local and CI builds keep 0.1.0.
+val appVersion = providers.gradleProperty("turnzen.version").orNull ?: "0.1.0"
+val appVersionCode =
+    appVersion.split(".").map { it.toInt() }.let { (major, minor, patch) ->
+        require(minor < 100 && patch < 100) { "turnzen.version parts after the first must be below 100" }
+        major * 10000 + minor * 100 + patch
+    }
+
 android {
     namespace = "dev.turnzen.app"
     compileSdk = 37
@@ -22,8 +33,8 @@ android {
         applicationId = "io.github.chei.turnzen"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
         manifestPlaceholders["appLabel"] = "Turnzen"
         manifestPlaceholders["appIcon"] = "@mipmap/ic_launcher"
 
