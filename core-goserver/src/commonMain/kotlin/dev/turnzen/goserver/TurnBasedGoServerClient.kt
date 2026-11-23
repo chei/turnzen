@@ -200,6 +200,12 @@ interface TurnBasedGoServerClient {
     fun gameUrl(id: GameId): String?
 
     /**
+     * The [tournament]'s own page on the server's website, so its name can be a link to the
+     * standings, pairings and rules this client does not show. Null when there is no such page.
+     */
+    fun tournamentUrl(tournament: TournamentRef): String? = null
+
+    /**
      * The user's own place on the server's website — their profile, or the home page a
      * signed-in user starts from — or null when there is none worth linking.
      */

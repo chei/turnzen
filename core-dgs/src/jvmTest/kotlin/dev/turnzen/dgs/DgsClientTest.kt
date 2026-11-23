@@ -457,6 +457,15 @@ class DgsClientTest {
     }
 
     @Test
+    fun `a tournament links to its overview page, a ladder too`() {
+        val client = DgsClient(FakeTransport(), "https://dgs.example.test/")
+        assertEquals(
+            "https://dgs.example.test/tournaments/view_tournament.php?tid=7",
+            client.tournamentUrl(TournamentRef(id = "7", isLadder = true)),
+        )
+    }
+
+    @Test
     fun `new messages are the status page's two folders, all of them`() =
         runTest {
             val transport = transportWithHappyPath()

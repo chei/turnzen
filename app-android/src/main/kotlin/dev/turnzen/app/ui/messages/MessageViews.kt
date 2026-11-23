@@ -46,9 +46,15 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
 import dev.turnzen.app.ui.common.ErrorMessage
@@ -154,6 +160,39 @@ fun MessageListRow(
 }
 
 /**
+ * The message's detail line in the open message, with the tournament it names, if any, as a
+ * link to the tournament's page. Only here, not in the row: the row is one tap target that
+ * opens the message, and a link inside a single ellipsized line would be too easy to miss.
+ */
+@Composable
+private fun DetailText(
+    row: MessageRow,
+    onOpenWeb: (String) -> Unit,
+) {
+    val detail = row.text.detail ?: return
+    val label = row.text.event?.label
+    val url = row.eventUrl
+    val start = label?.let(detail::indexOf) ?: -1
+    if (url == null || label == null || start < 0) {
+        Text(detail, style = MaterialTheme.typography.bodyLarge)
+        return
+    }
+    val linkStyle = SpanStyle(color = colors.accent, textDecoration = TextDecoration.Underline)
+    Text(
+        buildAnnotatedString {
+            append(detail.substring(0, start))
+            // Clickable rather than Url, so the link opens the same way every other
+            // "open on the web" does in the app.
+            withLink(LinkAnnotation.Clickable("event", TextLinkStyles(linkStyle)) { onOpenWeb(url) }) {
+                append(label)
+            }
+            append(detail.substring(start + label.length))
+        },
+        style = MaterialTheme.typography.bodyLarge,
+    )
+}
+
+/**
  * The person the message is from or about — the writer, or the opponent in the game a server
  * message concerns — so a challenge from hana_go carries hana_go's picture, as their game
  * row does. A server message about nobody the app knows gets the server's colour, blank, so
@@ -253,7 +292,7 @@ fun MessageSheet(
                     }
 
                     is MessageTopic.GameInvitation -> {
-                        row.text.detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                        DetailText(row, onOpenWeb)
                         message.text.takeIf { it.isNotBlank() }?.let {
                             Spacer(Modifier.height(12.dp))
                             Text(
@@ -265,7 +304,7 @@ fun MessageSheet(
                     }
 
                     else -> {
-                        row.text.detail?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+                        DetailText(row, onOpenWeb)
                     }
                 }
 

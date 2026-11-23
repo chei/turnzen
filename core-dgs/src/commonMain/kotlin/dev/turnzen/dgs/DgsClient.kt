@@ -392,6 +392,13 @@ class DgsClient(
     override fun gameUrl(id: GameId): String = url("game.php", "gid" to id.value)
 
     /**
+     * The tournament's overview page, which every kind has — a ladder too. Not the ladder's own
+     * page: that one needs a signed-in browser, and the overview links to it.
+     */
+    override fun tournamentUrl(tournament: TournamentRef): String =
+        url("tournaments/view_tournament.php", "tid" to tournament.id)
+
+    /**
      * The status page rather than the profile: it is DGS's home once signed in — the games
      * waiting, messages, invitations — and the profile is one link away from it.
      */

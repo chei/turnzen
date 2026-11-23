@@ -437,6 +437,14 @@ class BoardViewModel(
     val gameUrl: String?
         get() = session.gameUrl(gameId)
 
+    /** The web page of the tournament this game is played for, or null if none or no page. */
+    val tournamentUrl: String?
+        get() =
+            _state.value.detail
+                ?.info
+                ?.tournament
+                ?.let(session::tournamentUrl)
+
     // Not loaded in init: this ViewModel is cached per game across navigations, so the
     // screen calls load() every time it is opened to pull the current server state (the
     // game may have moved on since it was last viewed).
