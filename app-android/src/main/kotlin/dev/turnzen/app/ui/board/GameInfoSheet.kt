@@ -39,6 +39,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import dev.turnzen.app.R
@@ -78,6 +79,8 @@ fun GameInfoSheet(
     state: BoardUiState,
     serverName: String,
     gameUrl: String?,
+    /** The web page of the tournament the game is played for; its row links there. */
+    tournamentUrl: String?,
     /** Each player's icon after their stone (the Player icons setting). */
     showPlayerIcons: Boolean,
     /** The user's own picture; the opponent's comes with the game. */
@@ -182,7 +185,7 @@ fun GameInfoSheet(
                 }
                 // What the game is part of. Only when the server actually described the game:
                 // a reopen with no network knows nothing, and "waiting room" would be a guess.
-                if (info != null) EventRows(info, state.ladderStanding)
+                if (info != null) EventRows(info, state.ladderStanding, tournamentUrl, onOpenWeb)
 
                 Spacer(Modifier.height(20.dp))
 
@@ -349,11 +352,16 @@ private fun PlayerLine(
  *
  * The event's kind ("Dragon Ladder", "Private Round Robin") is never shown: for a ladder it
  * repeats the label, and for anything else it repeats the tournament's own name.
+ *
+ * The event's line is a link to its page on the server ([tournamentUrl]): standings, pairings
+ * and rules are all there, and none of them here.
  */
 @Composable
 private fun EventRows(
     info: GameInfo,
     standing: LadderStanding?,
+    tournamentUrl: String?,
+    onOpenWeb: (String) -> Unit,
 ) {
     val tournament = info.tournament
     if (tournament == null) {
@@ -373,6 +381,7 @@ private fun EventRows(
         detail
             ?.let { stringResource(R.string.info_event_named, tournament.id, it) }
             ?: stringResource(R.string.info_event_id, tournament.id),
+        onClick = tournamentUrl?.let { url -> { onOpenWeb(url) } },
     )
     val round = tournament.round
     val rounds = tournament.roundCount
@@ -417,10 +426,16 @@ private const val STANDING_SLIDE_MILLIS = 300
 private fun InfoRow(
     label: String,
     value: String,
+    /** Makes the row a link: the whole row takes the tap, and the value reads as a link. */
+    onClick: (() -> Unit)? = null,
 ) {
     Column {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 44.dp).padding(vertical = 6.dp),
+            Modifier
+                .fillMaxWidth()
+                .then(if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick) else Modifier)
+                .heightIn(min = 44.dp)
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // The label is measured first and keeps its own width; the value takes what is
@@ -436,7 +451,8 @@ private fun InfoRow(
             Text(
                 value,
                 style = MaterialTheme.typography.bodyLarge,
-                color = colors.ink2,
+                color = if (onClick != null) colors.accent else colors.ink2,
+                textDecoration = if (onClick != null) TextDecoration.Underline else null,
                 textAlign = TextAlign.End,
                 modifier = Modifier.weight(1f),
             )

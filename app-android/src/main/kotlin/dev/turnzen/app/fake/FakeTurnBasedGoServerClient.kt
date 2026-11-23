@@ -393,6 +393,13 @@ class FakeTurnBasedGoServerClient(
         )
     }
 
+    override fun tournamentUrl(tournament: TournamentRef): String =
+        when {
+            !browserSignIn -> "https://www.dragongoserver.net/tournaments/view_tournament.php?tid=${tournament.id}"
+            tournament.isLadder -> "https://online-go.com/ladder/${tournament.id}"
+            else -> "https://online-go.com/tournament/${tournament.id}"
+        }
+
     override fun gameUrl(id: GameId): String =
         if (browserSignIn) {
             "https://online-go.com/game/${id.value}"

@@ -6,6 +6,7 @@ import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignInMethod
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -70,6 +71,9 @@ class SessionManager(
 
     /** The current server's web page for a game, for the "open on the web" escape hatch. */
     fun gameUrl(id: GameId): String? = client.gameUrl(id)
+
+    /** The current server's web page for a tournament, for a link on its name. */
+    fun tournamentUrl(tournament: TournamentRef): String? = client.tournamentUrl(tournament)
 
     /** The signed-in user's page on the server's website, if the server has one. */
     val accountUrl: String?

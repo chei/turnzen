@@ -95,6 +95,9 @@ class MessagesTest : MainDispatcherTest() {
                     store::summary,
                 ) { _, ref -> ref.copy(name = "Turnzen Demo League (19x19)") }
             assertEquals("by resignation · Turnzen Demo League (19x19) · rating −0.25", named.detail)
+            // The name is marked as the tournament's, for the link to its page.
+            assertEquals("Turnzen Demo League (19x19)", named.event?.label)
+            assertEquals("1043", named.event?.ref?.id)
 
             val conversation =
                 MessageWording.describe(

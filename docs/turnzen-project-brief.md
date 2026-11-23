@@ -804,6 +804,8 @@ and they explain the list — "Challenge started for tournament #119" is why a g
   written whenever a game record showed it (records of finished games are dropped), and
   falls back to "Tournament #N" / "Ladder #N". Ladder rank changes are not shown: DGS keeps
   no per-game ranks, and the ladder page shows only today's.
+  In the opened message the tournament's name or number is a link to its page, as in the
+  game info; not in the row, which is one tap target that opens the message.
   A player's message shows their name and the subject and first line; a "Re:" subject is
   dropped as saying nothing.
 - **Tapping a row opens a sheet** with all of it and the acts that apply, one button each:
@@ -1231,6 +1233,10 @@ partly so the project could grow beyond Go (see Naming).
   states, since "rated" alone would make an unrated ladder look like missing data. An ordinary
   tournament keeps its name; that one a person chose. The kind ("Dragon Ladder", "Private Round
   Robin") is never shown: for a ladder it repeats the label, otherwise it repeats the name.
+  The row is a link to the tournament's page on the server (`tournamentUrl`; on DGS
+  `tournaments/view_tournament.php?tid=N`, which every kind has, ladders included — the
+  ladder's own page wants a signed-in browser and is linked from there; on OGS
+  `/tournament/N` or `/ladder/N`): standings, pairings and rules live there, not here.
 - **"Friendly"** for a game in no competition, in the football and chess sense of a match that
   counts for nothing beyond itself. It was first written as "Waiting room or invitation", which
   tried to be exhaustive about an origin the server never stored, and read as uncertainty. DGS

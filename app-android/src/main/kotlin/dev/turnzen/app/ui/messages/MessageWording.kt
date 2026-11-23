@@ -14,6 +14,14 @@ import dev.turnzen.goserver.TournamentRef
 data class MessageText(
     val title: String,
     val detail: String?,
+    /** The tournament [detail] names, so its name can be a link to the tournament's page. */
+    val event: EventMention? = null,
+)
+
+/** A tournament named in a message's detail line: the words used for it there, and which it is. */
+data class EventMention(
+    val label: String,
+    val ref: TournamentRef,
 )
 
 /**
@@ -52,9 +60,11 @@ object MessageWording {
                     } else {
                         null
                     }
+                val ladder = "Ladder #${topic.tournamentId}"
                 MessageText(
                     title = if (challenger != null) "$challenger challenged you" else "Ladder challenge",
-                    detail = listOfNotNull("Ladder #${topic.tournamentId}", ranks).joinToString(" · "),
+                    detail = listOfNotNull(ladder, ranks).joinToString(" · "),
+                    event = EventMention(ladder, TournamentRef(id = topic.tournamentId, isLadder = true)),
                 )
             }
 
@@ -63,7 +73,12 @@ object MessageWording {
             }
 
             is MessageTopic.TournamentInvitation -> {
-                MessageText("Tournament invitation", "Tournament #${topic.tournamentId}, answered on the website")
+                val name = "Tournament #${topic.tournamentId}"
+                MessageText(
+                    "Tournament invitation",
+                    "$name, answered on the website",
+                    EventMention(name, TournamentRef(id = topic.tournamentId)),
+                )
             }
 
             is MessageTopic.GameInvitation -> {
@@ -146,11 +161,11 @@ object MessageWording {
                 ResultReason.POINTS -> result.margin?.let { "by ${Formatting.points(it)}" }
                 else -> null
             }
-        val event = game.tournament?.let { eventName(tournament(game.id, it)) }
+        val event = game.tournament?.let { tournament(game.id, it) }?.let { EventMention(eventName(it), it) }
         val rating =
             game.ratingChange?.let { "rating ${Formatting.ratingPoints(it)}" }
                 ?: "unrated".takeIf { game.rated == false }
-        return MessageText(title, listOfNotNull(how, event, rating).joinToString(" · ").ifEmpty { null })
+        return MessageText(title, listOfNotNull(how, event?.label, rating).joinToString(" · ").ifEmpty { null }, event)
     }
 
     /** "DGS Ladder (19x19)", or by number where no record ever gave the name: "Ladder #315". */

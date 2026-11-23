@@ -518,6 +518,7 @@ fun BoardScreen(
             state = state,
             serverName = viewModel.serverName,
             gameUrl = viewModel.gameUrl,
+            tournamentUrl = viewModel.tournamentUrl,
             showPlayerIcons = showPlayerIcons,
             ownIconUrl = viewModel.ownIconUrl,
             // The sheet closes first: both actions ask for confirmation, and a dialog behind

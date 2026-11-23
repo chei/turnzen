@@ -14,6 +14,7 @@ import dev.turnzen.goserver.ScoreState
 import dev.turnzen.goserver.ServerId
 import dev.turnzen.goserver.SignInMethod
 import dev.turnzen.goserver.SignedInUser
+import dev.turnzen.goserver.TournamentRef
 import dev.turnzen.goserver.TurnBasedGoServerClient
 import dev.turnzen.ogs.net.OgsHttp
 import dev.turnzen.ogs.net.OgsMethod
@@ -554,6 +555,10 @@ class OgsClient(
     }
 
     override fun gameUrl(id: GameId): String = "$baseUrl/game/${id.value}"
+
+    /** OGS keeps ladders and tournaments apart, each with its own page under its own path. */
+    override fun tournamentUrl(tournament: TournamentRef): String =
+        if (tournament.isLadder) "$baseUrl/ladder/${tournament.id}" else "$baseUrl/tournament/${tournament.id}"
 
     override fun accountUrl(user: SignedInUser): String = "$baseUrl/user/view/${user.id}"
 

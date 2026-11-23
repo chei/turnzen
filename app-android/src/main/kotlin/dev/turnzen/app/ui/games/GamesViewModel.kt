@@ -155,6 +155,8 @@ data class MessageRow(
      * message the opponent in the game it is about. Null when neither is known.
      */
     val person: Opponent? = null,
+    /** The page of the tournament the message names ([MessageText.event]), for a link on its name. */
+    val eventUrl: String? = null,
 )
 
 class GamesViewModel(
@@ -405,12 +407,14 @@ class GamesViewModel(
         val person =
             message.from?.let { Opponent(it.handle, it.displayName, it.rank) }
                 ?: game?.let(store::summary)?.opponent
+        val text = MessageWording.describe(message, store::summary, store::tournament)
         return MessageRow(
             message,
-            MessageWording.describe(message, store::summary, store::tournament),
+            text,
             game,
             web,
             person,
+            text.event?.let { accounts.session(message.id.server).tournamentUrl(it.ref) },
         )
     }
 
