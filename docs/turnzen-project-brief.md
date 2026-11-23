@@ -942,6 +942,11 @@ and they explain the list — "Challenge started for tournament #119" is why a g
 - **Play Store**: also viable in parallel; no reason to pick only one. One-time $25
   developer registration fee, stricter review, wider default reach (but irrelevant at this
   audience size). App name "Turnzen," package id per the naming conventions above.
+- **GitHub Releases (in use, for Obtainium)**: pushing a tag `vX.Y.Z` runs
+  `.github/workflows/release.yml`, which builds the preview APK (shrunk, signed with the
+  committed test key) with `-Pturnzen.version=X.Y.Z` and attaches it as `turnzen-vX.Y.Z.apk`
+  to a release of that name. versionCode is `X*10000 + Y*100 + Z`, so each tag installs as an
+  update. Obtainium reads only releases, not the Actions artifacts CI uploads on main.
 - Sideloading an APK directly from GitHub Releases works identically to F-Droid from
   Android's permission standpoint (both require enabling "install unknown apps"); the
   difference is trust/verification, not mechanism — F-Droid's build pipeline is the
