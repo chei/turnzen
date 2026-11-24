@@ -771,11 +771,10 @@ class BoardViewModel(
      *
      * For a running game that is the current position; for a counted game its count, one
      * step after the passes; for one resigned, timed out or forfeited the step after the last
-     * move that names how it ended. A finished game with no count to show (one counted on a server
-     * that kept no record of it) lands on its last stone instead: the two passes after it
-     * change nothing visible, and landing on them wastes the first two taps of Back — the board
-     * goes quiet and the player is left wondering whether the button works. Forward still
-     * walks into them, with a line under the board saying what they are.
+     * move that names how it ended; for any other finished game its last move, even a pass —
+     * the end of the game is what a finished game is opened for, and the event line names the
+     * pass. (It used to step back over trailing passes to the last stone; the user found
+     * landing short of the end the more surprising of the two, November 2026.)
      */
     private fun openingCursor(
         replay: Replay,
@@ -783,9 +782,7 @@ class BoardViewModel(
     ): Int {
         if (!detail.summary.isFinished) return replay.moveCount
         if (detail.finalScore != null || endsByAct(detail.summary.result)) return replay.moveCount + 1
-        var at = replay.moveCount
-        while (at > 0 && replay.record.moves[at - 1].move == Move.Pass) at--
-        return at
+        return replay.moveCount
     }
 
     /** The game ended by an act that is not a move, and so has an end step for it. */

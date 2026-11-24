@@ -491,7 +491,8 @@ two passes comes the count — the dead stones faded and each side's territory m
 in the scoring phase. With 100 stones played: 100 is the last stone, 101 and 102 are the
 passes (named under the board, no count yet), 103 is the count. The game opens there, the
 move counter's "current" is there, and nothing follows it (forward is disabled). Stepping
-back shows the game as played. A finished game with no count kept opens on its last stone.
+back shows the game as played. A finished game with no count kept opens on its last move,
+even when that is a pass.
 
 A game that ended by resignation, timeout or forfeit has the same one step more, for the act
 that ended it: the final stones, with the event line naming it ("schEkkEr resigned"). The
@@ -1243,11 +1244,11 @@ partly so the project could grow beyond Go (see Naming).
   nothing three times over, and in a running game the opponent's pass is the whole reason a
   Pass button has appeared. The slot keeps its height when empty, so scrubbing never shifts
   the navigation row.
-- **A finished game opens on its last stone, not its last move**: the trailing passes that
-  took it into scoring are stepped over on the way in, so the first Back rewinds something
-  visible. Forward still walks into them, now with the event line to say what they are.
-  (Since November 2026 only where nothing comes after them: a kept count, a resignation, a
-  timeout or a forfeit has an end step of its own, and the game opens on that.)
+- **A finished game opens at its very end** (November 2026): the count, the step naming a
+  resignation, timeout or forfeit, or otherwise the last move, a pass included, with the
+  event line saying what it is. It used to open on the last stone, stepping over trailing
+  passes so the first Back rewound something visible; the user found opening short of the
+  end the more surprising of the two.
 
 **3b. Game info sheet** (opened from the board's header)
 - Read-only context the board has no room for, all of it already present in the game payload
