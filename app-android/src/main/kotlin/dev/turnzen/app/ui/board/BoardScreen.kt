@@ -257,6 +257,14 @@ fun BoardScreen(
                                 blackTerritory = it.blackTerritory,
                                 whiteTerritory = it.whiteTerritory,
                             )
+                        } ?: state.detail?.finalScore?.takeIf { state.showingFinalScore }?.let {
+                            // A finished game ends on its count, drawn the same way: what was
+                            // agreed dead, and whose each empty point turned out to be.
+                            ScoringOverlay(
+                                dead = it.deadStones,
+                                blackTerritory = it.blackTerritory,
+                                whiteTerritory = it.whiteTerritory,
+                            )
                         },
                     // While the score is on show a tap marks a group dead instead of trying a
                     // move: there are no moves left to try. Stepped back into the game, the

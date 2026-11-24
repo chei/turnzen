@@ -1,6 +1,7 @@
 package dev.turnzen.dgs
 
 import dev.turnzen.game.GameResult
+import dev.turnzen.game.Replay
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
@@ -374,5 +375,31 @@ class DgsParsersTest {
         assertEquals(listOf("264"), game.rootProperties["XM"])
         assertNotNull(record.black.name)
         assertEquals(StoneColor.WHITE, record.initialPosition.toMove)
+    }
+
+    @Test
+    fun `a finished game's count is read back from the territory in its SGF`() {
+        val sgf = SgfGameRecords.read(Fixtures.text("game_1000000.sgf"))
+        val running = GameObjectParser.parse(QuickSuite.parse(Fixtures.text("game_info.json")), "123456")
+        val won = GameResult(StoneColor.BLACK, 7.5, ResultReason.POINTS)
+        val finished = running.copy(isFinished = true, result = won)
+
+        val score = assertNotNull(DgsFinalScore.read(sgf, finished, ScoringRules.TERRITORY))
+        assertEquals(won, score.result)
+        assertEquals(ScoringRules.TERRITORY, score.rules)
+        // DGS's own summary on the last node: 62 + 1 dead white for black, 47 + 2 dead black
+        // for white. A dead stone's point counts as its captor's territory.
+        assertEquals(63, score.blackTerritory.size)
+        assertEquals(49, score.whiteTerritory.size)
+        val board = Replay(sgf.record).finalPosition.board
+        assertEquals(1, score.deadStones.count { board[it] == StoneColor.WHITE })
+        assertEquals(2, score.deadStones.count { board[it] == StoneColor.BLACK })
+        assertTrue(score.blackTerritory.none { board[it] == StoneColor.BLACK })
+        assertTrue(score.whiteTerritory.none { board[it] == StoneColor.WHITE })
+
+        // Nothing to show for a game still running, or one that ended without a count.
+        assertNull(DgsFinalScore.read(sgf, running, ScoringRules.TERRITORY))
+        val resigned = finished.copy(result = GameResult(StoneColor.BLACK, null, ResultReason.RESIGNATION))
+        assertNull(DgsFinalScore.read(sgf, resigned, ScoringRules.TERRITORY))
     }
 }

@@ -484,6 +484,22 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
 - The mockup review before UI code was skipped: the user asked for the work to continue
   without waiting. The UI follows the mockups in `docs/mockups/05–08`.
 
+### A finished game shows its count (November 2026)
+
+A game that ended on points opens with its count on the board: the dead stones faded and each
+side's territory marked, drawn exactly as in the scoring phase but with the move navigation
+kept and taps trying moves as usual. It shows on the final position and on the passes before
+it (same stones); stepping back or placing a trial stone puts it away.
+
+- `GameDetail.finalScore` (a `ScoreState`) carries it; null for running games, resignations,
+  timeouts, and when the server kept no count.
+- **DGS** writes the agreed count into the SGF's last node as `TB` / `TW`, dead stones'
+  points included (checked against the summary DGS writes beside it). There is no list of
+  dead stones: a stone standing in the other side's territory is one. No extra request.
+- **OGS** keeps the accepted `removed` marks in the finished game's data; the territory is
+  counted on the device from them, as in the phase. Not yet checked against a captured
+  finished game on points.
+
 ### Scoring on OGS (October 2026)
 
 The first release sent OGS games in the scoring phase to the web; a passed-out game sat on the

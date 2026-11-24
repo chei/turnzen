@@ -996,6 +996,55 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `a counted game shows its count on the final position, and only there`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(scoredGame, finished = true)
+            advanceUntilIdle()
+
+            val opened = h.vm.state.value
+            assertNotNull(opened.detail?.finalScore)
+            // On the last stone, and through the passes after it: the stones are the end's.
+            assertTrue(opened.showingFinalScore)
+            h.vm.stepForward()
+            assertTrue(h.vm.state.value.showingFinalScore)
+            // Never the scoring phase's controls: there is nothing left to agree on.
+            assertFalse(h.vm.state.value.showingScore)
+
+            // Back into the game, the board is for reading.
+            h.vm.stepBack()
+            h.vm.stepBack()
+            assertFalse(h.vm.state.value.showingFinalScore)
+
+            // A what-if from the very end puts the count away until its stones are gone.
+            repeat(3) { h.vm.stepForward() }
+            assertEquals(14, h.vm.state.value.cursor)
+            val empty =
+                (0 until 9)
+                    .flatMap { c -> (0 until 9).map { r -> Point(c, r) } }
+                    .first {
+                        h.vm.state.value.position
+                            ?.board
+                            ?.get(it) == null
+                    }
+            h.vm.onTap(empty)
+            assertFalse(h.vm.state.value.showingFinalScore)
+        }
+
+    @Test
+    fun `a resigned game has no count to show`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(resignedGame, finished = true)
+            advanceUntilIdle()
+            assertNull(
+                h.vm.state.value.detail
+                    ?.finalScore,
+            )
+            assertFalse(h.vm.state.value.showingFinalScore)
+        }
+
+    @Test
     fun `the end of a resigned game says who resigned`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
