@@ -175,7 +175,17 @@ class FakeTurnBasedGoServerClient(
         requireSession()
         val g = find(id)
         // Like OGS, the browser-signed-in server keeps its chat apart from the game.
-        return GameDetail(g.summary(), g.record, g.info(), if (browserSignIn) null else g.comments.toList())
+        return GameDetail(
+            g.summary(),
+            g.record,
+            g.info(),
+            if (browserSignIn) null else g.comments.toList(),
+            // A game that ended on a count keeps it, the marks it was agreed on included.
+            finalScore =
+                g.result
+                    ?.takeIf { g.finished && it.by == ResultReason.POINTS }
+                    ?.let { g.stateFor(g.dead).copy(result = it) },
+        )
     }
 
     override suspend fun comments(id: GameId): List<GameComment> {

@@ -6,10 +6,12 @@ import dev.turnzen.dgs.QuickSuite.obj
 import dev.turnzen.dgs.QuickSuite.string
 import dev.turnzen.game.GameResult
 import dev.turnzen.game.Point
+import dev.turnzen.game.Replay
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
 import dev.turnzen.game.sgf.SgfCoordinates
+import dev.turnzen.game.sgf.SgfGame
 import dev.turnzen.goserver.GameId
 import dev.turnzen.goserver.GameInfo
 import dev.turnzen.goserver.GameSummary
@@ -247,6 +249,38 @@ internal object ScoreStateParser {
 
     /** The same encoding, for the points a client asks the server to toggle. */
     fun encode(points: List<Point>): String = points.joinToString(",") { SgfCoordinates.encode(it) }
+}
+
+/**
+ * How a finished DGS game was counted, read back from its SGF: DGS writes the agreed count as
+ * `TB` / `TW` on the last node. There is no separate list of dead stones; a dead stone is a
+ * stone standing in the other side's territory, so that is how they are found.
+ */
+internal object DgsFinalScore {
+    fun read(
+        sgf: SgfGame,
+        summary: GameSummary,
+        rules: ScoringRules?,
+    ): ScoreState? {
+        val result = summary.result ?: return null
+        if (!summary.isFinished || result.by !in COUNTED) return null
+        if (sgf.blackTerritory.isEmpty() && sgf.whiteTerritory.isEmpty()) return null
+        val board = Replay(sgf.record).finalPosition.board
+        val deadWhite = sgf.blackTerritory.filterTo(LinkedHashSet()) { board[it] == StoneColor.WHITE }
+        val deadBlack = sgf.whiteTerritory.filterTo(LinkedHashSet()) { board[it] == StoneColor.BLACK }
+        // A territory point under a stone of its owner's colour is nonsense; leave it out
+        // rather than paint a territory mark over a living stone.
+        return ScoreState(
+            result = result,
+            rules = rules,
+            deadStones = deadWhite + deadBlack,
+            blackTerritory = sgf.blackTerritory.filterTo(LinkedHashSet()) { board[it] != StoneColor.BLACK },
+            whiteTerritory = sgf.whiteTerritory.filterTo(LinkedHashSet()) { board[it] != StoneColor.WHITE },
+        )
+    }
+
+    /** Results that come out of a count: a win on points, or a jigo. */
+    private val COUNTED = setOf(ResultReason.POINTS, ResultReason.JIGO)
 }
 
 /**

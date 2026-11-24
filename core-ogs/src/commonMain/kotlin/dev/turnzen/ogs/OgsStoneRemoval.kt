@@ -1,9 +1,11 @@
 package dev.turnzen.ogs
 
 import dev.turnzen.game.DeadStones
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Point
 import dev.turnzen.game.Position
 import dev.turnzen.game.Replay
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.Scoring
 import dev.turnzen.game.ScoringRules
 import dev.turnzen.game.StoneColor
@@ -45,6 +47,10 @@ internal object OgsStoneRemoval {
     /** The marks in [gamedata]; a game that is not in scoring has moved on from the caller. */
     fun read(gamedata: JsonObject): Marks {
         if (gamedata.str("phase") != PHASE) throw GoServerException.StaleGame()
+        return marksOf(gamedata)
+    }
+
+    private fun marksOf(gamedata: JsonObject): Marks {
         val record = OgsGameData.record(gamedata, null, null)
         return Marks(
             position = Replay(record).finalPosition,
@@ -76,6 +82,22 @@ internal object OgsStoneRemoval {
             dame = score.dame,
         )
     }
+
+    /**
+     * How a finished game was counted: the marks both players accepted, which OGS keeps in game
+     * data after the game ends, scored on the device the way the phase itself is. [result] is
+     * the server's, and stays the headline; null when the game did not end on a count, or the
+     * data is not the finished game this expects.
+     */
+    fun finalState(
+        gamedata: JsonObject,
+        result: GameResult?,
+    ): ScoreState? {
+        if (result == null || result.by !in COUNTED || gamedata.str("phase") != "finished") return null
+        return state(marksOf(gamedata)).copy(result = result)
+    }
+
+    private val COUNTED = setOf(ResultReason.POINTS, ResultReason.JIGO)
 
     /**
      * True while the phase waits on the player of [color]: they have not accepted the marks as

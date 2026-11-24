@@ -1,6 +1,8 @@
 package dev.turnzen.ogs
 
+import dev.turnzen.game.GameResult
 import dev.turnzen.game.Point
+import dev.turnzen.game.ResultReason
 import dev.turnzen.game.StoneColor
 import dev.turnzen.goserver.GoServerException
 import dev.turnzen.goserver.PendingAction
@@ -9,6 +11,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
 
@@ -66,6 +70,23 @@ class OgsStoneRemovalTest {
         // A1's corner point holds no stone: a dame mark, not a dead stone.
         assertEquals(setOf(Point(7, 7), Point(1, 1)), marks.dead)
         assertEquals("aabbhh", marks.encoded)
+    }
+
+    @Test
+    fun `a finished game shows the marks it was counted on, under the server's result`() {
+        val finished =
+            OgsJson.parseObject(StoneRemovalGame.gamedata(removed = "bbhh", phase = "finished"), "game data")
+        val won = GameResult(StoneColor.WHITE, 3.5, ResultReason.POINTS)
+        val score = assertNotNull(OgsStoneRemoval.finalState(finished, won))
+        assertEquals(won, score.result)
+        assertEquals(setOf(Point(1, 1), Point(7, 7)), score.deadStones)
+        // B8's point is black's now that its white stone is dead, and H2's is white's.
+        assertTrue(Point(1, 1) in score.blackTerritory)
+        assertTrue(Point(7, 7) in score.whiteTerritory)
+
+        val resigned = GameResult(StoneColor.WHITE, null, ResultReason.RESIGNATION)
+        assertNull(OgsStoneRemoval.finalState(finished, resigned))
+        assertNull(OgsStoneRemoval.finalState(StoneRemovalGame.obj(removed = "bbhh"), won))
     }
 
     @Test

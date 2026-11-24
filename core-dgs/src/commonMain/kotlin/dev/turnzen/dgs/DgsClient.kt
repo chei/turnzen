@@ -189,7 +189,13 @@ class DgsClient(
         // same game, so the info is completed here rather than in either parser alone.
         val completed =
             info.copy(tournament = DgsTournament.merge(info.tournament, sgfGame.rootProperties))
-        return GameDetail(summary, sgfGame.record, completed, DgsComments.parse(sgfGame, summary.myColor))
+        return GameDetail(
+            summary,
+            sgfGame.record,
+            completed,
+            DgsComments.parse(sgfGame, summary.myColor),
+            finalScore = DgsFinalScore.read(sgfGame, summary, info.scoring),
+        )
     }
 
     override suspend fun sendMove(

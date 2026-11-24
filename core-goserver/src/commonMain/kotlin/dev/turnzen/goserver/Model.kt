@@ -301,4 +301,10 @@ data class GameDetail(
      * asked separately — an empty list means the game really has none.
      */
     val comments: List<GameComment>? = null,
+    /**
+     * How a finished game was counted — its dead stones and each side's territory — for a game
+     * that ended on points and whose server keeps that around. Null for every other game: one
+     * still running, one decided by resignation or time, or one whose count was not kept.
+     */
+    val finalScore: ScoreState? = null,
 )

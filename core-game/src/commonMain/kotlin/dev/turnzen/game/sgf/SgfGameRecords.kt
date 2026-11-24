@@ -4,6 +4,7 @@ import dev.turnzen.game.ColoredMove
 import dev.turnzen.game.GameRecord
 import dev.turnzen.game.Move
 import dev.turnzen.game.PlayerInfo
+import dev.turnzen.game.Point
 import dev.turnzen.game.StoneColor
 
 /** A parsed game: the record plus the raw root properties for server-specific extras. */
@@ -18,6 +19,13 @@ data class SgfGame(
      * comments landing on one key (setup nodes) are joined by a blank line.
      */
     val comments: Map<Int, String> = emptyMap(),
+    /**
+     * The territory the main line marks (`TB`, `TW`), from the last node that marks any — how a
+     * counted game was counted, when the server writes it down. Empty when nothing is marked.
+     * Verbatim too: whether a dead stone's point is listed is the writer's choice.
+     */
+    val blackTerritory: Set<Point> = emptySet(),
+    val whiteTerritory: Set<Point> = emptySet(),
 )
 
 /** Converts between [GameRecord] and SGF text. Only the main line is read. */
@@ -28,11 +36,13 @@ object SgfGameRecords {
         val nodes = tree.mainLine
         val root = nodes.first()
         val size = parseSize(root.first("SZ"))
-        val setupBlack = ArrayList<dev.turnzen.game.Point>()
-        val setupWhite = ArrayList<dev.turnzen.game.Point>()
+        val setupBlack = ArrayList<Point>()
+        val setupWhite = ArrayList<Point>()
         val moves = ArrayList<ColoredMove>()
         var firstToMove: StoneColor? = root.first("PL")?.let { parseColor(it) }
         val comments = LinkedHashMap<Int, String>()
+        var blackTerritory: Set<Point> = emptySet()
+        var whiteTerritory: Set<Point> = emptySet()
 
         for (node in nodes) {
             if (moves.isEmpty()) {
@@ -44,6 +54,10 @@ object SgfGameRecords {
             node.first("W")?.let { moves += ColoredMove(StoneColor.WHITE, toMove(it, size)) }
             node.first("C")?.takeIf { it.isNotBlank() }?.let { comment ->
                 comments[moves.size] = comments[moves.size]?.let { earlier -> "$earlier\n\n$comment" } ?: comment
+            }
+            if ("TB" in node || "TW" in node) {
+                blackTerritory = pointsOf(node, "TB", size)
+                whiteTerritory = pointsOf(node, "TW", size)
             }
         }
 
@@ -60,7 +74,7 @@ object SgfGameRecords {
                 result = root.first("RE"),
                 firstToMove = firstToMove,
             )
-        return SgfGame(record, root.properties, comments)
+        return SgfGame(record, root.properties, comments, blackTerritory, whiteTerritory)
     }
 
     fun write(record: GameRecord): String =
@@ -104,6 +118,17 @@ object SgfGameRecords {
         if (first != second) throw SgfParseException("Non-square boards are not supported: SZ[$v]")
         return first
     }
+
+    /** A point-list property, skipping anything off the board rather than failing the game on it. */
+    private fun pointsOf(
+        node: SgfNode,
+        id: String,
+        size: Int,
+    ): Set<Point> =
+        node
+            .values(id)
+            .flatMap { runCatching { SgfCoordinates.decodePointList(it) }.getOrDefault(emptyList()) }
+            .filterTo(LinkedHashSet()) { it.col in 0 until size && it.row in 0 until size }
 
     private fun parseColor(value: String): StoneColor? =
         when (value.trim().uppercase()) {

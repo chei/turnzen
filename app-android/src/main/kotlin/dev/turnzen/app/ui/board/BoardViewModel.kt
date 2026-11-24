@@ -198,6 +198,23 @@ data class BoardUiState(
     val showingScore: Boolean
         get() = isScoring && trialFromCurrent && cursor == moveCount
 
+    /**
+     * The count of a finished game is on show: the game ended on points, the server kept how it
+     * was counted, and the board stands on the final position — or on the passes that led to
+     * the count, which leave the same stones. Like the scoring phase, stepping back reads the
+     * game as it was played; unlike it, a tap here tries a move rather than marking a group,
+     * since there is nothing left to agree on. A trial stone puts the count away until the
+     * board is back on the end.
+     */
+    val showingFinalScore: Boolean
+        get() {
+            if (!isFinished || detail?.finalScore == null || !trialFromCurrent) return false
+            val moves = replay?.record?.moves ?: return false
+            if (cursor > moveCount) return false
+            // Every move from the cursor on is a pass, so the stones are those of the end.
+            return (cursor until moveCount).all { moves[it].move == Move.Pass }
+        }
+
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
         get() = detail?.summary ?: preview

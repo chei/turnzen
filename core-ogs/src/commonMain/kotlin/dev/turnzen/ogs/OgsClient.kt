@@ -322,7 +322,12 @@ class OgsClient(
             }
         val record = OgsGameData.record(gamedata, black?.str("username"), white?.str("username"))
         val info = OgsGameData.info(gamedata, black, white, now())
-        return GameDetail(summary, record, info)
+        return GameDetail(
+            summary,
+            record,
+            info,
+            finalScore = OgsStoneRemoval.finalState(gamedata, summary.result),
+        )
     }
 
     override suspend fun sendMove(
