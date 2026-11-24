@@ -142,6 +142,10 @@ data class ScoringUiState(
  * returns to the current state. Sending is possible only from a line that branches at the
  * current state ([trialFromCurrent]); a what-if about a past position answers a question the
  * game has already moved beyond.
+ *
+ * A finished game that was counted has one step more at the end, [endCursor]: the count
+ * itself, after the passes that led to it. It shows the final stones with the dead ones and
+ * the territory marked, and nothing follows it.
  */
 data class BoardUiState(
     val loading: Boolean = true,
@@ -199,25 +203,33 @@ data class BoardUiState(
         get() = isScoring && trialFromCurrent && cursor == moveCount
 
     /**
-     * A finished game stands at its end: the final position, or one of the passes that led to
-     * it, which leave the same stones. Nothing follows a finished game, so a tap here places
-     * no trial stone; the board only reads. Stepping back into the game explores it as usual.
+     * The game ended on a count the server kept, so its timeline ends on a step of its own
+     * that shows it ([endCursor]).
      */
-    val atFinishedEnd: Boolean
-        get() {
-            if (!isFinished || !trialFromCurrent || cursor > moveCount) return false
-            val moves = replay?.record?.moves ?: return false
-            // Every move from the cursor on is a pass, so the stones are those of the end.
-            return (cursor until moveCount).all { moves[it].move == Move.Pass }
-        }
+    val hasCountStep: Boolean
+        get() = isFinished && detail?.finalScore != null
 
     /**
-     * The count of a finished game is on show: the game ended on points, the server kept how it
-     * was counted, and the board stands at the end ([atFinishedEnd]). Stepping back reads the
-     * game as it was played, and the count returns with the board to the end.
+     * Where the game itself ends on the timeline: the last played move, or for a counted game
+     * the count one step after it. This is the "current" position of the move counter.
+     */
+    val endCursor: Int
+        get() = if (hasCountStep) moveCount + 1 else moveCount
+
+    /**
+     * A finished game stands at its end: the last move played, or the count after it. Nothing
+     * follows a finished game, so a tap here places no trial stone; the board only reads.
+     * Rewound, even onto a pass, it explores as usual — a what-if instead of that move.
+     */
+    val atFinishedEnd: Boolean
+        get() = isFinished && trialFromCurrent && cursor >= moveCount
+
+    /**
+     * The count of a finished game is on show: the board stands on the count step, after the
+     * passes. The passes themselves and everything before them show the game as it was played.
      */
     val showingFinalScore: Boolean
-        get() = atFinishedEnd && detail?.finalScore != null
+        get() = hasCountStep && trialFromCurrent && cursor == endCursor
 
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
@@ -236,7 +248,7 @@ data class BoardUiState(
 
     /** The far end of the timeline: the trial's branch point plus its moves. */
     val total: Int
-        get() = trialStart + trialCount
+        get() = if (hasCountStep && trialFromCurrent) endCursor else trialStart + trialCount
 
     val hasTrial: Boolean
         get() = trialCount > 0
@@ -271,7 +283,7 @@ data class BoardUiState(
 
     /** Viewing the real current position, not a what-if branched out of the past. */
     val atCurrent: Boolean
-        get() = trialFromCurrent && cursor == moveCount
+        get() = trialFromCurrent && cursor == endCursor
 
     val atEnd: Boolean
         get() = cursor >= total
@@ -291,6 +303,10 @@ data class BoardUiState(
         get() =
             when {
                 cursor <= trialStart -> replay?.positionAfter(cursor)
+
+                // The count step shows the final stones; the marks come with [showingFinalScore].
+                showingFinalScore -> replay?.finalPosition
+
                 else -> trial?.positionAt(trialDepthShown)
             }
 
@@ -674,7 +690,7 @@ class BoardViewModel(
                     // A fresh trial on the current position, coloured for the side to move.
                     trial = TrialVariation.start(replay.finalPosition),
                     trialStart = replay.moveCount,
-                    cursor = openingCursor(replay, detail.summary),
+                    cursor = openingCursor(replay, detail),
                     scoring = null,
                     comments = detail.comments ?: current.comments,
                     writingComment = false,
@@ -731,21 +747,21 @@ class BoardViewModel(
     }
 
     /**
-     * Where the board lands when a game is opened: the last position anyone played a stone
-     * into.
+     * Where the board lands when a game is opened: where the game stands now.
      *
-     * For a running game that is simply the current position. A game that was counted ends
-     * with the two passes that took it into scoring, and landing on those wastes the first
-     * two taps of Back on moves that change nothing visible — the board goes quiet and the
-     * player is left wondering whether the button works. So the passes are stepped over on
-     * the way in; Forward still walks into them, now with a line under the board saying what
-     * they are.
+     * For a running game that is the current position, and for a counted game its count, one
+     * step after the passes. A finished game with no count to show (one counted on a server
+     * that kept no record of it) lands on its last stone instead: the two passes after it
+     * change nothing visible, and landing on them wastes the first two taps of Back — the board
+     * goes quiet and the player is left wondering whether the button works. Forward still
+     * walks into them, with a line under the board saying what they are.
      */
     private fun openingCursor(
         replay: Replay,
-        summary: GameSummary,
+        detail: GameDetail,
     ): Int {
-        if (!summary.isFinished) return replay.moveCount
+        if (!detail.summary.isFinished) return replay.moveCount
+        if (detail.finalScore != null) return replay.moveCount + 1
         var at = replay.moveCount
         while (at > 0 && replay.record.moves[at - 1].move == Move.Pass) at--
         return at
@@ -963,12 +979,12 @@ class BoardViewModel(
     fun toCurrent() =
         _state.update { s ->
             if (s.trialFromCurrent) {
-                s.copy(cursor = s.moveCount)
+                s.copy(cursor = s.endCursor)
             } else {
                 s.copy(
                     trial = s.replay?.let { TrialVariation.start(it.finalPosition) },
                     trialStart = s.moveCount,
-                    cursor = s.moveCount,
+                    cursor = s.endCursor,
                 )
             }
         }

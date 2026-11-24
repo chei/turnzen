@@ -966,59 +966,59 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
-    fun `a game counted into two passes opens on the last stone, and names the passes`() =
+    fun `a counted game opens on its count, one step after the passes`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoredGame, finished = true)
             advanceUntilIdle()
 
             val opened = h.vm.state.value
-            // Twelve stones, then the two passes that took the game to scoring.
+            // Twelve stones, the two passes that took the game to scoring, then the count.
             assertEquals(14, opened.moveCount)
-            assertEquals(12, opened.cursor)
-            // Nothing to explain where the board stands: a stone was played there.
+            assertEquals(15, opened.cursor)
+            assertTrue(opened.showingFinalScore)
+            assertTrue(opened.atCurrent)
             assertNull(opened.eventAtCursor)
+            // Nothing follows the count.
+            assertFalse(opened.canGoForward)
+            assertEquals(opened.replay?.finalPosition, opened.position)
 
-            // Forward walks into the passes, and now the board says what they are.
-            h.vm.stepForward()
-            val passed = assertNotNull(h.vm.state.value.eventAtCursor)
-            assertEquals(BoardEventKind.PASS, passed.kind)
-            assertEquals(StoneColor.BLACK, passed.by)
+            // The second pass: named under the board, and no count on it yet.
+            h.vm.stepBack()
+            val second = h.vm.state.value
+            assertFalse(second.showingFinalScore)
+            assertEquals(BoardEventKind.PASS, second.eventAtCursor?.kind)
+            assertEquals(StoneColor.WHITE, second.eventAtCursor?.by)
 
-            h.vm.stepForward()
-            assertEquals(StoneColor.WHITE, assertNotNull(h.vm.state.value.eventAtCursor).by)
+            // The first pass.
+            h.vm.stepBack()
+            assertFalse(h.vm.state.value.showingFinalScore)
+            assertEquals(
+                StoneColor.BLACK,
+                h.vm.state.value.eventAtCursor
+                    ?.by,
+            )
 
-            // And back out of them again.
+            // The last stone: an ordinary position.
             h.vm.stepBack()
-            h.vm.stepBack()
-            h.vm.stepBack()
+            assertFalse(h.vm.state.value.showingFinalScore)
             assertNull(h.vm.state.value.eventAtCursor)
+
+            // The end button and the move counter both lead back to the count.
+            h.vm.toEnd()
+            assertTrue(h.vm.state.value.showingFinalScore)
+            h.vm.toStart()
+            h.vm.toCurrent()
+            assertEquals(15, h.vm.state.value.cursor)
+            assertTrue(h.vm.state.value.showingFinalScore)
         }
 
     @Test
-    fun `a counted game shows its count on the final position, and only there`() =
+    fun `the end of a counted game takes no trial stones, but its past does`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
             h.start(scoredGame, finished = true)
             advanceUntilIdle()
-
-            val opened = h.vm.state.value
-            assertNotNull(opened.detail?.finalScore)
-            // On the last stone, and through the passes after it: the stones are the end's.
-            assertTrue(opened.showingFinalScore)
-            h.vm.stepForward()
-            assertTrue(h.vm.state.value.showingFinalScore)
-            // Never the scoring phase's controls: there is nothing left to agree on.
-            assertFalse(h.vm.state.value.showingScore)
-
-            // Back into the game, the board is for reading.
-            h.vm.stepBack()
-            h.vm.stepBack()
-            assertFalse(h.vm.state.value.showingFinalScore)
-
-            // Nothing follows the end of a finished game: a tap there places no stone.
-            repeat(3) { h.vm.stepForward() }
-            assertEquals(14, h.vm.state.value.cursor)
             val empty =
                 (0 until 9)
                     .flatMap { c -> (0 until 9).map { r -> Point(c, r) } }
@@ -1027,16 +1027,34 @@ class BoardViewModelTest : MainDispatcherTest() {
                             ?.board
                             ?.get(it) == null
                     }
-            h.vm.onTap(empty)
-            assertEquals(14, h.vm.state.value.cursor)
-            assertFalse(h.vm.state.value.hasTrial)
-            assertTrue(h.vm.state.value.showingFinalScore)
 
-            // Rewound into the game, a what-if is still welcome.
-            repeat(3) { h.vm.stepBack() }
+            // On the count, and on the last pass before it, a tap does nothing.
+            repeat(2) {
+                val before = h.vm.state.value.cursor
+                h.vm.onTap(empty)
+                assertFalse(h.vm.state.value.hasTrial)
+                assertEquals(before, h.vm.state.value.cursor)
+                h.vm.stepBack()
+            }
+
+            // Further back a what-if is welcome: here, instead of the first pass.
             h.vm.onTap(empty)
             assertTrue(h.vm.state.value.hasTrial)
             assertFalse(h.vm.state.value.showingFinalScore)
+        }
+
+    @Test
+    fun `a resigned game has no count to show`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(resignedGame, finished = true)
+            advanceUntilIdle()
+            assertNull(
+                h.vm.state.value.detail
+                    ?.finalScore,
+            )
+            assertFalse(h.vm.state.value.showingFinalScore)
+            assertEquals(h.vm.state.value.moveCount, h.vm.state.value.total)
         }
 
     @Test
@@ -1054,19 +1072,6 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.onTap(empty)
             assertFalse(h.vm.state.value.hasTrial)
             assertEquals(s.moveCount, h.vm.state.value.cursor)
-        }
-
-    @Test
-    fun `a resigned game has no count to show`() =
-        runTest(dispatcher) {
-            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
-            h.start(resignedGame, finished = true)
-            advanceUntilIdle()
-            assertNull(
-                h.vm.state.value.detail
-                    ?.finalScore,
-            )
-            assertFalse(h.vm.state.value.showingFinalScore)
         }
 
     @Test
