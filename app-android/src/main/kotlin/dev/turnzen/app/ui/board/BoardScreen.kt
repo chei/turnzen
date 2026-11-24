@@ -1239,7 +1239,7 @@ private fun Header(
             if (isFinished) {
                 // "Won by 12.5" in the corner the clock had, with what it did to the rating
                 // under it — the two things a player looks up about a game that is over.
-                OutcomeLabel(result, you, ratingChange)
+                OutcomeLabel(result, you, ratingChange, split = true)
             } else {
                 RemainingTimeLabel(remaining)
                 Text(

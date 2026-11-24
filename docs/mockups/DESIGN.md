@@ -242,7 +242,9 @@ Use tabular figures for time and move counts so columns don't jitter.
   black" and "Move N" on two fixed lines — two separate facts, so no comma joins them and
   the break never depends on the widths; the first states the colour, so no stone icon
   repeats it; a finished game's move line stays blank until its record has loaded; right: remaining
-  time over "to move", or, for a finished game, the outcome over the rating change) → board →
+  time over "to move", or, for a finished game, the outcome over the rating change, the outcome
+  split in two — "Won" over "by resignation" — so the right side has three lines like the
+  left and a long outcome never squeezes the name) → board →
   event line → move-navigation row → action row → flexible space. No bottom nav.
 - **Event line**: one 24dp slot under the board for what happened at the cursor that leaves
   no stone — "You passed", "kaya_r resigned", "nori_88 ran out of time". The height is
