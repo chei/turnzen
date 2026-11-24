@@ -5,6 +5,7 @@ import dev.turnzen.dgs.QuickSuite.int
 import dev.turnzen.dgs.QuickSuite.obj
 import dev.turnzen.dgs.QuickSuite.string
 import dev.turnzen.game.GameResult
+import dev.turnzen.game.Move
 import dev.turnzen.game.Point
 import dev.turnzen.game.Replay
 import dev.turnzen.game.ResultReason
@@ -249,6 +250,31 @@ internal object ScoreStateParser {
 
     /** The same encoding, for the points a client asks the server to toggle. */
     fun encode(points: List<Point>): String = points.joinToString(",") { SgfCoordinates.encode(it) }
+}
+
+/**
+ * DGS ends the SGF of every finished game with a node of its own: an empty move for the colour
+ * that would play next, carrying the server's comment — the count's breakdown and a
+ * `Result:` line — and, for a counted game, the territory (`TB`/`TW`). It is not a move
+ * anyone made, and read as one it is a pass that never happened: a third pass after the two
+ * that ended a counted game, or a pass by the player who in fact resigned (DGS numbers the
+ * resignation itself as the next move and leaves it out of the SGF). Taken off here; the
+ * territory and comments stay on the [SgfGame] for [DgsFinalScore] and [DgsComments].
+ */
+internal object DgsResultNode {
+    fun strip(sgf: SgfGame): SgfGame {
+        val moves = sgf.record.moves
+        if (sgf.rootProperties["RE"].orEmpty().none { it.isNotBlank() }) return sgf
+        if (moves.lastOrNull()?.move != Move.Pass) return sgf
+        // Only the node that says it is the result: a real last pass carries no such line.
+        val comment = sgf.comments[moves.size] ?: return sgf
+        if (!DgsComments.isResult(comment)) return sgf
+        return sgf.copy(
+            record = sgf.record.copy(moves = moves.dropLast(1)),
+            // The server's words (and the viewer's notes, appended there) go with the node.
+            comments = sgf.comments - moves.size,
+        )
+    }
 }
 
 /**

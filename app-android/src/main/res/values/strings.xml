@@ -53,8 +53,12 @@
     <string name="games_by_forfeit">by forfeit</string>
 
     <string name="board_to_move">to move</string>
-    <string name="board_played_black">You played black, move %1$d</string>
-    <string name="board_played_white">You played white, move %1$d</string>
+    <!-- The header's two lines under the opponent's name: the user's colour, then the move. -->
+    <string name="board_play_black">You play black</string>
+    <string name="board_play_white">You play white</string>
+    <string name="board_played_black">You played black</string>
+    <string name="board_played_white">You played white</string>
+    <string name="board_move">Move %1$d</string>
     <!-- Under the board: what happened at this point in the game that leaves no stone. -->
     <string name="board_you_passed">You passed</string>
     <string name="board_they_passed">%1$s passed</string>

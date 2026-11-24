@@ -187,7 +187,8 @@ fun BoardScreen(
                 val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
                 Header(
                     server = summary.id.server,
-                    opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
+                    opponent = summary.opponent.handle,
+                    opponentRank = summary.opponent.rank,
                     opponentIcon =
                         if (showPlayerIcons) {
                             {
@@ -201,19 +202,24 @@ fun BoardScreen(
                         } else {
                             null
                         },
-                    subtitle =
-                        if (state.isFinished) {
-                            stringResource(
-                                if (summary.myColor == StoneColor.BLACK) {
-                                    R.string.board_played_black
-                                } else {
-                                    R.string.board_played_white
-                                },
-                                moveNumber,
-                            )
+                    colorLine =
+                        stringResource(
+                            when {
+                                state.isFinished && summary.myColor == StoneColor.BLACK -> R.string.board_played_black
+                                state.isFinished -> R.string.board_played_white
+                                summary.myColor == StoneColor.BLACK -> R.string.board_play_black
+                                else -> R.string.board_play_white
+                            },
+                        ),
+                    moveLine =
+                        if (state.isFinished && state.detail == null) {
+                            // A finished game's count in the list is not the record's: OGS lists
+                            // none (0), DGS counts its own way. Left blank until the record is
+                            // here, so the number does not change under the user's eyes. The
+                            // empty line still takes its height, so nothing below moves.
+                            ""
                         } else {
-                            "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
-                                "move $moveNumber"
+                            stringResource(R.string.board_move, moveNumber)
                         },
                     remaining = summary.remainingTime,
                     // A finished game has no clock and nobody to move: the same corner carries
@@ -1158,9 +1164,14 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
 private fun Header(
     server: ServerId,
     opponent: String,
+    opponentRank: String?,
     /** The opponent's icon, leading the header as it leads their row in the list. */
     opponentIcon: (@Composable () -> Unit)?,
-    subtitle: String,
+    /** "You play black": the colour, so no stone icon repeats it. */
+    colorLine: String,
+    /** "Move 40", on a line of its own: the two are separate facts, and a fixed break reads
+     *  the same whatever the name's or the clock's width. */
+    moveLine: String,
     remaining: RemainingTime?,
     you: StoneColor,
     /** Non-null once the game is over; it then replaces the clock. */
@@ -1192,16 +1203,43 @@ private fun Header(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Which server the game is on, in the mark the games list uses.
                 ServerDot(server, Modifier.padding(end = 8.dp))
-                Text(opponent, style = MaterialTheme.typography.titleMedium)
+                // One line, always, as in the games list: when a long outcome on the right
+                // ("Won by resignation") squeezes it, the handle gives way, never the rank or
+                // the chevron.
+                Text(
+                    opponent,
+                    Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                opponentRank?.takeIf { it.isNotBlank() }?.let { rank ->
+                    Text(
+                        " ($rank)",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
                 if (onOpenInfo != null) Chevron(Modifier.padding(start = 6.dp))
             }
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            for (line in listOf(colorLine, moveLine)) {
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+        // The two sides never touch, however long the outcome.
+        Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (isFinished) {
                 // "Won by 12.5" in the corner the clock had, with what it did to the rating
                 // under it — the two things a player looks up about a game that is over.
-                OutcomeLabel(result, you, ratingChange)
+                OutcomeLabel(result, you, ratingChange, split = true)
             } else {
                 RemainingTimeLabel(remaining)
                 Text(

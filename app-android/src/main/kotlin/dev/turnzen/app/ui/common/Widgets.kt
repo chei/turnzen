@@ -261,6 +261,9 @@ fun RemainingTimeLabel(
  * what the game did to their rating. Their own result first — your own games are read for who
  * won, not for which colour did. Takes the place a running game's clock has, on the list and
  * in the board header alike.
+ *
+ * [split] puts the how on a line of its own ("Won" over "by resignation"): the board header
+ * has three lines on its left to match, and a long outcome on one line squeezed the name.
  */
 @Composable
 fun OutcomeLabel(
@@ -268,6 +271,7 @@ fun OutcomeLabel(
     you: StoneColor,
     ratingChange: Double? = null,
     modifier: Modifier = Modifier,
+    split: Boolean = false,
 ) {
     val won = result?.winner == you
     val detail = outcomeDetail(result)
@@ -275,6 +279,8 @@ fun OutcomeLabel(
         when {
             result == null || result.by == ResultReason.NO_RESULT -> stringResource(R.string.score_no_result)
             result.winner == null -> stringResource(R.string.score_draw)
+            split && won -> stringResource(R.string.games_won)
+            split -> stringResource(R.string.games_lost)
             won && detail != null -> stringResource(R.string.games_won_by, detail)
             won -> stringResource(R.string.games_won)
             detail != null -> stringResource(R.string.games_lost_by, detail)
@@ -290,6 +296,9 @@ fun OutcomeLabel(
             // not an alarm, so it is never the urgent colour.
             color = if (won) colors.accent else colors.ink2,
         )
+        if (split && detail != null) {
+            Text(detail, style = MaterialTheme.typography.bodyMedium, color = colors.ink2, maxLines = 1)
+        }
         ratingChange?.let {
             Text(
                 stringResource(R.string.games_rating_points, Formatting.ratingPoints(it)),

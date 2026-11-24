@@ -180,7 +180,7 @@ class DgsClient(
         }
         val sgfGame =
             try {
-                SgfGameRecords.read(body)
+                DgsResultNode.strip(SgfGameRecords.read(body))
             } catch (e: SgfParseException) {
                 throw GoServerException.Protocol("Could not read SGF for game ${id.value}", e)
             }

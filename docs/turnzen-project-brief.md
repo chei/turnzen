@@ -493,7 +493,22 @@ passes (named under the board, no count yet), 103 is the count. The game opens t
 move counter's "current" is there, and nothing follows it (forward is disabled). Stepping
 back shows the game as played. A finished game with no count kept opens on its last stone.
 
-Taps place no trial stone at the end of a finished game (the last move played, or the count):
+A game that ended by resignation, timeout or forfeit has the same one step more, for the act
+that ended it: the final stones, with the event line naming it ("schEkkEr resigned"). The
+game opens there. None of these acts is a move in the record (OGS lists moves only; DGS
+numbers a resignation as the next move but leaves it out of its SGF), so before this the end
+showed only the last move.
+
+**DGS's result node is not a move.** DGS ends the SGF of every finished game with a node of
+its own: an empty move for the colour that would play next, carrying the server's comment
+(the count's breakdown and a `Result:` line) and, for a counted game, the territory. Read as
+a move it was a pass that never happened — a third pass after the two that ended a counted
+game, and in a resigned game a pass by the player who resigned (reported in November 2026:
+the board said the opponent passed where DGS's own page shows the resignation). `:core-dgs`
+takes it off the record (`DgsResultNode`); only a final empty move whose comment has the
+`Result:` line is taken, so a real last pass stays.
+
+Taps place no trial stone at the end of a finished game (the last move played, or the end step):
 nothing follows it. Further back, a pass included, taps explore what-ifs as usual.
 
 - `GameDetail.finalScore` (a `ScoreState`) carries it; null for running games, resignations,
@@ -1231,6 +1246,8 @@ partly so the project could grow beyond Go (see Naming).
 - **A finished game opens on its last stone, not its last move**: the trailing passes that
   took it into scoring are stepped over on the way in, so the first Back rewinds something
   visible. Forward still walks into them, now with the event line to say what they are.
+  (Since November 2026 only where nothing comes after them: a kept count, a resignation, a
+  timeout or a forfeit has an end step of its own, and the game opens on that.)
 
 **3b. Game info sheet** (opened from the board's header)
 - Read-only context the board has no room for, all of it already present in the game payload
