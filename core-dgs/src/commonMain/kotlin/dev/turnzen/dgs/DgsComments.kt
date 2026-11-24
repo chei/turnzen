@@ -105,5 +105,5 @@ internal object DgsComments {
         return text.substring(0, start)
     }
 
-    private fun isResult(text: String): Boolean = text.lineSequence().any { it.startsWith("Result: ") }
+    internal fun isResult(text: String): Boolean = text.lineSequence().any { it.startsWith("Result: ") }
 }

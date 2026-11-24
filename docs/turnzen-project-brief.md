@@ -495,11 +495,18 @@ back shows the game as played. A finished game with no count kept opens on its l
 
 A game that ended by resignation, timeout or forfeit has the same one step more, for the act
 that ended it: the final stones, with the event line naming it ("schEkkEr resigned"). The
-game opens there. None of these acts is a move in the record — DGS's SGF leaves out the
-resignation row (and the scoring steps) but keeps the passes before it, OGS lists moves only
-— so before this the end showed only the last move, and a game whose loser passed and then
-resigned (seen on DGS, November 2026) opened on the stone before the pass, with the pass
-named as if it had ended the game and the resignation nowhere.
+game opens there. None of these acts is a move in the record (OGS lists moves only; DGS
+numbers a resignation as the next move but leaves it out of its SGF), so before this the end
+showed only the last move.
+
+**DGS's result node is not a move.** DGS ends the SGF of every finished game with a node of
+its own: an empty move for the colour that would play next, carrying the server's comment
+(the count's breakdown and a `Result:` line) and, for a counted game, the territory. Read as
+a move it was a pass that never happened — a third pass after the two that ended a counted
+game, and in a resigned game a pass by the player who resigned (reported in November 2026:
+the board said the opponent passed where DGS's own page shows the resignation). `:core-dgs`
+takes it off the record (`DgsResultNode`); only a final empty move whose comment has the
+`Result:` line is taken, so a real last pass stays.
 
 Taps place no trial stone at the end of a finished game (the last move played, or the end step):
 nothing follows it. Further back, a pass included, taps explore what-ifs as usual.

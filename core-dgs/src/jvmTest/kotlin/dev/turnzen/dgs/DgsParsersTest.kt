@@ -1,6 +1,7 @@
 package dev.turnzen.dgs
 
 import dev.turnzen.game.GameResult
+import dev.turnzen.game.Move
 import dev.turnzen.game.Replay
 import dev.turnzen.game.ResultReason
 import dev.turnzen.game.ScoringRules
@@ -375,6 +376,39 @@ class DgsParsersTest {
         assertEquals(listOf("264"), game.rootProperties["XM"])
         assertNotNull(record.black.name)
         assertEquals(StoneColor.WHITE, record.initialPosition.toMove)
+    }
+
+    @Test
+    fun `the result node DGS ends a finished game with is not a move`() {
+        val sgf = SgfGameRecords.read(Fixtures.text("game_1000000.sgf"))
+        val stripped = DgsResultNode.strip(sgf)
+        // A counted game: the two passes that ended it stay, the result node after them goes.
+        assertEquals(sgf.record.moves.dropLast(1), stripped.record.moves)
+        assertEquals(
+            listOf(Move.Pass, Move.Pass),
+            stripped.record.moves
+                .takeLast(2)
+                .map { it.move },
+        )
+        assertEquals(sgf.blackTerritory, stripped.blackTerritory)
+        assertEquals(sgf.whiteTerritory, stripped.whiteTerritory)
+
+        // A resignation: the last stone was black's, and white resigned instead of moving.
+        // DGS writes the result node as white's empty move, which was never a pass.
+        val resigned = SgfGameRecords.read("(;SZ[9]RE[B+R];B[aa];W[bb];B[cc];W[]C[Result: B+R])")
+        assertEquals(
+            3,
+            DgsResultNode
+                .strip(resigned)
+                .record.moves.size,
+        )
+        assertTrue(DgsResultNode.strip(resigned).comments.isEmpty())
+
+        // A real pass is left alone: in a running game, and with no result line on it.
+        val running = SgfGameRecords.read("(;SZ[9];B[aa];W[])")
+        assertEquals(running, DgsResultNode.strip(running))
+        val noLine = SgfGameRecords.read("(;SZ[9]RE[B+R];B[aa];W[]C[gg])")
+        assertEquals(noLine, DgsResultNode.strip(noLine))
     }
 
     @Test
