@@ -1104,7 +1104,8 @@ class BoardViewModelTest : MainDispatcherTest() {
     @Test
     fun `a pass before a resignation is not taken for the end of the game`() =
         runTest(dispatcher) {
-            // DGS keeps a pass the loser made before resigning, and leaves the resignation out.
+            // A real pass the loser made before resigning: the pass stays a pass, the
+            // resignation follows it on a step of its own.
             val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
             val passedFirst =
                 object : TurnBasedGoServerClient by fake {
