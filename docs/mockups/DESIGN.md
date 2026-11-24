@@ -238,8 +238,10 @@ Use tabular figures for time and move counts so columns don't jitter.
   at half a cell from the edge. Hoshi at (3,9,15) for 19, (3,6,9) for 13, (2,4,6) for 9.
   Coordinates optional (Settings), minimum 8sp. Stone radius 0.46 × cell. Last server
   move gets a small dot in the opposite color.
-- **Board screen, top to bottom**: status bar → header (opponent name and rank, "You play
-  black, move N" — which states the colour, so no stone icon repeats it; right: remaining
+- **Board screen, top to bottom**: status bar → header (opponent name and rank, then "You play
+  black" and "Move N" on two fixed lines — two separate facts, so no comma joins them and
+  the break never depends on the widths; the first states the colour, so no stone icon
+  repeats it; a finished game's move line stays blank until its record has loaded; right: remaining
   time over "to move", or, for a finished game, the outcome over the rating change) → board →
   event line → move-navigation row → action row → flexible space. No bottom nav.
 - **Event line**: one 24dp slot under the board for what happened at the cursor that leaves

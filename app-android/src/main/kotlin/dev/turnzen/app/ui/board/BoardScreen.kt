@@ -201,25 +201,24 @@ fun BoardScreen(
                         } else {
                             null
                         },
-                    subtitle =
+                    colorLine =
+                        stringResource(
+                            when {
+                                state.isFinished && summary.myColor == StoneColor.BLACK -> R.string.board_played_black
+                                state.isFinished -> R.string.board_played_white
+                                summary.myColor == StoneColor.BLACK -> R.string.board_play_black
+                                else -> R.string.board_play_white
+                            },
+                        ),
+                    moveLine =
                         if (state.isFinished && state.detail == null) {
                             // A finished game's count in the list is not the record's: OGS lists
                             // none (0), DGS counts its own way. Left blank until the record is
                             // here, so the number does not change under the user's eyes. The
                             // empty line still takes its height, so nothing below moves.
                             ""
-                        } else if (state.isFinished) {
-                            stringResource(
-                                if (summary.myColor == StoneColor.BLACK) {
-                                    R.string.board_played_black
-                                } else {
-                                    R.string.board_played_white
-                                },
-                                moveNumber,
-                            )
                         } else {
-                            "You play ${if (summary.myColor == StoneColor.BLACK) "black" else "white"}, " +
-                                "move $moveNumber"
+                            stringResource(R.string.board_move, moveNumber)
                         },
                     remaining = summary.remainingTime,
                     // A finished game has no clock and nobody to move: the same corner carries
@@ -1166,7 +1165,11 @@ private fun Header(
     opponent: String,
     /** The opponent's icon, leading the header as it leads their row in the list. */
     opponentIcon: (@Composable () -> Unit)?,
-    subtitle: String,
+    /** "You play black": the colour, so no stone icon repeats it. */
+    colorLine: String,
+    /** "Move 40", on a line of its own: the two are separate facts, and a fixed break reads
+     *  the same whatever the name's or the clock's width. */
+    moveLine: String,
     remaining: RemainingTime?,
     you: StoneColor,
     /** Non-null once the game is over; it then replaces the clock. */
@@ -1201,7 +1204,8 @@ private fun Header(
                 Text(opponent, style = MaterialTheme.typography.titleMedium)
                 if (onOpenInfo != null) Chevron(Modifier.padding(start = 6.dp))
             }
-            Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            Text(colorLine, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            Text(moveLine, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (isFinished) {

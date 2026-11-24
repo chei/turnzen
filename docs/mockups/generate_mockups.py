@@ -167,10 +167,15 @@ STONES_9 = [("C7", "B"), ("G3", "W"), ("G7", "B"), ("C3", "W"), ("E7", "B"), ("E
 LAST_9 = ("D4", "W")
 
 
+# The header is three lines (name, colour, move); the board starts under them.
+BOARD_TOP = 122
+
+
 def header_game(opp, rank, you, mv, time_left, urgent=False):
     s = f'<rect x="20" y="52" width="24" height="1" fill="none"/>'
     s += text(20, 66, f"{opp} ({rank})", 16, 600)
-    s += text(20, 86, f"You play {you}, move {mv}", 13, 400, INK2)
+    s += text(20, 86, f"You play {you}", 13, 400, INK2)
+    s += text(20, 104, f"Move {mv}", 13, 400, INK2)
     s += text(W - 20, 66, time_left, 15, 600, URGENT if urgent else INK, "end")
     s += text(W - 20, 86, "to move", 13, 400, INK2, "end")
     return s
@@ -279,7 +284,7 @@ def action_row_y(above=0):
 def screen_board(n, stones, last, trial=(), trial_mode=False):
     s = frame_open() + status_bar()
     s += header_game("mkvtl", "7k", "black", 87 if n == 19 else 12, "3 d 4 h" if n == 19 else "22 h")
-    b, yend = board(n, 104, stones, last, trial, trial_mode)
+    b, yend = board(n, BOARD_TOP, stones, last, trial, trial_mode)
     s += b
     # below the board: move navigation, then the action row at the bottom edge. No trial
     # caption or hint line — the numbered stones and the counter already say where the board
@@ -492,10 +497,11 @@ def screen_board_header_two_servers():
     s = frame_open() + status_bar()
     s += server_dot(24, 61, OGS)
     s += text(36, 66, "hana_go (4k)", 16, 600)
-    s += text(20, 86, "You play white, move 34", 13, 400, INK2)
+    s += text(20, 86, "You play white", 13, 400, INK2)
+    s += text(20, 104, "Move 34", 13, 400, INK2)
     s += text(W - 20, 66, "6 h", 15, 600, URGENT, "end")
     s += text(W - 20, 86, "to move", 13, 400, INK2, "end")
-    b, yend = board(13, 104, [("D4", "B"), ("K10", "W"), ("K4", "B"), ("D10", "W"), ("G7", "B")],
+    b, yend = board(13, BOARD_TOP, [("D4", "B"), ("K10", "W"), ("K4", "B"), ("D10", "W"), ("G7", "B")],
                     ("G7", "B"), coords=False)
     s += b
     s += text(20, yend + 40, "Game info · Online Go Server · game 7000001", 13, 400, INK2)
@@ -518,7 +524,7 @@ def screen_board_comment(writing=False):
     s = frame_open() + status_bar()
     s += header_game("mkvtl", "7k", "black", 12, "22 h")
     trial = (("E6", "B"),) if writing else ()
-    b, yend = board(9, 104, STONES_9, LAST_9, trial, trial_mode=writing)
+    b, yend = board(9, BOARD_TOP, STONES_9, LAST_9, trial, trial_mode=writing)
     s += b
     y = yend + 20
     s += move_nav(y, 13 if writing else 12, live=not writing, forward_enabled=writing)
@@ -551,7 +557,7 @@ def screen_board_send_failed():
     """On the next game, after the move sent from the last one did not get through."""
     s = frame_open() + status_bar()
     s += header_game("hana_go", "9k", "white", 8, "6 h")
-    b, yend = board(9, 104, STONES_9, LAST_9)
+    b, yend = board(9, BOARD_TOP, STONES_9, LAST_9)
     s += b
     y = yend + 20
     s += move_nav(y, 8)
