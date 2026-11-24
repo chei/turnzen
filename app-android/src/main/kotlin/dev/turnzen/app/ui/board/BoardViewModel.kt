@@ -143,9 +143,10 @@ data class ScoringUiState(
  * current state ([trialFromCurrent]); a what-if about a past position answers a question the
  * game has already moved beyond.
  *
- * A finished game that was counted has one step more at the end, [endCursor]: the count
- * itself, after the passes that led to it. It shows the final stones with the dead ones and
- * the territory marked, and nothing follows it.
+ * A finished game has one step more at the end, [endCursor], for what ended it when that was
+ * not a stone: the count after the passes that led to it (the final stones with the dead ones
+ * and the territory marked), or a resignation, a timeout or a forfeit (the final stones, with
+ * the event line naming it). Nothing follows it.
  */
 data class BoardUiState(
     val loading: Boolean = true,
@@ -210,11 +211,37 @@ data class BoardUiState(
         get() = isFinished && detail?.finalScore != null
 
     /**
-     * Where the game itself ends on the timeline: the last played move, or for a counted game
-     * the count one step after it. This is the "current" position of the move counter.
+     * The act that ended a finished game other than on points: a resignation, a timeout or a
+     * forfeit. None of them is a move in the record (DGS leaves the resignation out of its SGF,
+     * OGS out of its moves), so it is shown as a step of its own after them.
+     */
+    val endingAct: BoardEvent?
+        get() {
+            if (!isFinished || detail == null) return null
+            val result = headerSummary?.result ?: return null
+            val loser = result.winner?.opposite ?: return null
+            return when (result.by) {
+                ResultReason.RESIGNATION -> BoardEvent(BoardEventKind.RESIGNATION, loser)
+                ResultReason.TIMEOUT -> BoardEvent(BoardEventKind.TIMEOUT, loser)
+                ResultReason.FORFEIT -> BoardEvent(BoardEventKind.FORFEIT, loser)
+                else -> null
+            }
+        }
+
+    /** The timeline ends on a step after the moves: the count, or the act that ended the game. */
+    val hasEndStep: Boolean
+        get() = hasCountStep || endingAct != null
+
+    /**
+     * Where the game itself ends on the timeline: the last played move, or the end step one
+     * after it ([hasEndStep]). This is the "current" position of the move counter.
      */
     val endCursor: Int
-        get() = if (hasCountStep) moveCount + 1 else moveCount
+        get() = if (hasEndStep) moveCount + 1 else moveCount
+
+    /** The board stands on the end step, after the game's last move. */
+    val onEndStep: Boolean
+        get() = hasEndStep && trialFromCurrent && cursor == endCursor
 
     /**
      * A finished game stands at its end: the last move played, or the count after it. Nothing
@@ -229,7 +256,7 @@ data class BoardUiState(
      * passes. The passes themselves and everything before them show the game as it was played.
      */
     val showingFinalScore: Boolean
-        get() = hasCountStep && trialFromCurrent && cursor == endCursor
+        get() = hasCountStep && onEndStep
 
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
@@ -248,7 +275,7 @@ data class BoardUiState(
 
     /** The far end of the timeline: the trial's branch point plus its moves. */
     val total: Int
-        get() = if (hasCountStep && trialFromCurrent) endCursor else trialStart + trialCount
+        get() = if (hasEndStep && trialFromCurrent) endCursor else trialStart + trialCount
 
     val hasTrial: Boolean
         get() = trialCount > 0
@@ -304,8 +331,8 @@ data class BoardUiState(
             when {
                 cursor <= trialStart -> replay?.positionAfter(cursor)
 
-                // The count step shows the final stones; the marks come with [showingFinalScore].
-                showingFinalScore -> replay?.finalPosition
+                // The end step shows the final stones; a count's marks come with [showingFinalScore].
+                onEndStep -> replay?.finalPosition
 
                 else -> trial?.positionAt(trialDepthShown)
             }
@@ -379,21 +406,14 @@ data class BoardUiState(
      */
     val eventAtCursor: BoardEvent?
         get() {
+            // The end of a finished game is worth a line of its own when no move ended it.
+            if (onEndStep) return endingAct
             if (showingScore || cursor > trialStart) return null
             val played = replay?.record?.moves?.getOrNull(cursor - 1)
             if (played != null && played.move == Move.Pass) {
                 return BoardEvent(BoardEventKind.PASS, played.color)
             }
-            // The end of a finished game is worth a line of its own when no move ended it.
-            if (!isFinished || cursor != moveCount) return null
-            val result = headerSummary?.result ?: return null
-            val loser = result.winner?.opposite ?: return null
-            return when (result.by) {
-                ResultReason.RESIGNATION -> BoardEvent(BoardEventKind.RESIGNATION, loser)
-                ResultReason.TIMEOUT -> BoardEvent(BoardEventKind.TIMEOUT, loser)
-                ResultReason.FORFEIT -> BoardEvent(BoardEventKind.FORFEIT, loser)
-                else -> null
-            }
+            return null
         }
 
     /**
@@ -749,8 +769,9 @@ class BoardViewModel(
     /**
      * Where the board lands when a game is opened: where the game stands now.
      *
-     * For a running game that is the current position, and for a counted game its count, one
-     * step after the passes. A finished game with no count to show (one counted on a server
+     * For a running game that is the current position; for a counted game its count, one
+     * step after the passes; for one resigned, timed out or forfeited the step after the last
+     * move that names how it ended. A finished game with no count to show (one counted on a server
      * that kept no record of it) lands on its last stone instead: the two passes after it
      * change nothing visible, and landing on them wastes the first two taps of Back — the board
      * goes quiet and the player is left wondering whether the button works. Forward still
@@ -761,11 +782,16 @@ class BoardViewModel(
         detail: GameDetail,
     ): Int {
         if (!detail.summary.isFinished) return replay.moveCount
-        if (detail.finalScore != null) return replay.moveCount + 1
+        if (detail.finalScore != null || endsByAct(detail.summary.result)) return replay.moveCount + 1
         var at = replay.moveCount
         while (at > 0 && replay.record.moves[at - 1].move == Move.Pass) at--
         return at
     }
+
+    /** The game ended by an act that is not a move, and so has an end step for it. */
+    private fun endsByAct(result: GameResult?): Boolean =
+        result?.winner != null &&
+            result.by in setOf(ResultReason.RESIGNATION, ResultReason.TIMEOUT, ResultReason.FORFEIT)
 
     /** True when [detail] is in its scoring phase. */
     private fun inScoring(detail: GameDetail): Boolean = detail.summary.pendingAction == PendingAction.SCORE

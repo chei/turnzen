@@ -7,6 +7,7 @@ import dev.turnzen.app.data.MoveOutbox
 import dev.turnzen.app.data.RecordCache
 import dev.turnzen.app.data.StoredRecord
 import dev.turnzen.app.fake.FakeTurnBasedGoServerClient
+import dev.turnzen.app.ui.board.BoardEvent
 import dev.turnzen.app.ui.board.BoardEventKind
 import dev.turnzen.app.ui.board.BoardViewModel
 import dev.turnzen.app.ui.board.PendingConfirmation
@@ -1054,7 +1055,8 @@ class BoardViewModelTest : MainDispatcherTest() {
                     ?.finalScore,
             )
             assertFalse(h.vm.state.value.showingFinalScore)
-            assertEquals(h.vm.state.value.moveCount, h.vm.state.value.total)
+            // Its end step names the resignation instead of showing a count.
+            assertEquals(h.vm.state.value.moveCount + 1, h.vm.state.value.total)
         }
 
     @Test
@@ -1071,7 +1073,7 @@ class BoardViewModelTest : MainDispatcherTest() {
                     .first { s.position?.board?.get(it) == null }
             h.vm.onTap(empty)
             assertFalse(h.vm.state.value.hasTrial)
-            assertEquals(s.moveCount, h.vm.state.value.cursor)
+            assertEquals(s.moveCount + 1, h.vm.state.value.cursor)
         }
 
     @Test
@@ -1082,16 +1084,48 @@ class BoardViewModelTest : MainDispatcherTest() {
             advanceUntilIdle()
 
             val s = h.vm.state.value
-            // Nothing to step over: a resignation is not a move, so the last stone is the end.
-            assertEquals(s.moveCount, s.cursor)
+            // A resignation is not a move: it has a step of its own after the last one, the
+            // final stones on the board, and the game opens there.
+            assertEquals(s.moveCount + 1, s.cursor)
+            assertTrue(s.atCurrent)
+            assertFalse(s.canGoForward)
+            assertEquals(s.replay?.finalPosition, s.position)
             val ended = assertNotNull(s.eventAtCursor)
             assertEquals(BoardEventKind.RESIGNATION, ended.kind)
             // The demo user played white and lost, so they are the one who resigned.
             assertEquals(StoneColor.WHITE, ended.by)
 
-            // A step back is an ordinary position again.
+            // A step back is the last stone, an ordinary position again.
             h.vm.stepBack()
+            assertEquals(s.moveCount, h.vm.state.value.cursor)
             assertNull(h.vm.state.value.eventAtCursor)
+        }
+
+    @Test
+    fun `a pass before a resignation is not taken for the end of the game`() =
+        runTest(dispatcher) {
+            // DGS keeps a pass the loser made before resigning, and leaves the resignation out.
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val passedFirst =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun game(id: GameId): GameDetail {
+                        val detail = fake.game(id)
+                        val record = detail.record
+                        return detail.copy(
+                            record = record.copy(moves = record.moves + ColoredMove(StoneColor.WHITE, Move.Pass)),
+                        )
+                    }
+                }
+            val h = Harness(passedFirst)
+            h.start(resignedGame, finished = true)
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            assertEquals(s.moveCount + 1, s.cursor)
+            assertEquals(BoardEventKind.RESIGNATION, s.eventAtCursor?.kind)
+            // One step back the pass is named as what it was.
+            h.vm.stepBack()
+            assertEquals(BoardEvent(BoardEventKind.PASS, StoneColor.WHITE), h.vm.state.value.eventAtCursor)
         }
 
     @Test
