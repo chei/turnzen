@@ -187,7 +187,8 @@ fun BoardScreen(
                 val moveNumber = if (state.detail != null) state.moveCount else summary.moveNumber
                 Header(
                     server = summary.id.server,
-                    opponent = Formatting.opponent(summary.opponent.handle, summary.opponent.rank),
+                    opponent = summary.opponent.handle,
+                    opponentRank = summary.opponent.rank,
                     opponentIcon =
                         if (showPlayerIcons) {
                             {
@@ -1163,6 +1164,7 @@ private fun repeatDelayMs(stepsSoFar: Int): Long {
 private fun Header(
     server: ServerId,
     opponent: String,
+    opponentRank: String?,
     /** The opponent's icon, leading the header as it leads their row in the list. */
     opponentIcon: (@Composable () -> Unit)?,
     /** "You play black": the colour, so no stone icon repeats it. */
@@ -1201,12 +1203,38 @@ private fun Header(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 // Which server the game is on, in the mark the games list uses.
                 ServerDot(server, Modifier.padding(end = 8.dp))
-                Text(opponent, style = MaterialTheme.typography.titleMedium)
+                // One line, always, as in the games list: when a long outcome on the right
+                // ("Won by resignation") squeezes it, the handle gives way, never the rank or
+                // the chevron.
+                Text(
+                    opponent,
+                    Modifier.weight(1f, fill = false),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                opponentRank?.takeIf { it.isNotBlank() }?.let { rank ->
+                    Text(
+                        " ($rank)",
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
                 if (onOpenInfo != null) Chevron(Modifier.padding(start = 6.dp))
             }
-            Text(colorLine, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
-            Text(moveLine, style = MaterialTheme.typography.bodyMedium, color = colors.ink2)
+            for (line in listOf(colorLine, moveLine)) {
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.ink2,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
+        // The two sides never touch, however long the outcome.
+        Spacer(Modifier.width(12.dp))
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             if (isFinished) {
                 // "Won by 12.5" in the corner the clock had, with what it did to the rating
