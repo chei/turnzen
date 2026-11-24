@@ -486,13 +486,15 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
 
 ### A finished game shows its count (November 2026)
 
-A game that ended on points opens with its count on the board: the dead stones faded and each
-side's territory marked, drawn exactly as in the scoring phase but with the move navigation
-kept. It shows on the final position and on the passes before it (same stones); stepping
-back puts it away.
+A game that ended on points has one step more on its timeline: after the last stone and the
+two passes comes the count — the dead stones faded and each side's territory marked, drawn as
+in the scoring phase. With 100 stones played: 100 is the last stone, 101 and 102 are the
+passes (named under the board, no count yet), 103 is the count. The game opens there, the
+move counter's "current" is there, and nothing follows it (forward is disabled). Stepping
+back shows the game as played. A finished game with no count kept opens on its last stone.
 
-The end of any finished game (counted or not) takes no trial stones: nothing follows it, so a
-tap there is ignored. Rewound into the game, taps explore as usual.
+Taps place no trial stone at the end of a finished game (the last move played, or the count):
+nothing follows it. Further back, a pass included, taps explore what-ifs as usual.
 
 - `GameDetail.finalScore` (a `ScoreState`) carries it; null for running games, resignations,
   timeouts, and when the server kept no count.
