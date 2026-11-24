@@ -1045,6 +1045,26 @@ class BoardViewModelTest : MainDispatcherTest() {
         }
 
     @Test
+    fun `a finished game without a kept count opens on its last move, the pass`() =
+        runTest(dispatcher) {
+            val fake = FakeTurnBasedGoServerClient(latencyMillis = 0)
+            val uncounted =
+                object : TurnBasedGoServerClient by fake {
+                    override suspend fun game(id: GameId): GameDetail = fake.game(id).copy(finalScore = null)
+                }
+            val h = Harness(uncounted)
+            h.start(scoredGame, finished = true)
+            advanceUntilIdle()
+
+            val s = h.vm.state.value
+            // The very end, not the last stone before the passes.
+            assertEquals(s.moveCount, s.cursor)
+            assertTrue(s.atCurrent)
+            assertFalse(s.canGoForward)
+            assertEquals(BoardEventKind.PASS, s.eventAtCursor?.kind)
+        }
+
+    @Test
     fun `a resigned game has no count to show`() =
         runTest(dispatcher) {
             val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
