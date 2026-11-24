@@ -202,7 +202,13 @@ fun BoardScreen(
                             null
                         },
                     subtitle =
-                        if (state.isFinished) {
+                        if (state.isFinished && state.detail == null) {
+                            // A finished game's count in the list is not the record's: OGS lists
+                            // none (0), DGS counts its own way. Left blank until the record is
+                            // here, so the number does not change under the user's eyes. The
+                            // empty line still takes its height, so nothing below moves.
+                            ""
+                        } else if (state.isFinished) {
                             stringResource(
                                 if (summary.myColor == StoneColor.BLACK) {
                                     R.string.board_played_black
