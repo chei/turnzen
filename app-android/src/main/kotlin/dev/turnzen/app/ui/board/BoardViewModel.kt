@@ -199,21 +199,25 @@ data class BoardUiState(
         get() = isScoring && trialFromCurrent && cursor == moveCount
 
     /**
-     * The count of a finished game is on show: the game ended on points, the server kept how it
-     * was counted, and the board stands on the final position — or on the passes that led to
-     * the count, which leave the same stones. Like the scoring phase, stepping back reads the
-     * game as it was played; unlike it, a tap here tries a move rather than marking a group,
-     * since there is nothing left to agree on. A trial stone puts the count away until the
-     * board is back on the end.
+     * A finished game stands at its end: the final position, or one of the passes that led to
+     * it, which leave the same stones. Nothing follows a finished game, so a tap here places
+     * no trial stone; the board only reads. Stepping back into the game explores it as usual.
      */
-    val showingFinalScore: Boolean
+    val atFinishedEnd: Boolean
         get() {
-            if (!isFinished || detail?.finalScore == null || !trialFromCurrent) return false
+            if (!isFinished || !trialFromCurrent || cursor > moveCount) return false
             val moves = replay?.record?.moves ?: return false
-            if (cursor > moveCount) return false
             // Every move from the cursor on is a pass, so the stones are those of the end.
             return (cursor until moveCount).all { moves[it].move == Move.Pass }
         }
+
+    /**
+     * The count of a finished game is on show: the game ended on points, the server kept how it
+     * was counted, and the board stands at the end ([atFinishedEnd]). Stepping back reads the
+     * game as it was played, and the count returns with the board to the end.
+     */
+    val showingFinalScore: Boolean
+        get() = atFinishedEnd && detail?.finalScore != null
 
     /** The summary to render the header from, before or after the record arrives. */
     val headerSummary: GameSummary?
@@ -916,6 +920,8 @@ class BoardViewModel(
                 return
             }
         }
+        // At the end of a finished game there is nothing to explore forward: the tap is ignored.
+        if (s.atFinishedEnd) return
         // Any other point starts or extends a variation from wherever the cursor is. Rewound
         // into the game, that branches a new line off the past — "what if I had played here
         // instead" — replacing the moves that followed for as long as the line is being read.

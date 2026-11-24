@@ -1016,7 +1016,7 @@ class BoardViewModelTest : MainDispatcherTest() {
             h.vm.stepBack()
             assertFalse(h.vm.state.value.showingFinalScore)
 
-            // A what-if from the very end puts the count away until its stones are gone.
+            // Nothing follows the end of a finished game: a tap there places no stone.
             repeat(3) { h.vm.stepForward() }
             assertEquals(14, h.vm.state.value.cursor)
             val empty =
@@ -1028,7 +1028,32 @@ class BoardViewModelTest : MainDispatcherTest() {
                             ?.get(it) == null
                     }
             h.vm.onTap(empty)
+            assertEquals(14, h.vm.state.value.cursor)
+            assertFalse(h.vm.state.value.hasTrial)
+            assertTrue(h.vm.state.value.showingFinalScore)
+
+            // Rewound into the game, a what-if is still welcome.
+            repeat(3) { h.vm.stepBack() }
+            h.vm.onTap(empty)
+            assertTrue(h.vm.state.value.hasTrial)
             assertFalse(h.vm.state.value.showingFinalScore)
+        }
+
+    @Test
+    fun `the end of a resigned game takes no trial stones either`() =
+        runTest(dispatcher) {
+            val h = Harness(FakeTurnBasedGoServerClient(latencyMillis = 0))
+            h.start(resignedGame, finished = true)
+            advanceUntilIdle()
+            val s = h.vm.state.value
+            assertTrue(s.atFinishedEnd)
+            val empty =
+                (0 until 13)
+                    .flatMap { c -> (0 until 13).map { r -> Point(c, r) } }
+                    .first { s.position?.board?.get(it) == null }
+            h.vm.onTap(empty)
+            assertFalse(h.vm.state.value.hasTrial)
+            assertEquals(s.moveCount, h.vm.state.value.cursor)
         }
 
     @Test

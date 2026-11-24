@@ -488,8 +488,11 @@ not free software (DGS's is AGPL). Accepted: it is a disclosure label, not a rej
 
 A game that ended on points opens with its count on the board: the dead stones faded and each
 side's territory marked, drawn exactly as in the scoring phase but with the move navigation
-kept and taps trying moves as usual. It shows on the final position and on the passes before
-it (same stones); stepping back or placing a trial stone puts it away.
+kept. It shows on the final position and on the passes before it (same stones); stepping
+back puts it away.
+
+The end of any finished game (counted or not) takes no trial stones: nothing follows it, so a
+tap there is ignored. Rewound into the game, taps explore as usual.
 
 - `GameDetail.finalScore` (a `ScoreState`) carries it; null for running games, resignations,
   timeouts, and when the server kept no count.
